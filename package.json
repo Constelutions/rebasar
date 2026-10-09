@@ -1,0 +1,14 @@
+{
+  "name": "rebasar",
+  "private": true,
+  "scripts": {
+    "dev": "tauri dev",
+    "typecheck": "pnpm -r typecheck",
+    "test:ui": "pnpm -r test",
+    "test:core": "cargo test --workspace",
+    "test": "pnpm test:core && pnpm test:ui"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.12.1"
+  }
+}
