@@ -2,7 +2,7 @@
 
 ### Issue tracker
 
-Not configured yet. Issues will be tracked in GitHub once the project and repository name are settled; re-run `/setup-matt-pocock-skills` then to add `docs/agents/issue-tracker.md`.
+Issues live in GitHub Issues for `Constelutions/rebasar`, via the `gh` CLI. See `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 
