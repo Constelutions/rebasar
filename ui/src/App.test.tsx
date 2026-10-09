@@ -1,9 +1,9 @@
-import { render, screen } from "@testing-library/react";
+import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-import { App } from "./App";
 import type { Tab } from "./core/api";
 import { createStubCoreApi } from "./core/stub";
+import { renderApp } from "./test-support";
 
 const sample: Tab = {
   repositoryName: "sample",
@@ -13,7 +13,7 @@ const sample: Tab = {
 
 async function openFolder(path: string | null, repositories: Record<string, Tab>) {
   const user = userEvent.setup();
-  render(<App api={createStubCoreApi(repositories)} pickFolder={async () => path} />);
+  renderApp({ api: createStubCoreApi(repositories), pickFolder: async () => path });
   await user.click(screen.getByRole("button", { name: /open folder/i }));
 }
 
@@ -50,12 +50,10 @@ it("does nothing when the folder picker is cancelled", async () => {
 
 it("shows a single Tab when the same Worktree is opened twice", async () => {
   const user = userEvent.setup();
-  render(
-    <App
-      api={createStubCoreApi({ [sample.worktreePath]: sample })}
-      pickFolder={async () => sample.worktreePath}
-    />,
-  );
+  renderApp({
+    api: createStubCoreApi({ [sample.worktreePath]: sample }),
+    pickFolder: async () => sample.worktreePath,
+  });
 
   await user.click(screen.getByRole("button", { name: /open folder/i }));
   await user.click(screen.getByRole("button", { name: /open folder/i }));

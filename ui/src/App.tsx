@@ -1,16 +1,23 @@
 import { useEffect, useState } from "react";
 
-import { TabStrip } from "./components/TabStrip";
+import { Sidebar } from "./components/Sidebar";
+import { TitleBar } from "./components/TitleBar";
+import { ViewPane } from "./components/ViewPane";
 import { type ApiError, type CoreApi, type Tab, isApiError } from "./core/api";
+import type { AppWindow } from "./shell/appWindow";
+import { shortcuts, useShortcut } from "./shortcuts";
+import type { ViewName } from "./views";
 
 interface AppProps {
   api: CoreApi;
   pickFolder: () => Promise<string | null>;
+  appWindow: AppWindow;
 }
 
-export function App({ api, pickFolder }: AppProps) {
+export function App({ api, pickFolder, appWindow }: AppProps) {
   const [tabs, setTabs] = useState<Tab[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [view, setView] = useState<ViewName>("Home");
 
   useEffect(() => {
     const subscription = api.onEvent((event) => {
@@ -35,19 +42,20 @@ export function App({ api, pickFolder }: AppProps) {
     }
   }
 
+  useShortcut(shortcuts.openFolder, openFolder);
+
   return (
     <div className="app">
-      <header className="title-bar">
-        <TabStrip tabs={tabs} />
-        <button type="button" onClick={openFolder}>
-          Open folder
-        </button>
-      </header>
+      <TitleBar tabs={tabs} appWindow={appWindow} onOpenFolder={openFolder} />
       {error && (
         <p role="alert" className="error">
           {error}
         </p>
       )}
+      <div className="app-body">
+        <Sidebar selected={view} onSelect={setView} />
+        <ViewPane view={view} />
+      </div>
     </div>
   );
 }
