@@ -38,7 +38,7 @@ pub enum ApiError {
 }
 
 impl ApiError {
-    fn unexpected(error: impl std::error::Error) -> Self {
+    pub fn unexpected(error: impl std::error::Error) -> Self {
         Self::Unexpected {
             message: error.to_string(),
         }

@@ -11,9 +11,7 @@ async fn open_folder(core: State<'_, Arc<Core>>, path: PathBuf) -> Result<Tab, A
     let core = Arc::clone(&core);
     tauri::async_runtime::spawn_blocking(move || core.open_folder(&path))
         .await
-        .map_err(|error| ApiError::Unexpected {
-            message: error.to_string(),
-        })?
+        .map_err(ApiError::unexpected)?
 }
 
 fn main() {

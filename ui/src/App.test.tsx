@@ -7,7 +7,7 @@ import { createStubCoreApi } from "./core/stub";
 
 const sample: Tab = {
   repositoryName: "sample",
-  worktreePath: "C:\work\sample",
+  worktreePath: "C:\\work\\sample",
   head: { kind: "branch", name: "main" },
 };
 
@@ -33,10 +33,10 @@ it("shows the short commit for a detached HEAD", async () => {
 });
 
 it("explains that a folder is not a Git repository and shows no Tab", async () => {
-  await openFolder("C:\work\plain", {});
+  await openFolder("C:\\work\\plain", {});
 
   expect(await screen.findByRole("alert")).toHaveTextContent(
-    "C:\work\plain is not a Git repository",
+    "C:\\work\\plain is not a Git repository",
   );
   expect(screen.queryByRole("tab")).not.toBeInTheDocument();
 });

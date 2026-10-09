@@ -33,16 +33,6 @@ impl TempRepo {
         self
     }
 
-    pub fn create_branch(&self, branch: &str) -> &Self {
-        self.git(&["branch", branch]);
-        self
-    }
-
-    pub fn checkout(&self, branch: &str) -> &Self {
-        self.git(&["checkout", branch]);
-        self
-    }
-
     pub fn detach_head(&self) -> &Self {
         self.git(&["checkout", "--detach"]);
         self
