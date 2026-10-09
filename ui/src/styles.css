@@ -1,0 +1,68 @@
+:root {
+  --color-bg: #1b1f2a;
+  --color-surface: #252a38;
+  --color-border: #343b4f;
+  --color-text: #dfe4f0;
+  --color-muted: #8d97b0;
+  --color-accent: #7aa2ff;
+  --color-danger: #ff7a85;
+  --font-ui: "Segoe UI", system-ui, sans-serif;
+  --font-mono: ui-monospace, "Cascadia Mono", Consolas, monospace;
+  color-scheme: dark;
+}
+
+body {
+  margin: 0;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font: 13px/1.4 var(--font-ui);
+}
+
+.title-bar {
+  display: flex;
+  align-items: stretch;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 12px;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.tab-strip {
+  display: flex;
+  gap: 2px;
+}
+
+.tab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  color: var(--color-muted);
+  border-bottom: 2px solid transparent;
+}
+
+.tab[aria-selected="true"] {
+  color: var(--color-text);
+  border-bottom-color: var(--color-accent);
+}
+
+.tab-head {
+  font-family: var(--font-mono);
+  color: var(--color-accent);
+}
+
+.title-bar button {
+  align-self: center;
+  padding: 5px 12px;
+  color: var(--color-text);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.error {
+  margin: 16px;
+  color: var(--color-danger);
+}
