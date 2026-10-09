@@ -1,9 +1,15 @@
 import { render } from "@testing-library/react";
 
 import { App } from "./App";
-import type { CoreApi } from "./core/api";
+import type { CoreApi, Tab } from "./core/api";
 import { createStubCoreApi } from "./core/stub";
 import type { AppWindow } from "./shell/appWindow";
+
+export const sampleTab: Tab = {
+  repositoryName: "sample",
+  worktreePath: "C:\\work\\sample",
+  head: { kind: "branch", name: "main" },
+};
 
 export function createFakeWindow() {
   return {

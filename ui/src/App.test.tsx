@@ -3,13 +3,9 @@ import userEvent from "@testing-library/user-event";
 
 import type { Tab } from "./core/api";
 import { createStubCoreApi } from "./core/stub";
-import { renderApp } from "./test-support";
+import { renderApp, sampleTab } from "./test-support";
 
-const sample: Tab = {
-  repositoryName: "sample",
-  worktreePath: "C:\\work\\sample",
-  head: { kind: "branch", name: "main" },
-};
+const sample = sampleTab;
 
 async function openFolder(path: string | null, repositories: Record<string, Tab>) {
   const user = userEvent.setup();

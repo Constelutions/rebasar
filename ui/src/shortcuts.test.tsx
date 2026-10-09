@@ -1,15 +1,10 @@
 import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-import type { Tab } from "./core/api";
 import { createStubCoreApi } from "./core/stub";
-import { renderApp } from "./test-support";
+import { renderApp, sampleTab } from "./test-support";
 
-const sample: Tab = {
-  repositoryName: "sample",
-  worktreePath: "C:\\work\\sample",
-  head: { kind: "branch", name: "main" },
-};
+const sample = sampleTab;
 
 function renderWithPicker() {
   const pickFolder = vi.fn(async () => sample.worktreePath);

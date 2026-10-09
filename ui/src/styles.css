@@ -49,7 +49,7 @@ button {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  height: 34px;
+  height: var(--control-height);
   box-sizing: border-box;
   padding: 0 var(--space-4);
   color: var(--color-text-subtle);
@@ -75,8 +75,8 @@ button {
 }
 
 .open-folder {
-  width: 34px;
-  height: 34px;
+  width: var(--control-height);
+  height: var(--control-height);
   padding: 0;
   color: var(--color-text-subtle);
   background: var(--color-surface);
@@ -97,7 +97,7 @@ button {
 .window-controls button {
   display: grid;
   place-items: center;
-  width: 46px;
+  width: var(--window-control-width);
   padding: 0;
   background: transparent;
   border: 0;
@@ -114,8 +114,8 @@ button {
 }
 
 .window-controls svg {
-  width: 10px;
-  height: 10px;
+  width: var(--window-control-icon);
+  height: var(--window-control-icon);
   fill: none;
   stroke: currentColor;
   stroke-width: 1;
@@ -136,7 +136,7 @@ button {
   gap: var(--space-4);
   box-sizing: border-box;
   width: var(--sidebar-width);
-  padding: 12px var(--space-2);
+  padding: var(--space-3) var(--space-2);
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);

@@ -44,6 +44,9 @@
   --radius-lg: 14px;
 
   --title-bar-height: 48px;
+  --control-height: 34px;
+  --window-control-width: 46px;
+  --window-control-icon: 10px;
   --sidebar-width: 208px;
 
   color-scheme: dark;
