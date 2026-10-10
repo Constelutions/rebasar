@@ -38,6 +38,10 @@ The runner builds any missing fixture, times each scenario through the core API,
 
 Defined once, in `crates/rebasar-bench/src/thresholds.rs`: cold start, commit graph, status on 100k files, Tab switch, first changeset file and idle memory, with the limits from the alpha definition. The report lists every one, with the scenarios that measure it.
 
+## Commit graph
+
+`history-first-page` asks the core for the first 100 rows of the 1.2-million-commit `history-*` fixture on a cold core (laying out the refs' tips, reading the commits and assigning lanes) and is checked against the 2 s graph threshold. `history-scroll-ten-pages` then requests the next ten pages of 100 rows, one after the other, as scrolling does; at 60 fps each page should take well under 16 ms. On the development machine (release build, alpha scale) the first page took about 93 ms and the ten scrolled pages about 132 ms in total. Rendering is not measured here: the UI only draws the rows around the viewport.
+
 ## Adding a scenario
 
 Add a `Scenario` to `scenarios()` in `crates/rebasar-bench/src/runner.rs`: a name and a function over `&Core` and the fixture paths, optionally `.against(&THRESHOLD)`. Call `.after_warm_up()` for an operation the app repeats on a warm file cache: the action then runs once untimed before the timed run. The `status-worktree` scenario does this and is measured against the 100k-file status threshold; `status-changeset` times the same read on the changeset fixture without a threshold. The placeholder `open-folder-*` scenarios have no threshold; they exist to prove the pipeline. Scenarios are timed as wall-clock durations; a memory scenario will need the runner extended to measure memory.

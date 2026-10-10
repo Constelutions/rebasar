@@ -5,12 +5,15 @@ use std::sync::{Arc, Mutex};
 use serde::Serialize;
 use thiserror::Error;
 
+mod history;
 pub mod platform;
 mod status;
 mod watch;
 
 pub use status::{ChangeKind, FileChange, WorktreeStatus};
 use watch::WorktreeWatch;
+
+pub use history::{Edge, EdgeKind, HistoryPage, HistoryRow, RefKind, RefLabel};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -60,6 +63,7 @@ impl ApiError {
 pub struct Core {
     on_event: Arc<dyn Fn(CoreEvent) + Send + Sync>,
     watches: Mutex<HashMap<PathBuf, WorktreeWatch>>,
+    histories: Mutex<HashMap<PathBuf, Arc<Mutex<history::Layout>>>>,
 }
 
 impl Core {
@@ -67,6 +71,7 @@ impl Core {
         Self {
             on_event: Arc::new(on_event),
             watches: Mutex::new(HashMap::new()),
+            histories: Mutex::new(HashMap::new()),
         }
     }
 

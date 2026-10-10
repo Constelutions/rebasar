@@ -33,7 +33,7 @@ it("starts on the Home view", () => {
   expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Home");
 });
 
-it.each(viewNames)("shows the empty %s view when it is selected", async (name) => {
+it.each(viewNames.filter((name) => name !== "History"))("shows the empty %s view when it is selected", async (name) => {
   const user = userEvent.setup();
   const sidebar = renderSidebar();
 

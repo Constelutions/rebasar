@@ -6,7 +6,10 @@ use rebasar_core::{ApiError, Core};
 
 use crate::fixtures::{FixtureCache, Scale};
 use crate::report::{Report, ScenarioResult, Verdict};
-use crate::thresholds::{Limit, Threshold, STATUS};
+use crate::thresholds::{Limit, Threshold, GRAPH, STATUS};
+
+const PAGE_ROWS: usize = 100;
+const SCROLLED_PAGES: usize = 10;
 
 pub struct Fixtures {
     pub history: PathBuf,
@@ -45,10 +48,20 @@ impl Scenario {
     }
 }
 
-/// The `open-folder-*` placeholders exercise the whole pipeline; later tickets add the scenarios
-/// that map to each threshold.
+/// The `open-folder-*` placeholders exercise the whole pipeline; the other scenarios map to the
+/// thresholds.
 pub fn scenarios() -> Vec<Scenario> {
     vec![
+        Scenario::new("history-first-page", |core, fixtures| {
+            core.history_page(&fixtures.history, 0, PAGE_ROWS).map(drop)
+        })
+        .against(&GRAPH),
+        Scenario::new("history-scroll-ten-pages", |core, fixtures| {
+            for page in 1..=SCROLLED_PAGES {
+                core.history_page(&fixtures.history, page * PAGE_ROWS, PAGE_ROWS)?;
+            }
+            Ok(())
+        }),
         Scenario::new("open-folder-history", |core, fixtures| {
             core.open_folder(&fixtures.history).map(drop)
         }),
