@@ -1,4 +1,4 @@
-import type { ChangeList, FileChange } from "../core/api";
+import type { FileChange } from "../core/api";
 
 export interface FolderNode {
   type: "folder";
@@ -17,25 +17,26 @@ export interface FileNode {
 
 export type TreeNode = FolderNode | FileNode;
 
-export interface ChangeGroup {
-  list: ChangeList;
+/** `L` names a group of changes, such as `staged`, so the same tree serves other file lists. */
+export interface ChangeGroup<L extends string = string> {
+  list: L;
   name: string;
   changes: FileChange[];
 }
 
-export interface GroupTree {
-  group: ChangeGroup;
+export interface GroupTree<L extends string = string> {
+  group: ChangeGroup<L>;
   nodes: TreeNode[];
 }
 
-export type TreeRow =
+export type TreeRow<L extends string = string> =
   | { type: "group"; key: string; name: string; count: number }
   | { type: "folder"; key: string; folder: FolderNode; depth: number; expanded: boolean }
-  | { type: "file"; key: string; list: ChangeList; file: FileNode; depth: number };
+  | { type: "file"; key: string; list: L; file: FileNode; depth: number };
 
 const nameOrder = new Intl.Collator();
 
-export function buildGroupTrees(groups: ChangeGroup[]): GroupTree[] {
+export function buildGroupTrees<L extends string>(groups: ChangeGroup<L>[]): GroupTree<L>[] {
   return groups.map((group) => ({ group, nodes: buildFileTree(group.changes) }));
 }
 
@@ -59,20 +60,20 @@ export function buildFileTree(changes: FileChange[]): TreeNode[] {
   return root.children;
 }
 
-export function folderKey(list: ChangeList, folderPath: string) {
+export function folderKey(list: string, folderPath: string) {
   return `${list}:${folderPath}`;
 }
 
-export function fileKey(list: ChangeList, path: string) {
+export function fileKey(list: string, path: string) {
   return `${list}:${path}`;
 }
 
 /** The rows the tree shows, top to bottom, with the contents of collapsed folders left out. */
-export function flattenChanges(
-  trees: GroupTree[],
+export function flattenChanges<L extends string>(
+  trees: GroupTree<L>[],
   collapsed: ReadonlySet<string>,
-): TreeRow[] {
-  const rows: TreeRow[] = [];
+): TreeRow<L>[] {
+  const rows: TreeRow<L>[] = [];
   for (const { group, nodes } of trees) {
     rows.push({
       type: "group",
@@ -86,7 +87,7 @@ export function flattenChanges(
 }
 
 /** The file the tree lists first, which is the one shown when nothing was picked. */
-export function firstFile(trees: GroupTree[]) {
+export function firstFile<L extends string>(trees: GroupTree<L>[]) {
   for (const { group, nodes } of trees) {
     const file = firstFileOf(nodes);
     if (file) return { list: group.list, change: file.change };
@@ -103,9 +104,9 @@ function firstFileOf(nodes: TreeNode[]): FileNode | null {
   return null;
 }
 
-function appendNodes(
-  rows: TreeRow[],
-  list: ChangeList,
+function appendNodes<L extends string>(
+  rows: TreeRow<L>[],
+  list: L,
   nodes: TreeNode[],
   depth: number,
   collapsed: ReadonlySet<string>,

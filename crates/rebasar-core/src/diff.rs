@@ -9,7 +9,7 @@ use gix::diff::blob::{Algorithm, Diff, InternedInput};
 use gix::index::entry::Stage;
 use serde::{Deserialize, Serialize};
 
-use crate::ApiError;
+use crate::{commit, ApiError};
 
 /// A file above either limit is collapsed until the user asks for it, so one huge file cannot
 /// freeze the view.
@@ -131,23 +131,58 @@ pub(crate) fn read(repo: &gix::Repository, request: &DiffRequest) -> Result<File
 
     let reader = Reader { repo, work_dir };
     let (old, new) = reader.sides(request)?;
-    let old_mode = old.mode;
-    let new_mode = new.mode;
-    let old = reader.load(&old.source, request.load_large)?;
-    let new = reader.load(&new.source, request.load_large)?;
+    reader.diff_between(
+        &request.path,
+        request.original_path.as_deref(),
+        old,
+        new,
+        request.load_large,
+        request.whitespace,
+    )
+}
 
-    Ok(FileDiff {
-        path: request.path.clone(),
-        original_path: request.original_path.clone(),
-        mode_change: match (old_mode, new_mode) {
-            (Some(old), Some(new)) if old != new => Some(ModeChange {
-                old: format!("{old:o}"),
-                new: format!("{new:o}"),
-            }),
-            _ => None,
-        },
-        content: content_between(old, new, request.load_large, request.whitespace),
-    })
+/// One file of a commit, diffed against the commit's `parent`-th parent.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CommitDiffRequest {
+    pub commit: String,
+    /// Index into the commit's parents; ignored for a root commit, which has none.
+    pub parent: usize,
+    pub path: String,
+    /// Where a renamed file came from, as reported by the commit's file list.
+    #[serde(default)]
+    pub original_path: Option<String>,
+    #[serde(default)]
+    pub load_large: bool,
+}
+
+pub(crate) fn read_in_commit(
+    repo: &gix::Repository,
+    request: &CommitDiffRequest,
+) -> Result<FileDiff, ApiError> {
+    ensure_inside_worktree(&request.path)?;
+    if let Some(original) = &request.original_path {
+        ensure_inside_worktree(original)?;
+    }
+
+    let commit = commit::find(repo, &request.commit)?;
+    let new_tree = commit.tree().map_err(ApiError::unexpected)?;
+    let old_tree = commit::parent_tree(repo, &commit, request.parent)?;
+
+    // Both sides are blobs of the commit, so nothing is read from the Worktree.
+    let reader = Reader {
+        repo,
+        work_dir: Path::new(""),
+    };
+    let old_path = request.original_path.as_deref().unwrap_or(&request.path);
+    reader.diff_between(
+        &request.path,
+        request.original_path.as_deref(),
+        reader.tree_side(&old_tree, old_path)?,
+        reader.tree_side(&new_tree, &request.path)?,
+        request.load_large,
+        WhitespaceMode::Show,
+    )
 }
 
 fn ensure_inside_worktree(path: &str) -> Result<(), ApiError> {
@@ -226,6 +261,33 @@ impl Reader<'_> {
         })
     }
 
+    fn diff_between(
+        &self,
+        path: &str,
+        original_path: Option<&str>,
+        old: Side,
+        new: Side,
+        load_large: bool,
+        whitespace: WhitespaceMode,
+    ) -> Result<FileDiff, ApiError> {
+        let (old_mode, new_mode) = (old.mode, new.mode);
+        let old = self.load(&old.source, load_large)?;
+        let new = self.load(&new.source, load_large)?;
+
+        Ok(FileDiff {
+            path: path.to_owned(),
+            original_path: original_path.map(str::to_owned),
+            mode_change: match (old_mode, new_mode) {
+                (Some(old), Some(new)) if old != new => Some(ModeChange {
+                    old: format!("{old:o}"),
+                    new: format!("{new:o}"),
+                }),
+                _ => None,
+            },
+            content: content_between(old, new, load_large, whitespace),
+        })
+    }
+
     fn head_side(&self, path: &str) -> Result<Side, ApiError> {
         let tree = self
             .repo
@@ -234,6 +296,10 @@ impl Reader<'_> {
             .object()
             .map_err(ApiError::unexpected)?
             .into_tree();
+        self.tree_side(&tree, path)
+    }
+
+    fn tree_side(&self, tree: &gix::Tree<'_>, path: &str) -> Result<Side, ApiError> {
         let entry = tree
             .lookup_entry_by_path(path)
             .map_err(ApiError::unexpected)?;

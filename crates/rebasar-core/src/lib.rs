@@ -6,6 +6,7 @@ use std::time::Duration;
 use serde::Serialize;
 use thiserror::Error;
 
+mod commit;
 mod diff;
 mod git_setup;
 pub mod github;
@@ -20,9 +21,10 @@ mod status;
 mod tabs;
 mod watch;
 
+pub use commit::{CommitDetail, CommitParent};
 pub use diff::{
-    ChangeList, DiffContent, DiffLine, DiffRequest, FileDiff, Hunk, LineKind, ModeChange,
-    WhitespaceMode,
+    ChangeList, CommitDiffRequest, DiffContent, DiffLine, DiffRequest, FileDiff, Hunk, LineKind,
+    ModeChange, WhitespaceMode,
 };
 pub use github::{
     CheckState, GitHubAuthStatus, GitHubRepository, PullRequest, ReviewState, TokenSource,
@@ -396,6 +398,15 @@ impl Core {
     pub fn file_diff(&self, path: &Path, request: &DiffRequest) -> Result<FileDiff, ApiError> {
         let (_, repo) = open_worktree(path)?;
         diff::read(&repo, request)
+    }
+
+    pub fn commit_file_diff(
+        &self,
+        path: &Path,
+        request: &CommitDiffRequest,
+    ) -> Result<FileDiff, ApiError> {
+        let (_, repo) = open_worktree(path)?;
+        diff::read_in_commit(&repo, request)
     }
 
     pub fn open_folder(&self, path: &Path) -> Result<Tab, ApiError> {

@@ -4,9 +4,9 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use rebasar_core::{
-    ApiError, Core, DiffRequest, FileDiff, GitHubAuthStatus, GitHubRepository, HistoryCount,
-    GitIdentity, GitSetup, HistoryFilter, HistoryPage, MutationId, MutationOutcome, PullRequest, Settings, Tab,
-    WorktreeStatus,
+    ApiError, CommitDetail, CommitDiffRequest, Core, DiffRequest, FileDiff, GitHubAuthStatus,
+    GitHubRepository, GitIdentity, GitSetup, HistoryCount, HistoryFilter, HistoryPage, MutationId,
+    MutationOutcome, PullRequest, Settings, Tab, WorktreeStatus,
 };
 use tauri::{Emitter, Manager, State};
 
@@ -229,6 +229,33 @@ async fn set_git_identity(
         .map_err(ApiError::unexpected)?
 }
 
+#[tauri::command]
+async fn commit_detail(
+    core: State<'_, Arc<Core>>,
+    worktree_path: PathBuf,
+    commit: String,
+    parent: usize,
+) -> Result<CommitDetail, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || {
+        core.commit_detail(&worktree_path, &commit, parent)
+    })
+    .await
+    .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn commit_file_diff(
+    core: State<'_, Arc<Core>>,
+    worktree_path: PathBuf,
+    request: CommitDiffRequest,
+) -> Result<FileDiff, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.commit_file_diff(&worktree_path, &request))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
@@ -265,7 +292,9 @@ fn main() {
             settings,
             update_settings,
             git_identity,
-            set_git_identity
+            set_git_identity,
+            commit_detail,
+            commit_file_diff
         ])
         .run(tauri::generate_context!())
         .expect("failed to run Rebasar");

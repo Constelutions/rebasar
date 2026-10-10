@@ -13,6 +13,12 @@ const dayFormat = new Intl.DateTimeFormat("en-US", {
 
 const timeFormat = new Intl.DateTimeFormat("en-US", { hour: "2-digit", minute: "2-digit" });
 
+const dateTimeFormat = new Intl.DateTimeFormat("en-US", { dateStyle: "long", timeStyle: "short" });
+
+export function formatDateTime(timestamp: number): string {
+  return dateTimeFormat.format(timestamp * 1000);
+}
+
 export function formatDay(timestamp: number): string {
   return dayFormat.format(timestamp * 1000);
 }

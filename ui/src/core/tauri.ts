@@ -2,6 +2,8 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 
 import type {
+  CommitDetail,
+  CommitDiffRequest,
   CoreApi,
   CoreEvent,
   DiffRequest,
@@ -28,6 +30,10 @@ export const tauriCoreApi: CoreApi = {
     invoke<HistoryPage>("history_page", { worktreePath, offset, limit, filter }),
   historyCount: (worktreePath, filter) =>
     invoke<HistoryCount>("history_count", { worktreePath, filter }),
+  commitDetail: (worktreePath, commit, parent) =>
+    invoke<CommitDetail>("commit_detail", { worktreePath, commit, parent }),
+  commitFileDiff: (worktreePath, request: CommitDiffRequest) =>
+    invoke<FileDiff>("commit_file_diff", { worktreePath, request }),
   activateTab: (path) => invoke<void>("activate_tab", { path }),
   refreshTab: (path) => invoke<Tab>("refresh_tab", { path }),
   githubRemote: (path) => invoke<GitHubRepository | null>("github_remote", { path }),

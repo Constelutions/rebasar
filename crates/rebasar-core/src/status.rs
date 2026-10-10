@@ -187,8 +187,7 @@ impl Reader<'_> {
     }
 
     fn blob(&self, id: &gix::oid) -> Option<Vec<u8>> {
-        let blob = self.repo.find_object(id).ok()?.detach().data;
-        (blob.len() <= MAX_COUNTED_BYTES && !looks_binary(&blob)).then_some(blob)
+        countable_blob(self.repo, id)
     }
 
     fn worktree_file(&self, rela_path: impl AsRef<BStr>) -> Option<Vec<u8>> {
@@ -217,7 +216,17 @@ impl Reader<'_> {
     }
 }
 
-fn file_change(path: impl AsRef<BStr>, kind: ChangeKind, counts: Option<(u32, u32)>) -> FileChange {
+/// `None` for a blob that is missing, binary or too big to count lines in.
+pub(crate) fn countable_blob(repo: &gix::Repository, id: &gix::oid) -> Option<Vec<u8>> {
+    let blob = repo.find_object(id).ok()?.detach().data;
+    (blob.len() <= MAX_COUNTED_BYTES && !looks_binary(&blob)).then_some(blob)
+}
+
+pub(crate) fn file_change(
+    path: impl AsRef<BStr>,
+    kind: ChangeKind,
+    counts: Option<(u32, u32)>,
+) -> FileChange {
     FileChange {
         path: path_string(path),
         original_path: None,
@@ -227,7 +236,7 @@ fn file_change(path: impl AsRef<BStr>, kind: ChangeKind, counts: Option<(u32, u3
     }
 }
 
-fn path_string(path: impl AsRef<BStr>) -> String {
+pub(crate) fn path_string(path: impl AsRef<BStr>) -> String {
     path.as_ref().to_str_lossy().into_owned()
 }
 
@@ -235,7 +244,7 @@ fn looks_binary(bytes: &[u8]) -> bool {
     bytes[..bytes.len().min(BINARY_SNIFF_BYTES)].contains(&0)
 }
 
-fn line_count(bytes: &[u8]) -> u32 {
+pub(crate) fn line_count(bytes: &[u8]) -> u32 {
     let newlines = bytes.iter().filter(|&&byte| byte == b'\n').count();
     let unterminated = bytes.last().is_some_and(|&byte| byte != b'\n');
     (newlines + usize::from(unterminated)) as u32
@@ -244,7 +253,7 @@ fn line_count(bytes: &[u8]) -> u32 {
 /// Returns `(added, removed)`. Line endings are normalised first because the index holds LF
 /// while a Windows checkout with `core.autocrlf` holds CRLF, which would otherwise make every
 /// line look changed.
-fn diff_counts(old: &[u8], new: &[u8]) -> (u32, u32) {
+pub(crate) fn diff_counts(old: &[u8], new: &[u8]) -> (u32, u32) {
     if old.is_empty() {
         return (line_count(new), 0);
     }

@@ -223,6 +223,36 @@ export type CoreEvent =
     }
   | { type: "mutationFinished"; mutationId: number; outcome: MutationOutcome };
 
+export interface CommitParent {
+  id: string;
+  shortId: string;
+  subject: string;
+}
+
+export interface CommitDetail {
+  id: string;
+  shortId: string;
+  authorName: string;
+  authorEmail: string;
+  /** Seconds since the Unix epoch. */
+  authorTimestamp: number;
+  /** The full message, subject first. */
+  message: string;
+  parents: CommitParent[];
+  /** The files that differ from the parent the commit was read against. */
+  files: FileChange[];
+}
+
+export interface CommitDiffRequest {
+  commit: string;
+  /** Index into the commit's parents; ignored for a root commit. */
+  parent: number;
+  path: string;
+  originalPath: string | null;
+  /** Computes the diff of a file that would otherwise come back collapsed. */
+  loadLarge?: boolean;
+}
+
 export interface CoreApi {
   /** Rejects with an {@link ApiError} when the folder cannot be opened. */
   openFolder(path: string): Promise<Tab>;
@@ -243,6 +273,12 @@ export interface CoreApi {
   ): Promise<HistoryPage>;
   /** How many commits `filter` lets through, out of all of them. Rejects like `historyPage`. */
   historyCount(worktreePath: string, filter: HistoryFilter): Promise<HistoryCount>;
+  /**
+   * Describes a commit and lists its changed files against its `parent`-th parent. Rejects with
+   * an {@link ApiError}.
+   */
+  commitDetail(worktreePath: string, commit: string, parent: number): Promise<CommitDetail>;
+  commitFileDiff(worktreePath: string, request: CommitDiffRequest): Promise<FileDiff>;
   /** Makes the Tab the most recently used one, so it keeps its caches and a live watcher. */
   activateTab(path: string): Promise<void>;
   /** Reads the Tab again, so that a branch switched outside the app shows. */

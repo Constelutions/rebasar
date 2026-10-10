@@ -1,4 +1,6 @@
 import {
+  type CommitDetail,
+  type CommitDiffRequest,
   type CoreApi,
   type CoreEvent,
   type DiffRequest,
@@ -49,6 +51,25 @@ export interface StubCoreState {
   identity?: GitIdentity;
 }
 
+export function commitKey(commit: string, parent: number) {
+  return `${commit}:${parent}`;
+}
+
+export function commitDiffKey({
+  commit,
+  parent,
+  path,
+}: Pick<CommitDiffRequest, "commit" | "parent" | "path">) {
+  return `${commitKey(commit, parent)}:${path}`;
+}
+
+export interface StubCommits {
+  /** What the core reports for a commit read against a parent, keyed by {@link commitKey}. */
+  commitDetails?: Record<string, CommitDetail>;
+  /** Diffs of files in commits, keyed by {@link commitDiffKey}; a file without one has no content changes. */
+  commitDiffs?: Record<string, FileDiff>;
+}
+
 export interface StubCoreApi extends CoreApi {
   /** Replaces what the Worktree reports, as an edit made outside the app would. */
   changeWorktree(path: string, status: WorktreeStatus): void;
@@ -67,6 +88,10 @@ export interface StubCoreApi extends CoreApi {
   readonly commits: readonly { worktreePath: string; message: string }[];
   /** Every diff the UI asked for, in order. */
   readonly diffRequests: readonly DiffRequest[];
+  /** Every diff of a file in a commit the UI asked for, in order. */
+  readonly commitDiffRequests: readonly CommitDiffRequest[];
+  /** Every commit the UI asked the detail of, as `[commit, parent]`, in order. */
+  readonly commitDetailRequests: readonly (readonly [string, number])[];
   /** The Tab the user last activated, as the core sees it. */
   readonly activeWorktree: string | null;
 }
@@ -85,12 +110,15 @@ export function createStubCoreApi(
   github: StubGitHub = {},
   gitSetup: GitSetup = ready,
   state: StubCoreState = {},
+  { commitDetails = {}, commitDiffs = {} }: StubCommits = {},
 ): StubCoreApi {
   const handlers = new Set<(event: CoreEvent) => void>();
   const current = new Map(Object.entries(statuses));
   const tabs = new Map(Object.entries(repositories));
   const watched = new Set<string>();
   const diffRequests: DiffRequest[] = [];
+  const commitDiffRequests: CommitDiffRequest[] = [];
+  const commitDetailRequests: (readonly [string, number])[] = [];
   const cancelled: number[] = [];
   const commits: { worktreePath: string; message: string }[] = [];
   const failures: MutationFailure[] = [];
@@ -174,6 +202,25 @@ export function createStubCoreApi(
     async historyCount(worktreePath) {
       const total = (histories[worktreePath] ?? []).length;
       return { matching: total, total };
+    },
+    async commitDetail(_worktreePath, commit, parent) {
+      commitDetailRequests.push([commit, parent]);
+      const detail = commitDetails[commitKey(commit, parent)];
+      if (!detail) {
+        throw { kind: "unexpected", message: `commit ${commit} has no parent number ${parent}` };
+      }
+      return detail;
+    },
+    async commitFileDiff(_worktreePath, request) {
+      commitDiffRequests.push(request);
+      return (
+        commitDiffs[commitDiffKey(request)] ?? {
+          path: request.path,
+          originalPath: request.originalPath,
+          modeChange: null,
+          content: { kind: "text", hunks: [] },
+        }
+      );
     },
     async activateTab(path) {
       known(path);
@@ -286,6 +333,8 @@ export function createStubCoreApi(
     cancelledMutations: cancelled,
     commits,
     diffRequests,
+    commitDiffRequests,
+    commitDetailRequests,
     get activeWorktree() {
       return active;
     },
