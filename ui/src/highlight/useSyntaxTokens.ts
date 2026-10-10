@@ -8,8 +8,9 @@ import type { Token } from "./tokens";
 const NO_TOKENS: ReadonlyMap<DiffLine, Token[]> = new Map();
 
 /**
- * Tokens for each line of the diff, empty until the worker answers. The two sides of the diff are
- * highlighted as separate documents, so a line is read in the context of the file it is from.
+ * Tokens for each line of the diff, empty until the worker answers. Only the lines of the hunks
+ * are known, so each side is highlighted as one document made of them; a construct that starts
+ * outside every hunk, like a block comment, can be mis-coloured.
  */
 export function useSyntaxTokens(path: string, hunks: Hunk[]): ReadonlyMap<DiffLine, Token[]> {
   const highlighter = useHighlighter();

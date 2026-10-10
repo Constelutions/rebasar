@@ -52,18 +52,18 @@ export function App({ api, pickFolder, appWindow, highlighter = defaultHighlight
 
   return (
     <HighlighterProvider value={highlighter}>
-    <div className="app">
-      <TitleBar tabs={tabs} appWindow={appWindow} onOpenFolder={openFolder} />
-      {error && (
-        <p role="alert" className="error">
-          {error}
-        </p>
-      )}
-      <div className="app-body">
-        <Sidebar selected={view} onSelect={setView} />
-        <ViewPane view={view} api={api} tab={tabs.at(-1)} />
+      <div className="app">
+        <TitleBar tabs={tabs} appWindow={appWindow} onOpenFolder={openFolder} />
+        {error && (
+          <p role="alert" className="error">
+            {error}
+          </p>
+        )}
+        <div className="app-body">
+          <Sidebar selected={view} onSelect={setView} />
+          <ViewPane view={view} api={api} tab={tabs.at(-1)} />
+        </div>
       </div>
-    </div>
     </HighlighterProvider>
   );
 }

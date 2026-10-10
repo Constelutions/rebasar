@@ -96,6 +96,7 @@ function useFileDiff(
   useEffect(() => {
     if (!list || !path) return;
     let current = true;
+    setError(null);
     api
       .fileDiff(worktreePath, { path, originalPath, list, loadLarge: forced })
       .then((fresh) => {

@@ -48,7 +48,7 @@ export function VirtualList<T>({
       ref={container}
       role="list"
       aria-label={label}
-      className={`virtual-list ${className ?? ""}`}
+      className={className ? `virtual-list ${className}` : "virtual-list"}
       onScroll={(event) => setScrollTop(event.currentTarget.scrollTop)}
     >
       <div className="virtual-list-body" style={{ height: items.length * rowHeight }}>

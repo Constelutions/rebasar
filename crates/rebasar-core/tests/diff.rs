@@ -362,6 +362,29 @@ fn a_staged_mode_change_is_reported_with_the_old_and_new_modes() {
 }
 
 #[test]
+fn editing_an_executable_file_on_disk_does_not_report_a_mode_change() {
+    let repo = repo_with_initial_commit();
+    repo.commit_file(
+        "run.sh",
+        "echo hi
+",
+        "Add script",
+    );
+    repo.git(&["update-index", "--chmod=+x", "run.sh"]);
+    repo.git(&["commit", "--quiet", "--message", "Make it executable"]);
+    repo.write_file(
+        "run.sh",
+        "echo hello
+",
+    );
+
+    let diff = diff_of(&repo, &request("run.sh", ChangeList::Unstaged));
+
+    assert_eq!(diff.mode_change, None);
+    assert_eq!(rendered(&hunks(&diff)[0]), ["-echo hi", "+echo hello"]);
+}
+
+#[test]
 fn a_mode_change_together_with_an_edit_reports_both() {
     let repo = repo_with_initial_commit();
     repo.commit_file("run.sh", "echo hi\n", "Add script");
@@ -371,7 +394,13 @@ fn a_mode_change_together_with_an_edit_reports_both() {
 
     let diff = diff_of(&repo, &request("run.sh", ChangeList::Staged));
 
-    assert!(diff.mode_change.is_some());
+    assert_eq!(
+        diff.mode_change,
+        Some(ModeChange {
+            old: "100644".to_owned(),
+            new: "100755".to_owned(),
+        })
+    );
     assert_eq!(rendered(&hunks(&diff)[0]), ["-echo hi", "+echo hello"]);
 }
 

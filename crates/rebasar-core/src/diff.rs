@@ -200,14 +200,16 @@ impl Reader<'_> {
                     self.index_side(path, Stage::Unconflicted)?,
                 )
             }
-            ChangeList::Unstaged => (
-                self.index_side(path, Stage::Unconflicted)?,
-                self.worktree_side(path)?,
-            ),
-            ChangeList::Conflicts => (
-                self.index_side(path, Stage::Ours)?,
-                self.worktree_side(path)?,
-            ),
+            ChangeList::Unstaged => {
+                let index = self.index_side(path, Stage::Unconflicted)?;
+                let worktree = self.worktree_side(path, index.mode)?;
+                (index, worktree)
+            }
+            ChangeList::Conflicts => {
+                let ours = self.index_side(path, Stage::Ours)?;
+                let worktree = self.worktree_side(path, ours.mode)?;
+                (ours, worktree)
+            }
         })
     }
 
@@ -237,17 +239,19 @@ impl Reader<'_> {
         }))
     }
 
-    fn worktree_side(&self, path: &str) -> Result<Side, ApiError> {
+    fn worktree_side(&self, path: &str, indexed_mode: Option<u32>) -> Result<Side, ApiError> {
         let file = self.work_dir.join(path);
         let Ok(metadata) = fs::symlink_metadata(&file) else {
             return Ok(Side::MISSING);
         };
         // Windows has no executable bit to read from disk, so a mode change only ever shows once
-        // it is staged. Only a symlink is told apart from a regular file here.
+        // it is staged: on disk the file keeps the mode the index gives it.
         let mode = if metadata.is_symlink() {
             SYMLINK_MODE
         } else {
-            REGULAR_MODE
+            indexed_mode
+                .filter(|&mode| mode != SYMLINK_MODE)
+                .unwrap_or(REGULAR_MODE)
         };
         Ok(Side {
             mode: Some(mode),
