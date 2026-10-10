@@ -1,9 +1,10 @@
 use rebasar_core::{
-    ApiError, ChangeKind, ChangeList, CheckState, CoreEvent, DiffContent, DiffLine, DiffRequest,
-    Edge, EdgeKind, FileChange, FileDiff, GitHubAuthStatus, GitHubRepository, GitSetup, Head,
-    HistoryCount, HistoryFilter, HistoryPage, HistoryRow, Hunk, LineKind, ModeChange,
-    MutationId, MutationInfo, MutationOutcome, OutputStream, PullRequest, RefKind, RefLabel,
-    ReviewState, Tab, TokenSource, WorktreeStatus,
+    ApiError, AppearanceSettings, ChangeKind, ChangeList, CheckState, CoreEvent, DiffContent,
+    DiffLine, DiffMode, DiffRequest, DiffSettings, Edge, EdgeKind, FileChange, FileDiff,
+    GitHubAuthStatus, GitHubRepository, GitIdentity, GitSetup, Head, HistoryCount,
+    HistoryFilter, HistoryPage, HistoryRow, Hunk, LineKind, ModeChange, MutationId,
+    MutationInfo, MutationOutcome, OutputStream, PullRequest, RefKind, RefLabel, ReviewState,
+    Settings, Tab, TokenSource, WhitespaceMode, WorktreeStatus,
 };
 use serde_json::json;
 
@@ -245,6 +246,7 @@ fn a_diff_request_deserialises_from_the_shape_the_ui_sends() {
         "originalPath": "src/old.rs",
         "list": "staged",
         "loadLarge": true,
+        "whitespace": "ignoreAll",
     }))
     .unwrap();
 
@@ -255,6 +257,7 @@ fn a_diff_request_deserialises_from_the_shape_the_ui_sends() {
             original_path: Some("src/old.rs".to_owned()),
             list: ChangeList::Staged,
             load_large: true,
+            whitespace: WhitespaceMode::IgnoreAll,
         }
     );
 }
@@ -266,6 +269,7 @@ fn a_diff_request_may_leave_out_the_optional_fields() {
 
     assert_eq!(request.original_path, None);
     assert!(!request.load_large);
+    assert_eq!(request.whitespace, WhitespaceMode::Show);
 }
 
 #[test]
@@ -508,5 +512,42 @@ fn the_git_setup_serialises_to_the_shape_the_ui_expects() {
     assert_eq!(
         serde_json::to_value(GitSetup::from_version_output(None)).unwrap(),
         json!({ "kind": "missing", "minimum": "2.35.0" })
+    );
+}
+
+#[test]
+fn settings_serialise_to_the_shape_the_ui_expects() {
+    let settings = Settings {
+        diff: DiffSettings {
+            whitespace: WhitespaceMode::IgnoreAll,
+            default_mode: DiffMode::SideBySide,
+        },
+        appearance: AppearanceSettings { code_font_size: 13 },
+    };
+
+    assert_eq!(
+        serde_json::to_value(settings).unwrap(),
+        json!({
+            "diff": { "whitespace": "ignoreAll", "defaultMode": "sideBySide" },
+            "appearance": { "codeFontSize": 13 },
+        })
+    );
+}
+
+#[test]
+fn a_git_identity_travels_with_null_for_an_unset_value() {
+    let identity: GitIdentity =
+        serde_json::from_value(json!({ "name": "Ada", "email": null })).unwrap();
+
+    assert_eq!(
+        identity,
+        GitIdentity {
+            name: Some("Ada".to_owned()),
+            email: None,
+        }
+    );
+    assert_eq!(
+        serde_json::to_value(identity).unwrap(),
+        json!({ "name": "Ada", "email": null })
     );
 }

@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::fs::{self, File};
 use std::io::Read;
 use std::ops::Range;
@@ -44,6 +45,18 @@ pub struct DiffRequest {
     /// Computes the diff of a file that would otherwise come back collapsed.
     #[serde(default)]
     pub load_large: bool,
+    #[serde(default)]
+    pub whitespace: WhitespaceMode,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum WhitespaceMode {
+    /// Lines that differ only in whitespace count as changed.
+    #[default]
+    Show,
+    /// Lines that differ only in whitespace count as unchanged, like `git diff -w`.
+    IgnoreAll,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -133,7 +146,7 @@ pub(crate) fn read(repo: &gix::Repository, request: &DiffRequest) -> Result<File
             }),
             _ => None,
         },
-        content: content_between(old, new, request.load_large),
+        content: content_between(old, new, request.load_large, request.whitespace),
     })
 }
 
@@ -320,7 +333,12 @@ fn looks_binary(bytes: &[u8]) -> bool {
     bytes[..bytes.len().min(BINARY_SNIFF_BYTES)].contains(&0)
 }
 
-fn content_between(old: Loaded, new: Loaded, load_large: bool) -> DiffContent {
+fn content_between(
+    old: Loaded,
+    new: Loaded,
+    load_large: bool,
+    whitespace: WhitespaceMode,
+) -> DiffContent {
     if matches!(old, Loaded::Binary(_)) || matches!(new, Loaded::Binary(_)) {
         return DiffContent::Binary {
             old_bytes: old.bytes(),
@@ -345,7 +363,7 @@ fn content_between(old: Loaded, new: Loaded, load_large: bool) -> DiffContent {
         };
     }
     DiffContent::Text {
-        hunks: hunks_between(&old, &new),
+        hunks: hunks_between(&old, &new, whitespace),
     }
 }
 
@@ -378,8 +396,10 @@ struct Change {
     after: Range<u32>,
 }
 
-fn hunks_between(old: &[u8], new: &[u8]) -> Vec<Hunk> {
-    let input = InternedInput::new(old, new);
+fn hunks_between(old: &[u8], new: &[u8], whitespace: WhitespaceMode) -> Vec<Hunk> {
+    let mut input = InternedInput::default();
+    input.update_before(comparable_lines(old, whitespace));
+    input.update_after(comparable_lines(new, whitespace));
     let diff = Diff::compute(Algorithm::Histogram, &input);
     let changes: Vec<Change> = diff
         .hunks()
@@ -398,6 +418,22 @@ fn hunks_between(old: &[u8], new: &[u8]) -> Vec<Hunk> {
         .into_iter()
         .map(|group| build_hunk(group, &old_lines, &new_lines))
         .collect()
+}
+
+/// What each line is compared by; the text shown is always the original line.
+fn comparable_lines(
+    bytes: &[u8],
+    whitespace: WhitespaceMode,
+) -> impl Iterator<Item = Cow<'_, [u8]>> {
+    split_lines(bytes).map(move |line| match whitespace {
+        WhitespaceMode::Show => Cow::Borrowed(line),
+        WhitespaceMode::IgnoreAll => Cow::Owned(
+            line.iter()
+                .copied()
+                .filter(|byte| !byte.is_ascii_whitespace())
+                .collect(),
+        ),
+    })
 }
 
 /// Neighbouring changes share a hunk when the unchanged lines between them fit in the context

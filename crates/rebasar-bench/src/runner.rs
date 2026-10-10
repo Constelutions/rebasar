@@ -2,7 +2,7 @@ use std::io;
 use std::path::PathBuf;
 use std::time::Instant;
 
-use rebasar_core::{ApiError, ChangeList, Core, DiffRequest, HistoryFilter};
+use rebasar_core::{ApiError, ChangeList, Core, DiffRequest, HistoryFilter, WhitespaceMode};
 
 use crate::fixtures::{FixtureCache, Scale};
 use crate::report::{Measurement, Report, ScenarioResult, Verdict};
@@ -126,6 +126,7 @@ pub fn scenarios() -> Vec<Scenario> {
                     original_path: None,
                     list: ChangeList::Unstaged,
                     load_large: false,
+                    whitespace: WhitespaceMode::Show,
                 },
             )
             .map(drop)

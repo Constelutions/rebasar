@@ -1,7 +1,5 @@
 import type { DiffLine, Hunk } from "../core/api";
 
-export type DiffMode = "unified" | "sideBySide";
-
 export type DiffRow =
   | { type: "hunk"; key: string; header: string }
   | { type: "line"; key: string; line: DiffLine }

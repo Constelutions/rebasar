@@ -1,9 +1,9 @@
 import { useMemo } from "react";
 
-import type { DiffLine, FileDiff, Hunk } from "../core/api";
+import type { DiffLine, DiffMode, FileDiff, Hunk } from "../core/api";
 import { useSyntaxTokens } from "../highlight/useSyntaxTokens";
 import type { Token } from "../highlight/tokens";
-import { type DiffMode, type DiffRow, sideBySideRows, unifiedRows } from "./diffRows";
+import { type DiffRow, sideBySideRows, unifiedRows } from "./diffRows";
 import { VirtualList } from "./VirtualList";
 
 export const DIFF_ROW_HEIGHT = 20;

@@ -69,6 +69,7 @@
   --window-control-width: 46px;
   --window-control-icon: 10px;
   --diff-row-height: 20px;
+  --diff-font-size: var(--text-sm);
   --diff-number-width: 44px;
   --changes-files-width: 340px;
   --sidebar-width: 208px;

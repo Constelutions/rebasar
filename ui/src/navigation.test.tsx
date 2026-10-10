@@ -13,7 +13,10 @@ const viewNames = [
   "Worktrees",
   "Pull requests",
   "Repositories",
+  "Settings",
 ];
+
+const emptyViewNames = viewNames.filter((name) => name !== "Settings" && name !== "History");
 
 function renderSidebar() {
   renderApp();
@@ -33,7 +36,7 @@ it("starts on the Home view", () => {
   expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Home");
 });
 
-it.each(viewNames.filter((name) => name !== "History"))("shows the empty %s view when it is selected", async (name) => {
+it.each(emptyViewNames)("shows the empty %s view when it is selected", async (name) => {
   const user = userEvent.setup();
   const sidebar = renderSidebar();
 
