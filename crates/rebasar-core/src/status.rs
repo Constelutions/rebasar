@@ -74,7 +74,7 @@ pub(crate) fn read(repo: &gix::Repository) -> Result<WorktreeStatus, ApiError> {
     for item in items {
         match item.map_err(ApiError::unexpected)? {
             Item::IndexWorktree(item) => {
-                reader.collect_index_worktree(item, &mut conflicts, &mut unstaged)?
+                reader.collect_index_worktree(item, &mut conflicts, &mut unstaged)
             }
             Item::TreeIndex(change) => staged.push(reader.tree_index_change(change)),
         }
@@ -84,6 +84,7 @@ pub(crate) fn read(repo: &gix::Repository) -> Result<WorktreeStatus, ApiError> {
         .iter()
         .map(|c: &FileChange| c.path.clone())
         .collect();
+    // The tree-to-index diff also reports the stage-0-less entries of an unmerged path.
     staged.retain(|change| !conflicted.contains(&change.path));
     for list in [&mut conflicts, &mut staged, &mut unstaged] {
         list.sort_by(|a, b| a.path.cmp(&b.path));
@@ -106,7 +107,7 @@ impl Reader<'_> {
         item: IndexWorktreeItem,
         conflicts: &mut Vec<FileChange>,
         unstaged: &mut Vec<FileChange>,
-    ) -> Result<(), ApiError> {
+    ) {
         match item {
             IndexWorktreeItem::Modification {
                 entry,
@@ -134,7 +135,7 @@ impl Reader<'_> {
                 if entry.status != DirStatus::Untracked
                     || entry.disk_kind == Some(DiskKind::Directory)
                 {
-                    return Ok(());
+                    return;
                 }
                 let counts = self
                     .worktree_file(&entry.rela_path)
@@ -143,7 +144,6 @@ impl Reader<'_> {
             }
             IndexWorktreeItem::Rewrite { .. } => {}
         }
-        Ok(())
     }
 
     fn tree_index_change(&self, change: TreeIndexChange) -> FileChange {
