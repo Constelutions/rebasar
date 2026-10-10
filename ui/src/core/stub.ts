@@ -10,7 +10,8 @@ export interface StubCoreApi extends CoreApi {
 
 /**
  * A fake core that "knows" the given repositories by folder path and never touches Git.
- * `histories` holds each Worktree's commits, already laid out, newest first.
+ * `histories` holds each Worktree's commits, already laid out, newest first; the stub shows all
+ * of them whatever the filter, as filtering is the core's business.
  */
 export function createStubCoreApi(
   repositories: Record<string, Tab> = {},
@@ -44,6 +45,10 @@ export function createStubCoreApi(
         rows: rows.slice(offset, offset + limit),
         hasMore: rows.length > offset + limit,
       };
+    },
+    async historyCount(worktreePath) {
+      const total = (histories[worktreePath] ?? []).length;
+      return { matching: total, total };
     },
     async onEvent(handler) {
       handlers.add(handler);

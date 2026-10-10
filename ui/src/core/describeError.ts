@@ -11,6 +11,7 @@ function describeApiError(error: ApiError): string {
       return `${error.path} does not exist.`;
     case "notARepository":
       return `${error.path} is not a Git repository.`;
+    case "invalidQuery":
     case "unexpected":
       return error.message;
   }

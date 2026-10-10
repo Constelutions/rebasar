@@ -11,6 +11,8 @@ export interface Tab {
 export type ApiError =
   | { kind: "folderNotFound"; path: string }
   | { kind: "notARepository"; path: string }
+  /** `start..end` are character offsets into the query text. */
+  | { kind: "invalidQuery"; message: string; start: number; end: number }
   | { kind: "unexpected"; message: string };
 
 export type ChangeKind =
@@ -73,6 +75,28 @@ export interface HistoryPage {
   hasMore: boolean;
 }
 
+/** What the History filter bar asks for: the typed query plus the quick chips. */
+export interface HistoryFilter {
+  query: string;
+  /** Off narrows History to the commits reachable from HEAD. */
+  allBranches: boolean;
+  mine: boolean;
+  merges: boolean;
+}
+
+export const unfilteredHistory: HistoryFilter = {
+  query: "",
+  allBranches: true,
+  mine: false,
+  merges: false,
+};
+
+export interface HistoryCount {
+  matching: number;
+  total: number;
+}
+
+
 export type CoreEvent =
   | { type: "tabOpened"; tab: Tab }
   | { type: "worktreeChanged"; worktreePath: string };
@@ -84,10 +108,18 @@ export interface CoreApi {
   /** Makes the core emit `worktreeChanged` whenever files change under the Worktree. */
   watchWorktree(path: string): Promise<void>;
   /**
-   * Rows `offset..offset + limit` of the Worktree's history, newest first, laid out by the core.
-   * Rejects with an {@link ApiError}.
+   * Rows `offset..offset + limit` of the Worktree's history, newest first, laid out by the core
+   * from the commits `filter` lets through. Rejects with an {@link ApiError}, `invalidQuery`
+   * when the query is malformed.
    */
-  historyPage(worktreePath: string, offset: number, limit: number): Promise<HistoryPage>;
+  historyPage(
+    worktreePath: string,
+    offset: number,
+    limit: number,
+    filter: HistoryFilter,
+  ): Promise<HistoryPage>;
+  /** How many commits `filter` lets through, out of all of them. Rejects like `historyPage`. */
+  historyCount(worktreePath: string, filter: HistoryFilter): Promise<HistoryCount>;
   /** Resolves to a function that stops the subscription. */
   onEvent(handler: (event: CoreEvent) => void): Promise<() => void>;
 }

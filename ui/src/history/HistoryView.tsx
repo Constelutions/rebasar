@@ -1,13 +1,14 @@
-import { memo, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import { SegmentedControl } from "../components/SegmentedControl";
 import type { CoreApi, HistoryRow, Tab } from "../core/api";
 import { Avatar } from "./Avatar";
 import { type Connections, CommitGraph, DayGraph } from "./CommitGraph";
+import { type Chips, FilterBar } from "./FilterBar";
 import { RefBadge } from "./RefBadge";
 import { type GraphStyle, type Orientation, itemSize } from "./geometry";
 import { type HistoryItem, formatTime } from "./items";
-import { useHistory } from "./useHistory";
+import { useHistory, useHistoryCount } from "./useHistory";
 import { useHistoryLayout } from "./useHistoryLayout";
 
 const OVERSCAN_ITEMS = 4;
@@ -15,6 +16,8 @@ const OVERSCAN_ITEMS = 4;
 const PREFETCH_ITEMS = 40;
 /** Used until the real size is measured, and wherever layout is not computed. */
 const FALLBACK_VIEWPORT = 600;
+/** Typing is applied once it pauses, so each keystroke does not walk the whole history. */
+const QUERY_DEBOUNCE_MS = 250;
 
 const orientations = [
   { value: "vertical", label: "Vertical" },
@@ -27,22 +30,52 @@ const graphStyles = [
 ] as const;
 
 export function HistoryView({ api, tab }: { api: CoreApi; tab: Tab }) {
-  const { items, laneCount, loaded, hasMore, error, loadMore } = useHistory(api, tab.worktreePath);
+  const [queryText, setQueryText] = useState("");
+  const [chips, setChips] = useState<Chips>({ allBranches: true, mine: false, merges: false });
+  const query = useDebounced(queryText, QUERY_DEBOUNCE_MS);
+  const filter = useMemo(() => ({ query, ...chips }), [query, chips]);
+  const { items, laneCount, loaded, hasMore, error, queryError, generation, loadMore } = useHistory(
+    api,
+    tab.worktreePath,
+    filter,
+  );
+  const count = useHistoryCount(api, tab.worktreePath, filter);
   const [{ orientation, style }, changeLayout] = useHistoryLayout();
+
+  const filterBar = (
+    <FilterBar
+      query={queryText}
+      onQueryChange={setQueryText}
+      chips={chips}
+      onChipsChange={setChips}
+      count={count}
+      queryError={queryError}
+    />
+  );
 
   if (error !== null) {
     return (
-      <p role="alert" className="error">
-        {error}
-      </p>
+      <>
+        {filterBar}
+        <p role="alert" className="error">
+          {error}
+        </p>
+      </>
     );
   }
   if (loaded && items.length === 0) {
-    return <p className="placeholder">No commits yet.</p>;
+    const filtered = filter.query !== "" || filter.mine || filter.merges || !filter.allBranches;
+    return (
+      <>
+        {filterBar}
+        <p className="placeholder">{filtered ? "No commits match this filter." : "No commits yet."}</p>
+      </>
+    );
   }
 
   return (
     <>
+      {filterBar}
       <div className="history-toolbar">
         <SegmentedControl
           label="Orientation"
@@ -58,7 +91,7 @@ export function HistoryView({ api, tab }: { api: CoreApi; tab: Tab }) {
         />
       </div>
       <HistoryList
-        key={orientation}
+        key={`${orientation}-${generation}`}
         items={items}
         laneCount={laneCount}
         hasMore={hasMore}
@@ -137,6 +170,15 @@ function HistoryList({ items, laneCount, hasMore, orientation, style, loadMore }
       </div>
     </div>
   );
+}
+
+function useDebounced<T>(value: T, delayMs: number): T {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const timer = setTimeout(() => setDebounced(value), delayMs);
+    return () => clearTimeout(timer);
+  }, [value, delayMs]);
+  return debounced;
 }
 
 function itemKey(item: HistoryItem): string {
