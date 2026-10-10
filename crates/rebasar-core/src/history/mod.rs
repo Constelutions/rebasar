@@ -3,6 +3,7 @@ mod count;
 mod filter;
 mod layout;
 mod refs;
+mod search;
 
 use std::path::Path;
 use std::sync::Arc;
@@ -14,6 +15,7 @@ use crate::{open_worktree, ApiError, Core};
 pub(crate) use filter::Filter;
 pub use filter::{HistoryCount, HistoryFilter};
 pub(crate) use layout::Layout;
+pub use search::CommitHit;
 
 const OBJECT_CACHE_BYTES: usize = 64 * 1024 * 1024;
 

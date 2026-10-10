@@ -40,7 +40,8 @@ pub use tabs::CacheKind;
 use tabs::Registry;
 
 pub use history::{
-    Edge, EdgeKind, HistoryCount, HistoryFilter, HistoryPage, HistoryRow, RefKind, RefLabel,
+    CommitHit, Edge, EdgeKind, HistoryCount, HistoryFilter, HistoryPage, HistoryRow, RefKind,
+    RefLabel,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]

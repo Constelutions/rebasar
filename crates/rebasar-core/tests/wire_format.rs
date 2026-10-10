@@ -1,10 +1,11 @@
 use rebasar_core::{
     ApiError, AppearanceSettings, ChangeKind, ChangeList, CheckState, CommitDetail,
-    CommitDiffRequest, CommitParent, CoreEvent, DiffContent, DiffLine, DiffMode, DiffRequest,
-    DiffSettings, Edge, EdgeKind, FileChange, FileDiff, GitHubAuthStatus, GitHubRepository,
-    GitIdentity, GitSetup, Head, HistoryCount, HistoryFilter, HistoryPage, HistoryRow, Hunk,
-    LineKind, ModeChange, MutationId, MutationInfo, MutationOutcome, OutputStream, PullRequest,
-    RefKind, RefLabel, ReviewState, Settings, Tab, TokenSource, WhitespaceMode, WorktreeStatus,
+    CommitDiffRequest, CommitHit, CommitParent, CoreEvent, DiffContent, DiffLine, DiffMode,
+    DiffRequest, DiffSettings, Edge, EdgeKind, FileChange, FileDiff, GitHubAuthStatus,
+    GitHubRepository, GitIdentity, GitSetup, Head, HistoryCount, HistoryFilter, HistoryPage,
+    HistoryRow, Hunk, LineKind, ModeChange, MutationId, MutationInfo, MutationOutcome,
+    OutputStream, PullRequest, RefKind, RefLabel, ReviewState, Settings, Tab, TokenSource,
+    WhitespaceMode, WorktreeStatus,
 };
 use serde_json::json;
 
@@ -616,5 +617,27 @@ fn a_commit_diff_request_deserialises_from_the_shape_the_ui_sends() {
             original_path: Some("src/old.rs".to_owned()),
             load_large: true,
         }
+    );
+}
+
+#[test]
+fn a_commit_hit_serialises_to_the_shape_the_ui_expects() {
+    let hit = CommitHit {
+        id: "abc1234def".to_owned(),
+        short_id: "abc1234".to_owned(),
+        subject: "Fix the thing".to_owned(),
+        author_name: "Ada".to_owned(),
+        timestamp: 1_700_000_000,
+    };
+
+    assert_eq!(
+        serde_json::to_value(hit).unwrap(),
+        json!({
+            "id": "abc1234def",
+            "shortId": "abc1234",
+            "subject": "Fix the thing",
+            "authorName": "Ada",
+            "timestamp": 1_700_000_000,
+        })
     );
 }
