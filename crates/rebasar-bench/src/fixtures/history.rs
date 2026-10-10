@@ -24,7 +24,7 @@ struct Branch {
     tip: usize,
 }
 
-/// Builds `commits` commits on `main` and short-lived topic branches that fork and merge back,
+/// Builds `commits` commits on `main` and topic branches (up to 20 open at once) that fork and merge back,
 /// leaving the surviving branches as refs and `main` checked out.
 pub fn generate(repo: &Path, commits: usize) -> io::Result<()> {
     let mut merged_branches = Vec::new();

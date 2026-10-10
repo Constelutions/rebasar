@@ -14,7 +14,6 @@ fn file_path(index: usize) -> String {
     )
 }
 
-/// Commits `files` files, in one commit, and checks them out.
 fn commit_files(repo: &Path, files: usize, contents: impl Fn(usize) -> String) -> io::Result<()> {
     git::fast_import(repo, |out| {
         let message = "Add files\n";

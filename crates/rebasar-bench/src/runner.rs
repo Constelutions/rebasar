@@ -8,7 +8,6 @@ use crate::fixtures::{FixtureCache, Scale};
 use crate::report::{Report, ScenarioResult, Verdict};
 use crate::thresholds::{Limit, Threshold};
 
-/// Where the generated Repositories live, handed to every scenario.
 pub struct Fixtures {
     pub history: PathBuf,
     pub worktree: PathBuf,
@@ -17,7 +16,6 @@ pub struct Fixtures {
 
 type Action = fn(&Core, &Fixtures) -> Result<(), ApiError>;
 
-/// One timed use of the core API, optionally held against an alpha threshold.
 pub struct Scenario {
     name: &'static str,
     action: Action,

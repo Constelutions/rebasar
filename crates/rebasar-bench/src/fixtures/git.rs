@@ -26,7 +26,6 @@ pub fn init(repo: &Path) -> io::Result<()> {
     run(repo, &["config", "core.autocrlf", "false"])
 }
 
-/// Feeds `script` to a `git` subprocess that reads commands from stdin.
 fn pipe_into(
     mut command: Command,
     script: impl FnOnce(&mut BufWriter<ChildStdin>) -> io::Result<()>,

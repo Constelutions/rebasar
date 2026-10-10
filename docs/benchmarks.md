@@ -9,11 +9,11 @@ pnpm bench:fixtures                # alpha scale
 pnpm bench:fixtures --scale smoke  # a few seconds, for checking the harness
 ```
 
-Three Repositories are generated with real `git` (`git fast-import`, so the history takes minutes rather than hours) and reused on every later run:
+Three Repositories are generated with real `git` (`git fast-import`, so the history takes minutes rather than hours; the alpha scale took about 6.5 minutes on the development machine) and reused on every later run:
 
 | Fixture | Alpha scale |
 |---|---|
-| `history-*-commits` | About 1.2 million commits on `main` and short-lived topic branches that fork and merge back. Deterministic, so every machine builds the same history. |
+| `history-*-commits` | About 1.2 million commits on `main` and topic branches (up to 20 open at once) that fork and merge back, roughly 8% of them merges. Deterministic, so every machine builds the same history. |
 | `worktree-*-files` | A clean checkout of 100,000 files. |
 | `changeset-*-files-*-lines` | 5,000 committed files with 500,000 changed lines (added plus removed, spread evenly) left uncommitted in the working tree. |
 
@@ -36,16 +36,7 @@ The runner builds any missing fixture, times each scenario through the core API,
 
 ## Thresholds
 
-Defined once, in `crates/rebasar-bench/src/thresholds.rs`:
-
-| Threshold | Limit |
-|---|---|
-| Cold start to interactive | 1,000 ms |
-| Linux-kernel-sized graph usable, scrolling at 60 fps | 2,000 ms |
-| Status on a 100k-file working tree | 300 ms |
-| Tab switch | 100 ms |
-| First file of the 5,000-file / 500k-line changeset | 300 ms |
-| Idle memory | 300 MB |
+Defined once, in `crates/rebasar-bench/src/thresholds.rs`: cold start, commit graph, status on 100k files, Tab switch, first changeset file and idle memory, with the limits from the alpha definition. The report lists every one, with the scenarios that measure it.
 
 ## Adding a scenario
 

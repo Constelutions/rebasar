@@ -9,7 +9,6 @@ mod git;
 mod history;
 mod snapshot;
 
-/// How big each generated fixture is.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Scale {
@@ -29,7 +28,6 @@ impl Scale {
         changeset_changed_lines: 500_000,
     };
 
-    /// Small enough to generate in seconds, for checking the harness itself.
     pub const SMOKE: Scale = Scale {
         history_commits: 500,
         worktree_files: 200,
@@ -38,7 +36,6 @@ impl Scale {
     };
 }
 
-/// Generated Repositories kept outside the source tree, built once and reused by every run.
 pub struct FixtureCache {
     root: PathBuf,
 }
