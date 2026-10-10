@@ -109,8 +109,7 @@ impl Filter {
             && !self.merges
     }
 
-    /// The commits the History starts from. Their order is left to the snapshot: sorting them
-    /// lays the large fixture out several times slower.
+    /// The commits the History starts from.
     pub fn tips(&self, snapshot: &Snapshot) -> Vec<ObjectId> {
         snapshot
             .labels
