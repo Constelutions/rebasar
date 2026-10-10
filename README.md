@@ -31,6 +31,8 @@ pnpm bench:fixtures     # generate the large fixtures (slow once, then cached)
 pnpm bench              # run the benchmarks and print them next to the alpha thresholds
 ```
 
+The app remembers its Repositories, Groups, open Tabs, window layout and settings in a single `registry.json` in the app's config directory (`%APPDATA%\dev.constelutions.rebasar` on Windows). There is no database; a file that cannot be read is kept as `registry.json.invalid` and the app starts empty.
+
 See [`docs/benchmarks.md`](docs/benchmarks.md) for the fixtures, the thresholds and the results format.
 
 ## Documentation

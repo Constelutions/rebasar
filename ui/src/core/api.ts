@@ -11,6 +11,9 @@ export interface Tab {
 export type ApiError =
   | { kind: "folderNotFound"; path: string }
   | { kind: "notARepository"; path: string }
+  | { kind: "groupNotFound"; id: string }
+  | { kind: "repositoryNotFound"; path: string }
+  | { kind: "invalidGroupName" }
   /** `start..end` are character offsets into the query text. */
   | { kind: "invalidQuery"; message: string; start: number; end: number }
   | { kind: "notGithub"; path: string }
@@ -217,8 +220,45 @@ export const defaultSettings: Settings = {
   appearance: { codeFontSize: 12 },
 };
 
+export interface Group {
+  id: string;
+  name: string;
+}
+
+export interface WorktreeEntry {
+  path: string;
+  main: boolean;
+  head: Head;
+}
+
+export interface RepositoryEntry {
+  path: string;
+  name: string;
+  /** `null` for a Repository in the default 'Ungrouped' section. */
+  groupId: string | null;
+  /** Its folder is gone; it has no Worktrees until it is located again or removed. */
+  missing: boolean;
+  /** The main Worktree first. */
+  worktrees: WorktreeEntry[];
+}
+
+export interface RepositoryList {
+  /** In the order the user arranged them. */
+  groups: Group[];
+  repositories: RepositoryEntry[];
+}
+
+/** What the user had open when the app last ran. */
+export interface Session {
+  /** In the order they were opened, as last seen: nothing has been read from Git yet. */
+  tabs: Tab[];
+  active: string | null;
+  view: string | null;
+}
+
 export type CoreEvent =
   | { type: "tabOpened"; tab: Tab }
+  | { type: "tabClosed"; worktreePath: string }
   | { type: "worktreeChanged"; worktreePath: string }
   | { type: "pollingTabsChanged"; worktreePaths: string[] }
   | { type: "mutationQueued"; mutation: MutationInfo }
@@ -328,6 +368,23 @@ export interface CoreApi {
   gitIdentity(): Promise<GitIdentity>;
   /** Writes to the global Git configuration; a blank value removes it. */
   setGitIdentity(identity: GitIdentity): Promise<GitIdentity>;
+  /** The Tabs and view to show on launch; Tabs whose folders are gone are already left out. */
+  restoreSession(): Promise<Session>;
+  /** Watches a restored Tab without making it the most recently used one. */
+  watchBackgroundTab(path: string): Promise<void>;
+  saveView(view: string): Promise<void>;
+  /** Lists every Repository; Tabs of Repositories found missing close with a `tabClosed` event. */
+  listRepositories(): Promise<RepositoryList>;
+  createGroup(name: string): Promise<Group>;
+  renameGroup(id: string, name: string): Promise<void>;
+  /** Puts the Group at `index` among the Groups. */
+  moveGroup(id: string, index: number): Promise<void>;
+  /** `null` returns the Repository to 'Ungrouped'. */
+  moveRepository(path: string, groupId: string | null): Promise<void>;
+  /** Points a missing Repository at the folder it moved to; rejects when that is not a Repository. */
+  locateRepository(path: string, newPath: string): Promise<void>;
+  /** Forgets the Repository and closes its Tabs; its folder is left alone. */
+  removeRepository(path: string): Promise<void>;
   /** Resolves to a function that stops the subscription. */
   onEvent(handler: (event: CoreEvent) => void): Promise<() => void>;
 }

@@ -4,6 +4,7 @@ import type { ViewName } from "../views";
 import type { OpenTab } from "../useOpenTabs";
 import { ChangesView } from "./ChangesView";
 import { PullRequestsView } from "./PullRequestsView";
+import { RepositoriesView } from "./RepositoriesView";
 import { SettingsView } from "./SettingsView";
 
 export interface CommitSearch {
@@ -18,18 +19,20 @@ interface ViewPaneProps {
   tab: OpenTab | undefined;
   /** The query History starts with; a new search replaces whatever was typed there. */
   commitSearch: CommitSearch;
+  pickFolder: () => Promise<string | null>;
 }
 
-export function ViewPane({ view, api, tab, commitSearch }: ViewPaneProps) {
+export function ViewPane({ view, api, tab, commitSearch, pickFolder }: ViewPaneProps) {
   return (
     <main className="view-pane">
       <h1>{view}</h1>
-      <ViewContent view={view} api={api} tab={tab} commitSearch={commitSearch} />
+      <ViewContent view={view} api={api} tab={tab} commitSearch={commitSearch} pickFolder={pickFolder} />
     </main>
   );
 }
 
-function ViewContent({ view, api, tab, commitSearch }: ViewPaneProps) {
+function ViewContent({ view, api, tab, commitSearch, pickFolder }: ViewPaneProps) {
+  if (view === "Repositories") return <RepositoriesView api={api} pickFolder={pickFolder} />;
   if (view === "Settings") return <SettingsView api={api} />;
   if (view === "Changes" && tab) {
     return (

@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 mod commit;
@@ -16,6 +16,9 @@ mod mutation;
 pub mod platform;
 mod poll;
 pub mod query;
+mod registry;
+mod repositories;
+mod session;
 mod settings;
 mod status;
 mod tabs;
@@ -35,6 +38,10 @@ use mutation::{Mutation, MutationRunner};
 pub use mutation::{MutationId, MutationInfo, MutationOutcome, OutputStream};
 pub use identity::GitIdentity;
 pub use settings::{AppearanceSettings, DiffMode, DiffSettings, Settings};
+use registry::RegistryStore;
+pub use registry::{Group, WindowBounds};
+pub use repositories::{RepositoryEntry, RepositoryList, WorktreeEntry};
+pub use session::Session;
 pub use status::{ChangeKind, FileChange, WorktreeStatus};
 pub use tabs::CacheKind;
 use tabs::Registry;
@@ -44,7 +51,7 @@ pub use history::{
     RefLabel,
 };
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Tab {
     pub repository_name: String,
@@ -52,7 +59,7 @@ pub struct Tab {
     pub head: Head,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum Head {
     Branch { name: String },
@@ -68,6 +75,10 @@ pub enum Head {
 pub enum CoreEvent {
     TabOpened {
         tab: Tab,
+    },
+    /// The core closed the Tab, because its Repository went missing or was removed.
+    TabClosed {
+        worktree_path: String,
     },
     WorktreeChanged {
         worktree_path: String,
@@ -118,6 +129,12 @@ pub enum ApiError {
         start: usize,
         end: usize,
     },
+    #[error("there is no Group {id}")]
+    GroupNotFound { id: String },
+    #[error("{path} is not a known Repository")]
+    RepositoryNotFound { path: String },
+    #[error("a Group needs a name")]
+    InvalidGroupName,
     #[error("{message}")]
     Unexpected { message: String },
 }
@@ -173,6 +190,7 @@ pub struct Core {
     mutations: MutationRunner,
     config_dir: Option<PathBuf>,
     settings_write: Mutex<()>,
+    registry: RegistryStore,
 }
 
 impl Core {
@@ -203,6 +221,7 @@ impl Core {
         Self {
             mutations: MutationRunner::new(Arc::clone(&on_event)),
             tabs: Mutex::new(Registry::new(settings, Arc::clone(&on_event))),
+            registry: RegistryStore::in_memory(),
             on_event,
             histories: Mutex::new(HashMap::new()),
             totals: Mutex::new(HashMap::new()),
@@ -290,6 +309,13 @@ impl Core {
             })
     }
 
+    /// Remembers Repositories, Groups, open Tabs, the layout and settings in `file`, loading
+    /// what an earlier run left there. Without it nothing outlives the process.
+    pub fn with_registry_file(mut self, file: PathBuf) -> Self {
+        self.registry = RegistryStore::load(file);
+        self
+    }
+
     /// Emits [`CoreEvent::WorktreeChanged`] after files change under the Worktree, whoever
     /// changed them. Watching an already watched Worktree does nothing; a new one becomes the
     /// most recently used Tab.
@@ -315,6 +341,9 @@ impl Core {
         self.watch_worktree(path)?;
         let worktree_path = platform::canonical(path).map_err(ApiError::unexpected)?;
         self.with_tabs(|tabs| tabs.touch(&worktree_path));
+        let worktree_path = worktree_path.to_string_lossy().into_owned();
+        self.registry
+            .remember(|data| data.active_tab = Some(worktree_path));
         Ok(())
     }
 
@@ -360,7 +389,18 @@ impl Core {
     /// app shows. Unlike [`Core::open_folder`] it announces nothing.
     pub fn refresh_tab(&self, path: &Path) -> Result<Tab, ApiError> {
         let (worktree_path, repo) = open_worktree(path)?;
-        read_tab(&repo, &worktree_path)
+        let tab = read_tab(&repo, &worktree_path)?;
+        let repository = repository_folder(&repo)?.to_string_lossy().into_owned();
+        self.registry.remember(|data| {
+            let is_open = data
+                .open_tabs
+                .iter()
+                .any(|open| open.tab.worktree_path == tab.worktree_path);
+            if is_open {
+                data.remember_tab(&tab, &repository);
+            }
+        });
+        Ok(tab)
     }
 
     pub fn github_remote(&self, path: &Path) -> Result<Option<GitHubRepository>, ApiError> {
@@ -413,13 +453,29 @@ impl Core {
     pub fn open_folder(&self, path: &Path) -> Result<Tab, ApiError> {
         let (worktree_path, repo) = open_worktree(path)?;
         let tab = read_tab(&repo, &worktree_path)?;
+        let repository = repository_folder(&repo)?.to_string_lossy().into_owned();
+        self.registry.remember(|data| {
+            data.register_repository(&repository, &tab.repository_name);
+            data.remember_tab(&tab, &repository);
+        });
         (self.on_event)(CoreEvent::TabOpened { tab: tab.clone() });
         Ok(tab)
     }
 }
 
 fn read_tab(repo: &gix::Repository, worktree_path: &Path) -> Result<Tab, ApiError> {
-    let head = match repo.head_name().map_err(ApiError::unexpected)? {
+    Ok(Tab {
+        repository_name: repository_folder(repo)?
+            .file_name()
+            .map(|name| name.to_string_lossy().into_owned())
+            .unwrap_or_default(),
+        worktree_path: worktree_path.to_string_lossy().into_owned(),
+        head: read_head(repo)?,
+    })
+}
+
+fn read_head(repo: &gix::Repository) -> Result<Head, ApiError> {
+    Ok(match repo.head_name().map_err(ApiError::unexpected)? {
         Some(name) => Head::Branch {
             name: name.shorten().to_string(),
         },
@@ -430,17 +486,6 @@ fn read_tab(repo: &gix::Repository, worktree_path: &Path) -> Result<Tab, ApiErro
                 .to_hex_with_len(7)
                 .to_string(),
         },
-    };
-    let common_dir = platform::canonical(repo.common_dir()).map_err(ApiError::unexpected)?;
-
-    Ok(Tab {
-        repository_name: common_dir
-            .parent()
-            .and_then(Path::file_name)
-            .map(|name| name.to_string_lossy().into_owned())
-            .unwrap_or_default(),
-        worktree_path: worktree_path.to_string_lossy().into_owned(),
-        head,
     })
 }
 
@@ -449,6 +494,21 @@ fn files_title(verb: &str, paths: &[String]) -> String {
         [only] => format!("{verb} {only}"),
         _ => format!("{verb} {} files", paths.len()),
     }
+}
+
+/// The folder of the main Worktree, however the Repository was reached.
+fn repository_folder(repo: &gix::Repository) -> Result<PathBuf, ApiError> {
+    let common_dir = platform::canonical(repo.common_dir()).map_err(ApiError::unexpected)?;
+    common_dir
+        .parent()
+        .map(Path::to_path_buf)
+        .ok_or_else(|| ApiError::NotARepository {
+            path: common_dir.to_string_lossy().into_owned(),
+        })
+}
+
+fn is_repository_folder(path: &Path) -> bool {
+    path.join(".git").exists()
 }
 
 fn open_worktree(path: &Path) -> Result<(PathBuf, gix::Repository), ApiError> {
@@ -460,7 +520,7 @@ fn open_worktree(path: &Path) -> Result<(PathBuf, gix::Repository), ApiError> {
     let worktree_path = platform::canonical(path).map_err(ApiError::unexpected)?;
     // Every Worktree root, main or linked, holds a `.git` entry (a folder or a file). Bare
     // repositories have none and have no Worktree to show as a Tab.
-    if !worktree_path.join(".git").exists() {
+    if !is_repository_folder(&worktree_path) {
         return Err(ApiError::NotARepository {
             path: worktree_path.to_string_lossy().into_owned(),
         });

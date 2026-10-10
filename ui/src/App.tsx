@@ -16,7 +16,7 @@ import { shortcuts, useShortcut } from "./shortcuts";
 import { useShellCommands } from "./shellCommands";
 import { useMutations } from "./useMutations";
 import { type OpenTab, useOpenTabs } from "./useOpenTabs";
-import type { ViewName } from "./views";
+import { isViewName, type ViewName } from "./views";
 
 interface AppProps {
   api: CoreApi;
@@ -26,7 +26,8 @@ interface AppProps {
 }
 
 export function App({ api, pickFolder, appWindow, highlighter = defaultHighlighter }: AppProps) {
-  const { openTabs, activeTab, pollingPaths, error, setError, select } = useOpenTabs(api);
+  const { openTabs, activeTab, pollingPaths, restoredView, error, setError, select } =
+    useOpenTabs(api);
   const [view, setView] = useState<ViewName>("Home");
   const [commitSearch, setCommitSearch] = useState<CommitSearch>({ query: "", id: 0 });
   const [gitSetup, setGitSetup] = useState<GitSetup | null>(null);
@@ -39,6 +40,18 @@ export function App({ api, pickFolder, appWindow, highlighter = defaultHighlight
       .then(setGitSetup)
       .catch((failure) => setError(describeError(failure)));
   }, [api, setError]);
+
+  useEffect(() => {
+    if (isViewName(restoredView)) setView(restoredView);
+  }, [restoredView]);
+
+  const changeView = useCallback(
+    (next: ViewName) => {
+      setView(next);
+      api.saveView(next).catch((failure) => setError(describeError(failure)));
+    },
+    [api, setError],
+  );
 
   const openFolder = useCallback(async () => {
     const path = await pickFolder();
@@ -84,7 +97,8 @@ export function App({ api, pickFolder, appWindow, highlighter = defaultHighlight
             runs={runs}
             openFolder={openFolder}
             selectTab={select}
-            showView={setView}
+            showView={changeView}
+            pickFolder={pickFolder}
             showCommits={showCommits}
           />
         </PaletteProvider>
@@ -107,6 +121,7 @@ interface ShellProps {
   openFolder: () => void;
   selectTab: (worktreePath: string) => void;
   showView: (view: ViewName) => void;
+  pickFolder: () => Promise<string | null>;
   showCommits: (query: string) => void;
 }
 
@@ -124,6 +139,7 @@ function Shell({
   openFolder,
   selectTab,
   showView,
+  pickFolder,
   showCommits,
 }: ShellProps) {
   useShellCommands({
@@ -165,7 +181,13 @@ function Shell({
         <>
           <div className="app-body">
             <Sidebar selected={view} onSelect={showView} />
-            <ViewPane view={view} api={api} tab={activeTab} commitSearch={commitSearch} />
+            <ViewPane
+              view={view}
+              api={api}
+              tab={activeTab}
+              commitSearch={commitSearch}
+              pickFolder={pickFolder}
+            />
           </div>
           <OutputPanel runs={runs} onCancel={(run) => void api.cancelMutation(run.id)} />
         </>
