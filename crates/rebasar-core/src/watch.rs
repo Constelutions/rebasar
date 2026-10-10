@@ -1,5 +1,7 @@
 use std::path::{Component, Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{self, RecvTimeoutError};
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use notify::{Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
@@ -23,17 +25,63 @@ const RELEVANT_GIT_ENTRIES: [&str; 8] = [
     "packed-refs",
 ];
 
+pub(crate) enum WatchError {
+    /// The operating system has no more file watches to give.
+    LimitReached,
+    Failed(ApiError),
+}
+
+impl From<ApiError> for WatchError {
+    fn from(error: ApiError) -> Self {
+        Self::Failed(error)
+    }
+}
+
+impl From<notify::Error> for WatchError {
+    fn from(error: notify::Error) -> Self {
+        match error.kind {
+            notify::ErrorKind::MaxFilesWatch => Self::LimitReached,
+            _ => Self::Failed(ApiError::unexpected(error)),
+        }
+    }
+}
+
+/// How long a burst of changes must stay quiet before it is reported. The active Tab refreshes
+/// promptly; background Tabs wait longer so that many of them cannot compete with it.
+struct Debounce {
+    active: Arc<AtomicBool>,
+    background_quiet: Duration,
+}
+
+impl Debounce {
+    fn quiet(&self) -> Duration {
+        match self.active.load(Ordering::Relaxed) {
+            true => QUIET_PERIOD,
+            false => self.background_quiet,
+        }
+    }
+
+    fn max_delay(&self) -> Duration {
+        match self.active.load(Ordering::Relaxed) {
+            true => MAX_DELAY,
+            false => self.background_quiet * 5,
+        }
+    }
+}
+
 /// Reports once per burst of changes to a Worktree; dropping it stops the watching.
 pub(crate) struct WorktreeWatch {
-    _watchers: Vec<RecommendedWatcher>,
+    _watcher: RecommendedWatcher,
 }
 
 impl WorktreeWatch {
     pub(crate) fn start(
         repo: &gix::Repository,
         worktree_path: &Path,
+        active: Arc<AtomicBool>,
+        background_quiet: Duration,
         on_changed: impl Fn() + Send + 'static,
-    ) -> Result<Self, ApiError> {
+    ) -> Result<Self, WatchError> {
         let git_dir = platform::canonical(repo.git_dir()).map_err(ApiError::unexpected)?;
         let common_dir = platform::canonical(repo.common_dir()).map_err(ApiError::unexpected)?;
         let filter = PathFilter {
@@ -43,37 +91,31 @@ impl WorktreeWatch {
         };
 
         let (sender, receiver) = mpsc::channel();
-        let mut watchers = Vec::new();
-        let mut watch = |path: &Path| -> Result<(), ApiError> {
-            let sender = sender.clone();
-            let mut watcher = notify::recommended_watcher(move |event| {
-                let _ = sender.send(event);
-            })
-            .map_err(ApiError::unexpected)?;
-            watcher
-                .watch(path, RecursiveMode::Recursive)
-                .map_err(ApiError::unexpected)?;
-            watchers.push(watcher);
-            Ok(())
-        };
-        watch(worktree_path)?;
+        // One watcher per Worktree keeps the number of OS handles and threads proportional to
+        // the number of Tabs.
+        let mut watcher = notify::recommended_watcher(move |event| {
+            let _ = sender.send(event);
+        })?;
+        watcher.watch(worktree_path, RecursiveMode::Recursive)?;
         // A linked Worktree keeps its index and HEAD outside its own folder.
         if !git_dir.starts_with(worktree_path) {
-            watch(&git_dir)?;
-            watch(&common_dir.join("refs"))?;
+            watcher.watch(&git_dir, RecursiveMode::Recursive)?;
+            watcher.watch(&common_dir.join("refs"), RecursiveMode::Recursive)?;
         }
-        drop(sender);
 
-        std::thread::spawn(move || debounce(&receiver, &filter, &on_changed));
-        Ok(Self {
-            _watchers: watchers,
-        })
+        let debounce_timing = Debounce {
+            active,
+            background_quiet,
+        };
+        std::thread::spawn(move || debounce(&receiver, &filter, &debounce_timing, &on_changed));
+        Ok(Self { _watcher: watcher })
     }
 }
 
 fn debounce(
     receiver: &mpsc::Receiver<notify::Result<Event>>,
     filter: &PathFilter,
+    timing: &Debounce,
     on_changed: &impl Fn(),
 ) {
     loop {
@@ -86,11 +128,11 @@ fn debounce(
         }
 
         let started = Instant::now();
-        let mut deadline = started + QUIET_PERIOD;
+        let mut deadline = started + timing.quiet();
         loop {
             match receiver.recv_timeout(deadline.saturating_duration_since(Instant::now())) {
                 Ok(event) if filter.is_relevant(&event) => {
-                    deadline = (Instant::now() + QUIET_PERIOD).min(started + MAX_DELAY);
+                    deadline = (Instant::now() + timing.quiet()).min(started + timing.max_delay());
                 }
                 Ok(_) => {}
                 Err(RecvTimeoutError::Timeout) => break,

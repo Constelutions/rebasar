@@ -76,6 +76,22 @@ async fn history_count(
         .map_err(ApiError::unexpected)?
 }
 
+#[tauri::command]
+async fn activate_tab(core: State<'_, Arc<Core>>, path: PathBuf) -> Result<(), ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.activate_tab(&path))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn refresh_tab(core: State<'_, Arc<Core>>, path: PathBuf) -> Result<Tab, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.refresh_tab(&path))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
@@ -95,7 +111,9 @@ fn main() {
             file_diff,
             watch_worktree,
             history_page,
-            history_count
+            history_count,
+            activate_tab,
+            refresh_tab
         ])
         .run(tauri::generate_context!())
         .expect("failed to run Rebasar");
