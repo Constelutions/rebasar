@@ -1,7 +1,8 @@
 use rebasar_core::{
-    ApiError, ChangeKind, ChangeList, CoreEvent, DiffContent, DiffLine, DiffRequest, Edge, EdgeKind,
-    FileChange, FileDiff, Head, HistoryCount, HistoryFilter, HistoryPage, HistoryRow, Hunk, LineKind,
-    ModeChange, RefKind, RefLabel, Tab, WorktreeStatus,
+    ApiError, ChangeKind, ChangeList, CheckState, CoreEvent, DiffContent, DiffLine, DiffRequest,
+    Edge, EdgeKind, FileChange, FileDiff, GitHubAuthStatus, GitHubRepository, Head, HistoryCount,
+    HistoryFilter, HistoryPage, HistoryRow, Hunk, LineKind, ModeChange, PullRequest, RefKind,
+    RefLabel, ReviewState, Tab, TokenSource, WorktreeStatus,
 };
 use serde_json::json;
 
@@ -344,5 +345,84 @@ fn a_polling_tabs_changed_event_serialises_to_the_shape_the_ui_expects() {
         })
         .unwrap(),
         json!({ "type": "pollingTabsChanged", "worktreePaths": ["/work/sample"] })
+    );
+}
+
+#[test]
+fn a_pull_request_serialises_to_the_shape_the_ui_expects() {
+    let pull_request = PullRequest {
+        number: 42,
+        title: "Add the widget cache".to_owned(),
+        url: "https://github.com/acme/widgets/pull/42".to_owned(),
+        author: "octocat".to_owned(),
+        head_branch: "feature/cache".to_owned(),
+        base_branch: "main".to_owned(),
+        is_draft: true,
+        checks: CheckState::Failure,
+        review: ReviewState::ChangesRequested,
+    };
+
+    assert_eq!(
+        serde_json::to_value(pull_request).unwrap(),
+        json!({
+            "number": 42,
+            "title": "Add the widget cache",
+            "url": "https://github.com/acme/widgets/pull/42",
+            "author": "octocat",
+            "headBranch": "feature/cache",
+            "baseBranch": "main",
+            "isDraft": true,
+            "checks": "failure",
+            "review": "changesRequested",
+        })
+    );
+}
+
+#[test]
+fn github_auth_and_remote_serialise_to_the_shape_the_ui_expects() {
+    assert_eq!(
+        serde_json::to_value(GitHubAuthStatus {
+            source: Some(TokenSource::PersonalAccessToken)
+        })
+        .unwrap(),
+        json!({ "source": "personalAccessToken" })
+    );
+    assert_eq!(
+        serde_json::to_value(GitHubAuthStatus { source: None }).unwrap(),
+        json!({ "source": null })
+    );
+    assert_eq!(
+        serde_json::to_value(GitHubRepository {
+            owner: "acme".to_owned(),
+            name: "widgets".to_owned()
+        })
+        .unwrap(),
+        json!({ "owner": "acme", "name": "widgets" })
+    );
+}
+
+#[test]
+fn github_errors_serialise_to_the_shape_the_ui_expects() {
+    let serialised = |error: ApiError| serde_json::to_value(error).unwrap();
+
+    assert_eq!(
+        serialised(ApiError::NotGithub {
+            path: "/work/sample".to_owned()
+        }),
+        json!({ "kind": "notGithub", "path": "/work/sample" })
+    );
+    assert_eq!(
+        serialised(ApiError::GithubNotSignedIn),
+        json!({ "kind": "githubNotSignedIn" })
+    );
+    assert_eq!(
+        serialised(ApiError::GithubTokenRejected),
+        json!({ "kind": "githubTokenRejected" })
+    );
+    assert_eq!(
+        serialised(ApiError::GithubRequestFailed {
+            message: "rate limited".to_owned()
+        }),
+        json!({ "kind": "githubRequestFailed", "message": "rate limited" })
     );
 }

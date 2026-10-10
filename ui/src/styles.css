@@ -939,3 +939,121 @@ button {
   padding: var(--space-2) var(--space-4);
   color: var(--color-warning);
 }
+
+.pull-requests {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  flex: 1;
+  min-height: 0;
+  margin-top: var(--space-4);
+  overflow-y: auto;
+}
+
+.pull-request-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pull-request {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--row-height);
+  padding: var(--space-2);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.pull-request-number,
+.pull-request-branches {
+  font: var(--text-xs) var(--font-mono);
+  color: var(--color-text-subtle);
+}
+
+.pull-request-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-text-strong);
+}
+
+.pull-request-branches {
+  margin-left: auto;
+}
+
+.pull-request-author {
+  color: var(--color-text-muted);
+}
+
+.badge {
+  flex: none;
+  padding: 1px var(--space-2);
+  font-size: var(--text-xs);
+  white-space: nowrap;
+  color: var(--color-text-muted);
+  border: 1px solid var(--color-border-raised);
+  border-radius: var(--radius-sm);
+}
+
+.badge-checks-success,
+.badge-review-approved {
+  color: var(--color-success);
+}
+
+.badge-checks-failure,
+.badge-review-changesRequested {
+  color: var(--color-danger);
+}
+
+.badge-checks-pending,
+.badge-review-reviewRequired {
+  color: var(--color-warning);
+}
+
+.github-sign-in {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  max-width: 480px;
+  margin-top: var(--space-4);
+}
+
+.github-sign-in p {
+  margin: 0;
+  color: var(--color-text-muted);
+}
+
+.github-sign-in input {
+  box-sizing: border-box;
+  width: 100%;
+  height: var(--control-height);
+  padding: 0 var(--space-3);
+  font: inherit;
+  color: var(--color-text);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border-raised);
+  border-radius: var(--radius-md);
+  user-select: text;
+}
+
+.github-sign-in button,
+.github-sign-out {
+  height: var(--control-height);
+  padding: 0 var(--space-4);
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border-raised);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+.github-sign-in button:disabled {
+  color: var(--color-text-subtle);
+  cursor: default;
+}
+
+.github-sign-out {
+  align-self: flex-start;
+}

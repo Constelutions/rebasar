@@ -1,0 +1,54 @@
+{
+  "data": {
+    "repository": {
+      "pullRequests": {
+        "nodes": [
+          {
+            "number": 42,
+            "title": "Add the widget cache",
+            "url": "https://github.com/acme/widgets/pull/42",
+            "isDraft": false,
+            "headRefName": "feature/cache",
+            "baseRefName": "main",
+            "author": { "login": "octocat" },
+            "reviewDecision": "APPROVED",
+            "commits": { "nodes": [{ "commit": { "statusCheckRollup": { "state": "SUCCESS" } } }] }
+          },
+          {
+            "number": 41,
+            "title": "WIP: rework the parser",
+            "url": "https://github.com/acme/widgets/pull/41",
+            "isDraft": true,
+            "headRefName": "parser",
+            "baseRefName": "main",
+            "author": { "login": "hubot" },
+            "reviewDecision": null,
+            "commits": { "nodes": [{ "commit": { "statusCheckRollup": { "state": "PENDING" } } }] }
+          },
+          {
+            "number": 40,
+            "title": "Fix the build",
+            "url": "https://github.com/acme/widgets/pull/40",
+            "isDraft": false,
+            "headRefName": "fix-build",
+            "baseRefName": "release",
+            "author": null,
+            "reviewDecision": "CHANGES_REQUESTED",
+            "commits": { "nodes": [{ "commit": { "statusCheckRollup": { "state": "FAILURE" } } }] }
+          },
+          {
+            "number": 39,
+            "title": "Docs",
+            "url": "https://github.com/acme/widgets/pull/39",
+            "isDraft": false,
+            "headRefName": "docs",
+            "baseRefName": "main",
+            "author": { "login": "octocat" },
+            "reviewDecision": "REVIEW_REQUIRED",
+            "commits": { "nodes": [{ "commit": { "statusCheckRollup": null } }] }
+          }
+        ]
+      }
+    }
+  }
+}
