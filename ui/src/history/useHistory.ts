@@ -10,16 +10,18 @@ interface HistoryState {
   items: HistoryItem[];
   laneCount: number;
   loaded: boolean;
+  hasMore: boolean;
   error: string | null;
 }
 
-const empty: HistoryState = { items: [], laneCount: 1, loaded: false, error: null };
+const empty: HistoryState = { items: [], laneCount: 1, loaded: false, hasMore: true, error: null };
 
 function withPage(state: HistoryState, page: HistoryPage): HistoryState {
   return {
     items: appendRows(state.items, page.rows),
     laneCount: page.rows.reduce((widest, row) => Math.max(widest, row.laneCount), state.laneCount),
     loaded: true,
+    hasMore: page.hasMore,
     error: null,
   };
 }
@@ -51,7 +53,7 @@ export function useHistory(api: CoreApi, worktreePath: string) {
           loading = false;
           if (!active) return;
           hasMore = false;
-          setState((current) => ({ ...current, loaded: true, error: describeError(failure) }));
+          setState((current) => ({ ...current, loaded: true, hasMore: false, error: describeError(failure) }));
         },
       );
     };
