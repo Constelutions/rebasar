@@ -1,8 +1,9 @@
 use rebasar_core::{
     ApiError, ChangeKind, ChangeList, CheckState, CoreEvent, DiffContent, DiffLine, DiffRequest,
-    Edge, EdgeKind, FileChange, FileDiff, GitHubAuthStatus, GitHubRepository, Head, HistoryCount,
-    HistoryFilter, HistoryPage, HistoryRow, Hunk, LineKind, ModeChange, PullRequest, RefKind,
-    RefLabel, ReviewState, Tab, TokenSource, WorktreeStatus,
+    Edge, EdgeKind, FileChange, FileDiff, GitHubAuthStatus, GitHubRepository, GitSetup, Head,
+    HistoryCount, HistoryFilter, HistoryPage, HistoryRow, Hunk, LineKind, ModeChange,
+    MutationId, MutationInfo, MutationOutcome, OutputStream, PullRequest, RefKind, RefLabel,
+    ReviewState, Tab, TokenSource, WorktreeStatus,
 };
 use serde_json::json;
 
@@ -424,5 +425,88 @@ fn github_errors_serialise_to_the_shape_the_ui_expects() {
             message: "rate limited".to_owned()
         }),
         json!({ "kind": "githubRequestFailed", "message": "rate limited" })
+    );
+}
+
+#[test]
+fn mutation_events_serialise_to_the_shape_the_ui_expects() {
+    let id: MutationId = serde_json::from_value(json!(7)).unwrap();
+
+    assert_eq!(
+        serde_json::to_value(CoreEvent::MutationQueued {
+            mutation: MutationInfo {
+                id,
+                worktree_path: "/work/sample".to_owned(),
+                title: "Commit".to_owned(),
+            }
+        })
+        .unwrap(),
+        json!({
+            "type": "mutationQueued",
+            "mutation": { "id": 7, "worktreePath": "/work/sample", "title": "Commit" },
+        })
+    );
+    assert_eq!(
+        serde_json::to_value(CoreEvent::MutationStarted { mutation_id: id }).unwrap(),
+        json!({ "type": "mutationStarted", "mutationId": 7 })
+    );
+    assert_eq!(
+        serde_json::to_value(CoreEvent::MutationOutput {
+            mutation_id: id,
+            stream: OutputStream::Stderr,
+            text: "lint failed".to_owned(),
+            transient: false,
+        })
+        .unwrap(),
+        json!({
+            "type": "mutationOutput",
+            "mutationId": 7,
+            "stream": "stderr",
+            "text": "lint failed",
+            "transient": false,
+        })
+    );
+    assert_eq!(
+        serde_json::to_value(CoreEvent::MutationFinished {
+            mutation_id: id,
+            outcome: MutationOutcome::Failed { exit_code: Some(1) },
+        })
+        .unwrap(),
+        json!({
+            "type": "mutationFinished",
+            "mutationId": 7,
+            "outcome": { "kind": "failed", "exitCode": 1 },
+        })
+    );
+}
+
+#[test]
+fn mutation_outcomes_without_details_serialise_to_a_kind() {
+    assert_eq!(
+        serde_json::to_value(MutationOutcome::Succeeded).unwrap(),
+        json!({ "kind": "succeeded" })
+    );
+    assert_eq!(
+        serde_json::to_value(MutationOutcome::Cancelled).unwrap(),
+        json!({ "kind": "cancelled" })
+    );
+}
+
+#[test]
+fn the_git_setup_serialises_to_the_shape_the_ui_expects() {
+    assert_eq!(
+        serde_json::to_value(GitSetup::from_version_output(Some(
+            "git version 2.47.1.windows.2"
+        )))
+        .unwrap(),
+        json!({ "kind": "ready", "version": "2.47.1" })
+    );
+    assert_eq!(
+        serde_json::to_value(GitSetup::from_version_output(Some("git version 2.30.0"))).unwrap(),
+        json!({ "kind": "tooOld", "version": "2.30.0", "minimum": "2.35.0" })
+    );
+    assert_eq!(
+        serde_json::to_value(GitSetup::from_version_output(None)).unwrap(),
+        json!({ "kind": "missing", "minimum": "2.35.0" })
     );
 }
