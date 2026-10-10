@@ -2,11 +2,14 @@ import type {
   CoreApi,
   CoreEvent,
   DiffRequest,
+  FileChange,
   FileDiff,
   GitHubAuthStatus,
   GitHubRepository,
+  GitSetup,
   Head,
   HistoryRow,
+  MutationOutcome,
   PullRequest,
   Tab,
   TokenSource,
@@ -19,6 +22,8 @@ export function diffKey({ list, path }: Pick<DiffRequest, "list" | "path">) {
   return `${list}:${path}`;
 }
 
+const ready: GitSetup = { kind: "ready", version: "2.47.1" };
+
 export interface StubGitHub {
   /** GitHub remote by Worktree path; a Worktree that is not listed has no GitHub remote. */
   remotes?: Record<string, GitHubRepository>;
@@ -30,6 +35,12 @@ export interface StubGitHub {
   pullRequests?: Record<string, PullRequest[]>;
 }
 
+export interface MutationFailure {
+  exitCode: number;
+  /** Written to stderr, as a failing hook would. */
+  output: string[];
+}
+
 export interface StubCoreApi extends CoreApi {
   /** Replaces what the Worktree reports, as an edit made outside the app would. */
   changeWorktree(path: string, status: WorktreeStatus): void;
@@ -39,7 +50,13 @@ export interface StubCoreApi extends CoreApi {
   setPolling(paths: string[]): void;
   /** Makes status reads wait until the returned function is called. */
   holdStatusReads(): () => void;
+  /** Delivers an event as if the core had emitted it, to drive streaming and progress. */
+  emitEvent(event: CoreEvent): void;
+  /** Makes the next stage, unstage or commit fail the way `git` would. */
+  failNextMutation(failure: MutationFailure): void;
   readonly watchedWorktrees: ReadonlySet<string>;
+  readonly cancelledMutations: readonly number[];
+  readonly commits: readonly { worktreePath: string; message: string }[];
   /** Every diff the UI asked for, in order. */
   readonly diffRequests: readonly DiffRequest[];
   /** The Tab the user last activated, as the core sees it. */
@@ -58,12 +75,17 @@ export function createStubCoreApi(
   histories: Record<string, HistoryRow[]> = {},
   diffs: Record<string, FileDiff> = {},
   github: StubGitHub = {},
+  gitSetup: GitSetup = ready,
 ): StubCoreApi {
   const handlers = new Set<(event: CoreEvent) => void>();
   const current = new Map(Object.entries(statuses));
   const tabs = new Map(Object.entries(repositories));
   const watched = new Set<string>();
   const diffRequests: DiffRequest[] = [];
+  const cancelled: number[] = [];
+  const commits: { worktreePath: string; message: string }[] = [];
+  const failures: MutationFailure[] = [];
+  let nextMutationId = 1;
   const emit = (event: CoreEvent) => handlers.forEach((handler) => handler(event));
   let active: string | null = null;
   let held: Promise<void> | null = null;
@@ -75,6 +97,33 @@ export function createStubCoreApi(
     }
     return tab;
   }
+  const statusOf = (path: string) => current.get(path) ?? emptyStatus;
+
+  function mutate(
+    path: string,
+    title: string,
+    change: (status: WorktreeStatus) => WorktreeStatus,
+  ): MutationOutcome {
+    const mutationId = nextMutationId++;
+    emit({ type: "mutationQueued", mutation: { id: mutationId, worktreePath: path, title } });
+    emit({ type: "mutationStarted", mutationId });
+
+    const failure = failures.shift();
+    let outcome: MutationOutcome = { kind: "succeeded" };
+    if (failure) {
+      for (const text of failure.output) {
+        emit({ type: "mutationOutput", mutationId, stream: "stderr", text, transient: false });
+      }
+      outcome = { kind: "failed", exitCode: failure.exitCode };
+    } else {
+      current.set(path, change(statusOf(path)));
+    }
+
+    emit({ type: "mutationFinished", mutationId, outcome });
+    if (outcome.kind === "succeeded") emit({ type: "worktreeChanged", worktreePath: path });
+    return outcome;
+  }
+
   let source: TokenSource | null = github.signedInWith ?? null;
   const authStatus = (): GitHubAuthStatus => ({ source });
 
@@ -85,7 +134,7 @@ export function createStubCoreApi(
       return tab;
     },
     async worktreeStatus(path) {
-      const snapshot = current.get(path) ?? emptyStatus;
+      const snapshot = statusOf(path);
       await held;
       return snapshot;
     },
@@ -145,6 +194,40 @@ export function createStubCoreApi(
       if (source === null) throw { kind: "githubNotSignedIn" };
       return github.pullRequests?.[path] ?? [];
     },
+    async checkGit() {
+      return gitSetup;
+    },
+    async stageFiles(path, paths) {
+      return mutate(path, titleFor("Stage", paths), (status) => ({
+        ...status,
+        staged: [
+          ...status.staged,
+          ...status.unstaged.filter((file) => paths.includes(file.path)).map(asStaged),
+        ],
+        unstaged: status.unstaged.filter((file) => !paths.includes(file.path)),
+      }));
+    },
+    async unstageFiles(path, paths) {
+      return mutate(path, titleFor("Unstage", paths), (status) => ({
+        ...status,
+        staged: status.staged.filter((file) => !paths.includes(file.path)),
+        unstaged: [
+          ...status.unstaged,
+          ...status.staged.filter((file) => paths.includes(file.path)).map(asUnstaged),
+        ],
+      }));
+    },
+    async commit(path, message) {
+      if (statusOf(path).staged.length === 0) {
+        failures.unshift({ exitCode: 1, output: ["nothing to commit"] });
+      }
+      const outcome = mutate(path, "Commit", (status) => ({ ...status, staged: [] }));
+      if (outcome.kind === "succeeded") commits.push({ worktreePath: path, message });
+      return outcome;
+    },
+    async cancelMutation(mutationId) {
+      cancelled.push(mutationId);
+    },
     async onEvent(handler) {
       handlers.add(handler);
       return () => handlers.delete(handler);
@@ -170,10 +253,28 @@ export function createStubCoreApi(
         held = null;
       };
     },
+    emitEvent: emit,
+    failNextMutation(failure) {
+      failures.push(failure);
+    },
     watchedWorktrees: watched,
+    cancelledMutations: cancelled,
+    commits,
     diffRequests,
     get activeWorktree() {
       return active;
     },
   };
+}
+
+function titleFor(verb: string, paths: string[]): string {
+  return paths.length === 1 ? `${verb} ${paths[0]}` : `${verb} ${paths.length} files`;
+}
+
+function asStaged(file: FileChange): FileChange {
+  return file.kind === "untracked" ? { ...file, kind: "added" } : file;
+}
+
+function asUnstaged(file: FileChange): FileChange {
+  return file.kind === "added" ? { ...file, kind: "untracked" } : file;
 }

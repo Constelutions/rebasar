@@ -1057,3 +1057,154 @@ button {
 .github-sign-out {
   align-self: flex-start;
 }
+
+.changes-view {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-height: 0;
+}
+
+.row-action {
+  padding: 0 var(--space-2);
+  color: var(--color-text-muted);
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.row-action:hover {
+  background: var(--color-hover);
+}
+
+.line-counts + .row-action {
+  margin-left: var(--space-2);
+}
+
+.commit-composer {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.commit-composer textarea {
+  resize: vertical;
+  padding: var(--space-2);
+  font: inherit;
+  color: var(--color-text);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  user-select: text;
+}
+
+.commit-composer button {
+  align-self: flex-end;
+  padding: var(--space-1) var(--space-4);
+  color: var(--color-on-accent);
+  background: var(--color-accent);
+  border: 0;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.commit-composer button:disabled {
+  color: var(--color-text-subtle);
+  background: var(--color-surface-raised);
+  cursor: default;
+}
+
+.output-panel {
+  flex: none;
+  margin: 0 var(--space-3) var(--space-3);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+
+.output-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-4);
+}
+
+.output-toggle {
+  padding: 0;
+  font-weight: 600;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+
+.output-toggle::after {
+  content: " ▸";
+  color: var(--color-text-subtle);
+}
+
+.output-toggle[aria-expanded="true"]::after {
+  content: " ▾";
+}
+
+.output-summary {
+  flex: 1;
+  color: var(--color-text-subtle);
+}
+
+.output-progress {
+  width: 80px;
+}
+
+.output-cancel {
+  padding: 0 var(--space-2);
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.output-body {
+  max-height: var(--output-body-height);
+  padding: 0 var(--space-4) var(--space-3);
+  overflow-y: auto;
+}
+
+.output-run h3 {
+  margin: var(--space-2) 0 var(--space-1);
+  font-size: var(--text-md);
+}
+
+.output-state {
+  font-weight: 400;
+  color: var(--color-text-subtle);
+}
+
+.output-lines {
+  margin: 0;
+  font: var(--text-sm) / 1.5 var(--font-mono);
+  white-space: pre-wrap;
+  user-select: text;
+}
+
+.output-stderr {
+  color: var(--color-warning);
+}
+
+.setup-screen {
+  flex: 1;
+  max-width: 560px;
+  padding: var(--space-5);
+}
+
+.file-row-wrap {
+  display: flex;
+  align-items: center;
+}
+
+.file-row-wrap .file-row {
+  flex: 1;
+  min-width: 0;
+}

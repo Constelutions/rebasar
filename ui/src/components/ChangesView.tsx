@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { type FormEvent, useEffect, useId, useMemo, useState } from "react";
 
 import type { ChangeList, CoreApi, FileChange, FileDiff, WorktreeStatus } from "../core/api";
 import { describeError } from "../core/describeError";
 import { type ChangeGroup, type GroupTree, buildGroupTrees, firstFile } from "./changeTree";
 import { DiffView } from "./DiffView";
 import type { DiffMode } from "./diffRows";
-import { FileTree, type FileSelection } from "./FileTree";
+import { type FileAction, FileTree, type FileSelection } from "./FileTree";
 
 interface ChangesViewProps {
   api: CoreApi;
@@ -17,6 +17,7 @@ interface ChangesViewProps {
 export function ChangesView({ api, worktreePath, status, error }: ChangesViewProps) {
   const [picked, setPicked] = useState<FileSelection | null>(null);
   const [mode, setMode] = useState<DiffMode>("unified");
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const trees = useMemo(() => buildGroupTrees(status ? changeGroups(status) : []), [status]);
   const selected = useMemo(() => resolveSelection(trees, picked), [trees, picked]);
@@ -30,34 +31,115 @@ export function ChangesView({ api, worktreePath, status, error }: ChangesViewPro
     );
   }
   if (!status) return null;
-  if (trees.length === 0) return <p className="placeholder">No changes.</p>;
+
+  async function report(action: Promise<unknown>) {
+    setActionError(null);
+    try {
+      await action;
+    } catch (failure) {
+      setActionError(describeError(failure));
+    }
+  }
+
+  const stage: FileAction = {
+    label: "Stage",
+    run: (change) => void report(api.stageFiles(worktreePath, [change.path])),
+  };
+  const unstage: FileAction = {
+    label: "Unstage",
+    run: (change) => void report(api.unstageFiles(worktreePath, pathsOf(change))),
+  };
+  const actionFor = (list: ChangeList) =>
+    list === "unstaged" ? stage : list === "staged" ? unstage : undefined;
 
   return (
-    <div className="changes">
-      <div className="changes-files">
-        <FileTree
-          trees={trees}
-          selected={selected && { list: selected.list, path: selected.change.path }}
-          onSelect={(list, change) => setPicked({ list, path: change.path })}
-        />
-      </div>
-      <div className="changes-diff">
-        {diff.error && (
-          <p role="alert" className="error">
-            {diff.error}
-          </p>
-        )}
-        {diff.value && (
-          <DiffView
-            key={`${selected?.list}:${diff.value.path}`}
-            diff={diff.value}
-            mode={mode}
-            onModeChange={setMode}
-            onLoadLarge={diff.loadLarge}
-          />
-        )}
-      </div>
+    <div className="changes-view">
+      {actionError && (
+        <p role="alert" className="error">
+          {actionError}
+        </p>
+      )}
+      {trees.length === 0 ? (
+        <p className="placeholder">No changes.</p>
+      ) : (
+        <div className="changes">
+          <div className="changes-files">
+            <FileTree
+              trees={trees}
+              selected={selected && { list: selected.list, path: selected.change.path }}
+              onSelect={(list, change) => setPicked({ list, path: change.path })}
+              actionFor={actionFor}
+            />
+          </div>
+          <div className="changes-diff">
+            {diff.error && (
+              <p role="alert" className="error">
+                {diff.error}
+              </p>
+            )}
+            {diff.value && (
+              <DiffView
+                key={`${selected?.list}:${diff.value.path}`}
+                diff={diff.value}
+                mode={mode}
+                onModeChange={setMode}
+                onLoadLarge={diff.loadLarge}
+              />
+            )}
+          </div>
+        </div>
+      )}
+      <CommitComposer
+        canCommit={status.staged.length > 0}
+        onCommit={(message) => api.commit(worktreePath, message)}
+        onFailure={(failure) => setActionError(describeError(failure))}
+      />
     </div>
+  );
+}
+
+/** A renamed file is two index entries, so unstaging it must name both. */
+function pathsOf(change: FileChange): string[] {
+  return change.originalPath ? [change.path, change.originalPath] : [change.path];
+}
+
+interface CommitComposerProps {
+  canCommit: boolean;
+  onCommit: (message: string) => Promise<{ kind: string }>;
+  onFailure: (failure: unknown) => void;
+}
+
+function CommitComposer({ canCommit, onCommit, onFailure }: CommitComposerProps) {
+  const [message, setMessage] = useState("");
+  const [committing, setCommitting] = useState(false);
+  const messageId = useId();
+
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    setCommitting(true);
+    try {
+      const outcome = await onCommit(message);
+      if (outcome.kind === "succeeded") setMessage("");
+    } catch (failure) {
+      onFailure(failure);
+    } finally {
+      setCommitting(false);
+    }
+  }
+
+  return (
+    <form className="commit-composer" aria-label="Commit" onSubmit={submit}>
+      <label htmlFor={messageId}>Commit message</label>
+      <textarea
+        id={messageId}
+        rows={3}
+        value={message}
+        onChange={(event) => setMessage(event.target.value)}
+      />
+      <button type="submit" disabled={!canCommit || message.trim() === "" || committing}>
+        Commit
+      </button>
+    </form>
   );
 }
 

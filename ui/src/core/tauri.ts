@@ -11,6 +11,8 @@ import type {
   GitHubAuthStatus,
   GitHubRepository,
   PullRequest,
+  GitSetup,
+  MutationOutcome,
   Tab,
   WorktreeStatus,
 } from "./api";
@@ -31,5 +33,10 @@ export const tauriCoreApi: CoreApi = {
   signInToGitHub: (token) => invoke<GitHubAuthStatus>("sign_in_to_github", { token }),
   signOutOfGitHub: () => invoke<GitHubAuthStatus>("sign_out_of_github"),
   pullRequests: (path) => invoke<PullRequest[]>("pull_requests", { path }),
+  checkGit: () => invoke<GitSetup>("check_git"),
+  stageFiles: (path, paths) => invoke<MutationOutcome>("stage_files", { path, paths }),
+  unstageFiles: (path, paths) => invoke<MutationOutcome>("unstage_files", { path, paths }),
+  commit: (path, message) => invoke<MutationOutcome>("commit", { path, message }),
+  cancelMutation: (mutationId) => invoke<void>("cancel_mutation", { mutationId }),
   onEvent: (handler) => listen<CoreEvent>("core-event", ({ payload }) => handler(payload)),
 };

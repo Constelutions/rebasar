@@ -10,4 +10,4 @@ Read paths (commit graph, status, diff, refs) go through `gix` because they deci
 
 ## Consequences
 
-A system `git` at a minimum supported version is required; the app shows a setup screen when it is missing. Bundling `git` is deferred.
+A system `git` at a minimum supported version (2.35.0, the oldest the test suite runs against) is required; the app shows a setup screen when it is missing. Bundling `git` is deferred.

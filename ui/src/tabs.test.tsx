@@ -211,9 +211,11 @@ it("tells the user when Tabs fall back to polling and stops once they are watche
 
   api.setPolling([app.worktreePath]);
 
-  expect(await screen.findByRole("status")).toHaveTextContent(/1 Tab .*checked periodically/i);
+  expect(await screen.findByText(/1 Tab .*checked periodically/i)).toBeInTheDocument();
 
   api.setPolling([]);
 
-  await vi.waitFor(() => expect(screen.queryByRole("status")).not.toBeInTheDocument());
+  await vi.waitFor(() =>
+    expect(screen.queryByText(/checked periodically/i)).not.toBeInTheDocument(),
+  );
 });

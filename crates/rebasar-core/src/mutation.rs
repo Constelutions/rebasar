@@ -114,28 +114,34 @@ impl MutationRunner {
             },
         });
 
-        let (outcome, started) = match queue.enter(id, &control) {
+        let outcome = match queue.enter(id, &control) {
             Some(turn) => {
                 self.emit(CoreEvent::MutationStarted { mutation_id: id });
                 let outcome = self.execute(id, &worktree_path, &mutation, &control);
+                lock(&self.controls).remove(&id);
+                // Everything is reported before the turn is released so that the next
+                // mutation's events can never overtake this one's.
+                self.emit(CoreEvent::MutationFinished {
+                    mutation_id: id,
+                    outcome,
+                });
+                // Also reported by the file watcher, but only after its quiet period; this
+                // makes the view current the moment the mutation ends.
+                self.emit(CoreEvent::WorktreeChanged {
+                    worktree_path: reported_path,
+                });
                 drop(turn);
-                (outcome, true)
+                outcome
             }
-            None => (MutationOutcome::Cancelled, false),
+            None => {
+                lock(&self.controls).remove(&id);
+                self.emit(CoreEvent::MutationFinished {
+                    mutation_id: id,
+                    outcome: MutationOutcome::Cancelled,
+                });
+                MutationOutcome::Cancelled
+            }
         };
-
-        lock(&self.controls).remove(&id);
-        self.emit(CoreEvent::MutationFinished {
-            mutation_id: id,
-            outcome,
-        });
-        // Reported here as well as by the file watcher so the view is current the moment the
-        // mutation ends, not after the watcher's quiet period.
-        if started {
-            self.emit(CoreEvent::WorktreeChanged {
-                worktree_path: reported_path,
-            });
-        }
         Ok(outcome)
     }
 
@@ -173,12 +179,14 @@ impl MutationRunner {
             }
         };
 
-        {
-            let mut pid = lock(&control.pid);
-            *pid = Some(child.id());
+        // Cancel can only reach the process once it is registered, so a cancel that arrived
+        // earlier is honoured here.
+        if let Ok(tree) = platform::ProcessTree::adopt(&child) {
+            let mut registered = lock(&control.tree);
             if control.is_cancelled() {
-                platform::kill_process_tree(child.id());
+                tree.kill();
             }
+            *registered = Some(tree);
         }
 
         let stdout = child.stdout.take().expect("piped stdout");
@@ -188,7 +196,7 @@ impl MutationRunner {
             scope.spawn(|| self.stream_output(id, OutputStream::Stderr, stderr));
             child.wait()
         });
-        lock(&control.pid).take();
+        lock(&control.tree).take();
 
         match status {
             Ok(status) if status.success() => MutationOutcome::Succeeded,
@@ -276,7 +284,7 @@ impl RepositoryQueue {
 
 struct Control {
     cancelled: AtomicBool,
-    pid: Mutex<Option<u32>>,
+    tree: Mutex<Option<platform::ProcessTree>>,
     queue: Arc<RepositoryQueue>,
 }
 
@@ -284,7 +292,7 @@ impl Control {
     fn new(queue: Arc<RepositoryQueue>) -> Self {
         Self {
             cancelled: AtomicBool::new(false),
-            pid: Mutex::new(None),
+            tree: Mutex::new(None),
             queue,
         }
     }
@@ -295,8 +303,8 @@ impl Control {
 
     fn cancel(&self) {
         self.cancelled.store(true, Ordering::SeqCst);
-        if let Some(pid) = *lock(&self.pid) {
-            platform::kill_process_tree(pid);
+        if let Some(tree) = lock(&self.tree).as_ref() {
+            tree.kill();
         }
         // Taking the queue lock first means a waiter is either already asleep or will see the
         // flag before it goes to sleep, so the wake-up cannot be missed.

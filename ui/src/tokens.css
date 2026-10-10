@@ -77,6 +77,7 @@
   --tab-max-width: 260px;
   --switcher-width: 320px;
   --switcher-max-height: 360px;
+  --output-body-height: 220px;
 
   color-scheme: dark;
 }

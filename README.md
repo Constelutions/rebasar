@@ -10,7 +10,7 @@ Pre-alpha. The first alpha targets Windows, with Linux next and macOS later. The
 
 ## Development
 
-Requirements: a system `git`, [Rust](https://rustup.rs) (stable, MSVC toolchain on Windows), Node.js and [`pnpm`](https://pnpm.io), plus the [Tauri prerequisites](https://tauri.app/start/prerequisites/) for your OS.
+Requirements: a system `git` 2.35.0 or newer (the app shows a setup screen at startup when it is missing or older; the pinned version is `MINIMUM_GIT_VERSION` in `crates/rebasar-core/src/git_setup.rs`), [Rust](https://rustup.rs) (stable, MSVC toolchain on Windows), Node.js and [`pnpm`](https://pnpm.io), plus the [Tauri prerequisites](https://tauri.app/start/prerequisites/) for your OS.
 
 | Layout | Purpose |
 |---|---|

@@ -21,13 +21,20 @@ export interface FileSelection {
   path: string;
 }
 
+export interface FileAction {
+  label: string;
+  run: (change: FileChange) => void;
+}
+
 interface FileTreeProps {
   trees: GroupTree[];
   selected: FileSelection | null;
   onSelect: (list: ChangeList, change: FileChange) => void;
+  /** The button that moves a file out of the given list, if the list has one. */
+  actionFor?: (list: ChangeList) => FileAction | undefined;
 }
 
-export function FileTree({ trees, selected, onSelect }: FileTreeProps) {
+export function FileTree({ trees, selected, onSelect, actionFor }: FileTreeProps) {
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
   const rows = useMemo(() => flattenChanges(trees, collapsed), [trees, collapsed]);
 
@@ -54,6 +61,7 @@ export function FileTree({ trees, selected, onSelect }: FileTreeProps) {
           selected={row.type === "file" && row.key === selectedKey}
           onToggle={toggle}
           onSelect={onSelect}
+          action={row.type === "file" ? actionFor?.(row.list) : undefined}
         />
       )}
     />
@@ -65,9 +73,10 @@ interface TreeRowViewProps {
   selected: boolean;
   onToggle: (key: string) => void;
   onSelect: (list: ChangeList, change: FileChange) => void;
+  action: FileAction | undefined;
 }
 
-function TreeRowView({ row, selected, onToggle, onSelect }: TreeRowViewProps) {
+function TreeRowView({ row, selected, onToggle, onSelect, action }: TreeRowViewProps) {
   const indent = { paddingLeft: `calc(var(--space-4) * ${"depth" in row ? row.depth : 0})` };
 
   if (row.type === "group") {
@@ -96,20 +105,32 @@ function TreeRowView({ row, selected, onToggle, onSelect }: TreeRowViewProps) {
 
   const { kind, originalPath, added, removed } = row.file.change;
   return (
-    <button
-      type="button"
-      aria-current={selected || undefined}
-      className="tree-row file-row"
-      style={indent}
-      onClick={() => onSelect(row.list, row.file.change)}
-    >
-      <span className={`status-letter status-${kind}`} title={statusLetters[kind].label}>
-        {statusLetters[kind].letter}
-      </span>
-      <span className="tree-name">{row.file.name}</span>
-      {originalPath && <span className="renamed-from">{originalPath}</span>}
-      <LineCounts added={added} removed={removed} />
-    </button>
+    <div className="file-row-wrap">
+      <button
+        type="button"
+        aria-current={selected || undefined}
+        className="tree-row file-row"
+        style={indent}
+        onClick={() => onSelect(row.list, row.file.change)}
+      >
+        <span className={`status-letter status-${kind}`} title={statusLetters[kind].label}>
+          {statusLetters[kind].letter}
+        </span>
+        <span className="tree-name">{row.file.name}</span>
+        {originalPath && <span className="renamed-from">{originalPath}</span>}
+        <LineCounts added={added} removed={removed} />
+      </button>
+      {action && (
+        <button
+          type="button"
+          aria-label={`${action.label} ${row.file.change.path}`}
+          className="row-action"
+          onClick={() => action.run(row.file.change)}
+        >
+          {action.label}
+        </button>
+      )}
+    </div>
   );
 }
 
