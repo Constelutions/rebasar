@@ -1,3 +1,6 @@
+mod commit;
+mod count;
+mod filter;
 mod layout;
 mod refs;
 
@@ -8,6 +11,8 @@ use serde::Serialize;
 
 use crate::{open_worktree, ApiError, Core};
 
+pub(crate) use filter::Filter;
+pub use filter::{HistoryCount, HistoryFilter};
 pub(crate) use layout::Layout;
 
 const OBJECT_CACHE_BYTES: usize = 64 * 1024 * 1024;
@@ -74,28 +79,63 @@ pub enum RefKind {
 }
 
 impl Core {
-    /// Serves rows `offset..offset + limit` of the Worktree's history, newest first. The layout
-    /// is computed only as far as the rows asked for, and kept so the next page continues from
-    /// there; it is dropped as soon as a ref moves.
+    /// Serves rows `offset..offset + limit` of the Worktree's history, newest first, laid out
+    /// from the commits `filter` lets through. The layout is computed only as far as the rows
+    /// asked for, and kept so the next page continues from there; it is dropped as soon as a
+    /// ref moves or the filter changes.
     pub fn history_page(
         &self,
         worktree_path: &Path,
         offset: usize,
         limit: usize,
+        filter: &HistoryFilter,
     ) -> Result<HistoryPage, ApiError> {
         let (worktree_path, mut repo) = open_worktree(worktree_path)?;
         repo.object_cache_size_if_unset(OBJECT_CACHE_BYTES);
         let snapshot = refs::Snapshot::read(&repo)?;
+        let filter = Filter::resolve(filter, &repo)?;
 
         let layout = {
             let mut histories = self.histories.lock().expect("history cache lock");
             Arc::clone(histories.entry(worktree_path).or_default())
         };
         let mut layout = layout.lock().expect("history layout lock");
-        layout.follow(snapshot);
+        layout.follow(snapshot, filter);
 
         let end = offset.saturating_add(limit);
         layout.extend_to(&repo, end.saturating_add(1))?;
         Ok(layout.page(offset, end))
+    }
+
+    /// How many commits `filter` lets through, out of every commit in the Worktree's history.
+    /// Walks the whole history, so it is exact but not as quick as a page.
+    pub fn history_count(
+        &self,
+        worktree_path: &Path,
+        filter: &HistoryFilter,
+    ) -> Result<HistoryCount, ApiError> {
+        let (worktree_path, mut repo) = open_worktree(worktree_path)?;
+        repo.object_cache_size_if_unset(OBJECT_CACHE_BYTES);
+        let snapshot = refs::Snapshot::read(&repo)?;
+        let filter = Filter::resolve(filter, &repo)?;
+
+        let total = {
+            let mut totals = self.totals.lock().expect("history totals lock");
+            match totals.get(&worktree_path) {
+                Some((fingerprint, total)) if *fingerprint == snapshot.fingerprint => *total,
+                _ => {
+                    let every_tip = snapshot.labels.keys().copied().collect();
+                    let total = count::count_matching(&repo, &Filter::default(), every_tip)?;
+                    totals.insert(worktree_path, (snapshot.fingerprint, total));
+                    total
+                }
+            }
+        };
+        let matching = if filter.shows_everything() {
+            total
+        } else {
+            count::count_matching(&repo, &filter, filter.tips(&snapshot))?
+        };
+        Ok(HistoryCount { matching, total })
     }
 }

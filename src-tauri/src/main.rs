@@ -3,7 +3,7 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use rebasar_core::{ApiError, Core, HistoryPage, Tab, WorktreeStatus};
+use rebasar_core::{ApiError, Core, HistoryCount, HistoryFilter, HistoryPage, Tab, WorktreeStatus};
 use tauri::{Emitter, Manager, State};
 
 #[tauri::command]
@@ -39,9 +39,24 @@ async fn history_page(
     worktree_path: PathBuf,
     offset: usize,
     limit: usize,
+    filter: HistoryFilter,
 ) -> Result<HistoryPage, ApiError> {
     let core = Arc::clone(&core);
-    tauri::async_runtime::spawn_blocking(move || core.history_page(&worktree_path, offset, limit))
+    tauri::async_runtime::spawn_blocking(move || {
+        core.history_page(&worktree_path, offset, limit, &filter)
+    })
+    .await
+    .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn history_count(
+    core: State<'_, Arc<Core>>,
+    worktree_path: PathBuf,
+    filter: HistoryFilter,
+) -> Result<HistoryCount, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.history_count(&worktree_path, &filter))
         .await
         .map_err(ApiError::unexpected)?
 }
@@ -63,7 +78,8 @@ fn main() {
             open_folder,
             worktree_status,
             watch_worktree,
-            history_page
+            history_page,
+            history_count
         ])
         .run(tauri::generate_context!())
         .expect("failed to run Rebasar");

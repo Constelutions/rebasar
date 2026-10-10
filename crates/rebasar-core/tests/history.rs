@@ -1,9 +1,11 @@
-use rebasar_core::{ApiError, Core, Edge, EdgeKind, HistoryPage, HistoryRow, RefKind, RefLabel};
+use rebasar_core::{
+    ApiError, Core, Edge, EdgeKind, HistoryFilter, HistoryPage, HistoryRow, RefKind, RefLabel,
+};
 use rebasar_testkit::TempRepo;
 
 fn history(repo: &TempRepo, offset: usize, limit: usize) -> HistoryPage {
     Core::new(|_| {})
-        .history_page(repo.path(), offset, limit)
+        .history_page(repo.path(), offset, limit, &HistoryFilter::default())
         .expect("history page")
 }
 
@@ -101,9 +103,15 @@ fn consecutive_pages_continue_where_the_previous_one_stopped() {
     let repo = linear_repo(5);
     let core = Core::new(|_| {});
 
-    let first = core.history_page(repo.path(), 0, 2).unwrap();
-    let second = core.history_page(repo.path(), 2, 2).unwrap();
-    let third = core.history_page(repo.path(), 4, 2).unwrap();
+    let first = core
+        .history_page(repo.path(), 0, 2, &HistoryFilter::default())
+        .unwrap();
+    let second = core
+        .history_page(repo.path(), 2, 2, &HistoryFilter::default())
+        .unwrap();
+    let third = core
+        .history_page(repo.path(), 4, 2, &HistoryFilter::default())
+        .unwrap();
 
     assert_eq!(subjects(&second.rows), ["Commit 3", "Commit 2"]);
     assert!(second.has_more);
@@ -148,7 +156,7 @@ fn a_folder_that_is_not_a_repository_is_reported() {
     let folder = tempfile::tempdir().expect("temp dir");
 
     let error = Core::new(|_| {})
-        .history_page(folder.path(), 0, 10)
+        .history_page(folder.path(), 0, 10, &HistoryFilter::default())
         .expect_err("not a repository");
 
     assert!(
@@ -342,7 +350,9 @@ fn a_page_in_the_middle_of_the_history_has_the_same_layout_as_when_read_from_the
     let repo = merged_feature_repo();
     let core = Core::new(|_| {});
 
-    let middle = core.history_page(repo.path(), 2, 2).unwrap();
+    let middle = core
+        .history_page(repo.path(), 2, 2, &HistoryFilter::default())
+        .unwrap();
 
     assert_eq!(middle.rows, all_rows(&repo)[2..4]);
 }
@@ -351,10 +361,13 @@ fn a_page_in_the_middle_of_the_history_has_the_same_layout_as_when_read_from_the
 fn new_commits_appear_at_the_top_of_a_history_that_was_already_read() {
     let repo = linear_repo(2);
     let core = Core::new(|_| {});
-    core.history_page(repo.path(), 0, 10).unwrap();
+    core.history_page(repo.path(), 0, 10, &HistoryFilter::default())
+        .unwrap();
 
     repo.commit_file("file.txt", "3", "Commit 3");
-    let page = core.history_page(repo.path(), 0, 10).unwrap();
+    let page = core
+        .history_page(repo.path(), 0, 10, &HistoryFilter::default())
+        .unwrap();
 
     assert_eq!(subjects(&page.rows), ["Commit 3", "Commit 2", "Commit 1"]);
 }

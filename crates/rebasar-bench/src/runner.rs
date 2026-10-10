@@ -2,7 +2,7 @@ use std::io;
 use std::path::PathBuf;
 use std::time::Instant;
 
-use rebasar_core::{ApiError, Core};
+use rebasar_core::{ApiError, Core, HistoryFilter};
 
 use crate::fixtures::{FixtureCache, Scale};
 use crate::report::{Report, ScenarioResult, Verdict};
@@ -53,12 +53,18 @@ impl Scenario {
 pub fn scenarios() -> Vec<Scenario> {
     vec![
         Scenario::new("history-first-page", |core, fixtures| {
-            core.history_page(&fixtures.history, 0, PAGE_ROWS).map(drop)
+            core.history_page(&fixtures.history, 0, PAGE_ROWS, &HistoryFilter::default())
+                .map(drop)
         })
         .against(&GRAPH),
         Scenario::new("history-scroll-ten-pages", |core, fixtures| {
             for page in 1..=SCROLLED_PAGES {
-                core.history_page(&fixtures.history, page * PAGE_ROWS, PAGE_ROWS)?;
+                core.history_page(
+                    &fixtures.history,
+                    page * PAGE_ROWS,
+                    PAGE_ROWS,
+                    &HistoryFilter::default(),
+                )?;
             }
             Ok(())
         }),
