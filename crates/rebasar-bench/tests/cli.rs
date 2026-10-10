@@ -86,7 +86,7 @@ fn the_generate_command_builds_the_fixtures_in_the_cache_folder() {
     let built = std::fs::read_dir(cache_dir.path())
         .expect("list cache")
         .count();
-    assert_eq!(built, 3, "history, worktree and changeset");
+    assert_eq!(built, 4, "history, worktree, changeset and tabs");
 }
 
 #[test]

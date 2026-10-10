@@ -51,6 +51,7 @@ fn execute(options: &Options, cache: &FixtureCache) -> std::io::Result<()> {
             cache.history(&options.scale)?,
             cache.worktree(&options.scale)?,
             cache.changeset(&options.scale)?,
+            cache.tabs(&options.scale)?,
         ] {
             println!("{}", fixture.display());
         }

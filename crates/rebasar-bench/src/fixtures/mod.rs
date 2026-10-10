@@ -8,6 +8,7 @@ use serde::Serialize;
 mod git;
 mod history;
 mod snapshot;
+mod tabs;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -16,6 +17,10 @@ pub struct Scale {
     pub worktree_files: usize,
     pub changeset_files: usize,
     pub changeset_changed_lines: usize,
+    pub tab_repositories: usize,
+    /// Counts the main Worktree of every Repository, so the rest are linked ones.
+    pub tab_worktrees: usize,
+    pub tab_files: usize,
 }
 
 impl Scale {
@@ -26,6 +31,9 @@ impl Scale {
         worktree_files: 100_000,
         changeset_files: 5_000,
         changeset_changed_lines: 500_000,
+        tab_repositories: 20,
+        tab_worktrees: 50,
+        tab_files: 200,
     };
 
     pub const SMOKE: Scale = Scale {
@@ -33,6 +41,9 @@ impl Scale {
         worktree_files: 200,
         changeset_files: 20,
         changeset_changed_lines: 400,
+        tab_repositories: 3,
+        tab_worktrees: 5,
+        tab_files: 10,
     };
 }
 
@@ -87,12 +98,49 @@ impl FixtureCache {
         })
     }
 
+    /// Many small Repositories with linked Worktrees, as a user with a crowded tab strip would
+    /// have open. Returns the folder that holds them; see [`FixtureCache::tab_worktrees`].
+    pub fn tabs(&self, scale: &Scale) -> io::Result<PathBuf> {
+        let name = format!(
+            "tabs-{}-repositories-{}-worktrees-{}-files",
+            scale.tab_repositories, scale.tab_worktrees, scale.tab_files
+        );
+        self.ensure_with(
+            &name,
+            |path| tabs::generate(path, scale),
+            tabs::repair_after_move,
+        )
+    }
+
+    /// Every Worktree folder in a `tabs` fixture, in a stable order.
+    pub fn tab_worktrees(fixture: &Path) -> io::Result<Vec<PathBuf>> {
+        tabs::worktrees(fixture)
+    }
+
     /// Builds `name` in a scratch folder and renames it into place, so an interrupted run never
     /// leaves a half-built fixture that the next run would trust.
     fn ensure(
         &self,
         name: &str,
         build: impl FnOnce(&Path) -> io::Result<()>,
+    ) -> io::Result<PathBuf> {
+        self.ensure_with(
+            name,
+            |scratch| {
+                git::init(scratch)?;
+                build(scratch)
+            },
+            |_| Ok(()),
+        )
+    }
+
+    /// `after_move` runs once the fixture is in its final place, for anything that records
+    /// absolute paths while it is built.
+    fn ensure_with(
+        &self,
+        name: &str,
+        build: impl FnOnce(&Path) -> io::Result<()>,
+        after_move: impl FnOnce(&Path) -> io::Result<()>,
     ) -> io::Result<PathBuf> {
         let ready = self.root.join(name);
         if ready.exists() {
@@ -102,9 +150,12 @@ impl FixtureCache {
         if scratch.exists() {
             fs::remove_dir_all(&scratch)?;
         }
-        git::init(&scratch)?;
         build(&scratch)?;
         fs::rename(&scratch, &ready)?;
+        if let Err(error) = after_move(&ready) {
+            let _ = fs::remove_dir_all(&ready);
+            return Err(error);
+        }
         Ok(ready)
     }
 }

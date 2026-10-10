@@ -9,6 +9,9 @@ const SMALL: Scale = Scale {
     worktree_files: 120,
     changeset_files: 30,
     changeset_changed_lines: 600,
+    tab_repositories: 4,
+    tab_worktrees: 9,
+    tab_files: 15,
 };
 
 fn cache() -> (TempDir, FixtureCache) {
@@ -107,4 +110,31 @@ fn an_interrupted_generation_is_discarded_rather_than_reused() {
 
     assert!(!repo.join("stale").exists());
     assert!(!half_built.exists());
+}
+
+#[test]
+fn tabs_fixture_has_the_requested_repositories_and_worktrees_all_clean() {
+    let (_dir, cache) = cache();
+
+    let root = cache.tabs(&SMALL).expect("generate tabs");
+
+    let worktrees = FixtureCache::tab_worktrees(&root).expect("list worktrees");
+    assert_eq!(worktrees.len(), SMALL.tab_worktrees);
+    for worktree in &worktrees {
+        assert_eq!(
+            git(worktree, &["ls-files"]).lines().count(),
+            SMALL.tab_files
+        );
+        assert_eq!(git(worktree, &["status", "--porcelain"]).trim(), "");
+    }
+    let repositories: std::collections::BTreeSet<_> = worktrees
+        .iter()
+        .map(|worktree| {
+            git(
+                worktree,
+                &["rev-parse", "--path-format=absolute", "--git-common-dir"],
+            )
+        })
+        .collect();
+    assert_eq!(repositories.len(), SMALL.tab_repositories);
 }
