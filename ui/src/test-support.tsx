@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { App } from "./App";
 import type { CoreApi, HistoryRow, Tab } from "./core/api";
 import { createStubCoreApi } from "./core/stub";
+import type { Highlighter } from "./highlight/highlighter";
 import type { AppWindow } from "./shell/appWindow";
 
 export const sampleTab: Tab = {
@@ -59,14 +60,18 @@ interface RenderAppOptions {
   api?: CoreApi;
   pickFolder?: () => Promise<string | null>;
   appWindow?: AppWindow;
+  highlighter?: Highlighter;
 }
 
 export function renderApp({
   api = createStubCoreApi(),
   pickFolder = async () => null,
   appWindow = createFakeWindow(),
+  highlighter,
 }: RenderAppOptions = {}) {
-  return render(<App api={api} pickFolder={pickFolder} appWindow={appWindow} />);
+  return render(
+    <App api={api} pickFolder={pickFolder} appWindow={appWindow} highlighter={highlighter} />,
+  );
 }
 
 /** Opens a folder whose Worktree has the given laid-out commits and switches to the History view. */

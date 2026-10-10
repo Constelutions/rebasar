@@ -1,6 +1,7 @@
 use rebasar_core::{
-    ApiError, ChangeKind, CoreEvent, Edge, EdgeKind, FileChange, Head, HistoryCount, HistoryFilter,
-    HistoryPage, HistoryRow, RefKind, RefLabel, Tab, WorktreeStatus,
+    ApiError, ChangeKind, ChangeList, CoreEvent, DiffContent, DiffLine, DiffRequest, Edge, EdgeKind,
+    FileChange, FileDiff, Head, HistoryCount, HistoryFilter, HistoryPage, HistoryRow, Hunk, LineKind,
+    ModeChange, RefKind, RefLabel, Tab, WorktreeStatus,
 };
 use serde_json::json;
 
@@ -232,5 +233,105 @@ fn a_history_count_serialises_to_the_shape_the_ui_expects() {
     assert_eq!(
         serde_json::to_value(count).unwrap(),
         json!({ "matching": 13, "total": 142 })
+    );
+}
+
+#[test]
+fn a_diff_request_deserialises_from_the_shape_the_ui_sends() {
+    let request: DiffRequest = serde_json::from_value(json!({
+        "path": "src/new.rs",
+        "originalPath": "src/old.rs",
+        "list": "staged",
+        "loadLarge": true,
+    }))
+    .unwrap();
+
+    assert_eq!(
+        request,
+        DiffRequest {
+            path: "src/new.rs".to_owned(),
+            original_path: Some("src/old.rs".to_owned()),
+            list: ChangeList::Staged,
+            load_large: true,
+        }
+    );
+}
+
+#[test]
+fn a_diff_request_may_leave_out_the_optional_fields() {
+    let request: DiffRequest =
+        serde_json::from_value(json!({ "path": "a.txt", "list": "unstaged" })).unwrap();
+
+    assert_eq!(request.original_path, None);
+    assert!(!request.load_large);
+}
+
+#[test]
+fn a_text_diff_serialises_to_the_shape_the_ui_expects() {
+    let diff = FileDiff {
+        path: "run.sh".to_owned(),
+        original_path: None,
+        mode_change: Some(ModeChange {
+            old: "100644".to_owned(),
+            new: "100755".to_owned(),
+        }),
+        content: DiffContent::Text {
+            hunks: vec![Hunk {
+                old_start: 1,
+                old_lines: 1,
+                new_start: 1,
+                new_lines: 1,
+                lines: vec![DiffLine {
+                    kind: LineKind::Added,
+                    old_number: None,
+                    new_number: Some(1),
+                    text: "echo".to_owned(),
+                }],
+            }],
+        },
+    };
+
+    assert_eq!(
+        serde_json::to_value(diff).unwrap(),
+        json!({
+            "path": "run.sh",
+            "originalPath": null,
+            "modeChange": { "old": "100644", "new": "100755" },
+            "content": {
+                "kind": "text",
+                "hunks": [{
+                    "oldStart": 1,
+                    "oldLines": 1,
+                    "newStart": 1,
+                    "newLines": 1,
+                    "lines": [{
+                        "kind": "added",
+                        "oldNumber": null,
+                        "newNumber": 1,
+                        "text": "echo",
+                    }],
+                }],
+            },
+        })
+    );
+}
+
+#[test]
+fn binary_and_collapsed_diffs_serialise_to_the_shape_the_ui_expects() {
+    assert_eq!(
+        serde_json::to_value(DiffContent::Binary {
+            old_bytes: None,
+            new_bytes: Some(4)
+        })
+        .unwrap(),
+        json!({ "kind": "binary", "oldBytes": null, "newBytes": 4 })
+    );
+    assert_eq!(
+        serde_json::to_value(DiffContent::Collapsed {
+            bytes: 2_000_000,
+            lines: Some(30_000)
+        })
+        .unwrap(),
+        json!({ "kind": "collapsed", "bytes": 2000000, "lines": 30000 })
     );
 }
