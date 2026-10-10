@@ -21,5 +21,7 @@ export const tauriCoreApi: CoreApi = {
     invoke<HistoryPage>("history_page", { worktreePath, offset, limit, filter }),
   historyCount: (worktreePath, filter) =>
     invoke<HistoryCount>("history_count", { worktreePath, filter }),
+  activateTab: (path) => invoke<void>("activate_tab", { path }),
+  refreshTab: (path) => invoke<Tab>("refresh_tab", { path }),
   onEvent: (handler) => listen<CoreEvent>("core-event", ({ payload }) => handler(payload)),
 };

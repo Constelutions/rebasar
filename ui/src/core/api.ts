@@ -138,7 +138,8 @@ export interface FileDiff {
 
 export type CoreEvent =
   | { type: "tabOpened"; tab: Tab }
-  | { type: "worktreeChanged"; worktreePath: string };
+  | { type: "worktreeChanged"; worktreePath: string }
+  | { type: "pollingTabsChanged"; worktreePaths: string[] };
 
 export interface CoreApi {
   /** Rejects with an {@link ApiError} when the folder cannot be opened. */
@@ -160,6 +161,10 @@ export interface CoreApi {
   ): Promise<HistoryPage>;
   /** How many commits `filter` lets through, out of all of them. Rejects like `historyPage`. */
   historyCount(worktreePath: string, filter: HistoryFilter): Promise<HistoryCount>;
+  /** Makes the Tab the most recently used one, so it keeps its caches and a live watcher. */
+  activateTab(path: string): Promise<void>;
+  /** Reads the Tab again, so that a branch switched outside the app shows. */
+  refreshTab(path: string): Promise<Tab>;
   /** Resolves to a function that stops the subscription. */
   onEvent(handler: (event: CoreEvent) => void): Promise<() => void>;
 }
