@@ -6,7 +6,9 @@
     "typecheck": "pnpm -r typecheck",
     "test:ui": "pnpm -r test",
     "test:core": "cargo test --workspace",
-    "test": "pnpm test:core && pnpm test:ui"
+    "test": "pnpm test:core && pnpm test:ui",
+    "bench:fixtures": "cargo run --release -p rebasar-bench -- generate",
+    "bench": "cargo run --release -p rebasar-bench -- run"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.12.1"
