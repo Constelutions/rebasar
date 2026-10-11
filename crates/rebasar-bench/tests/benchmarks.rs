@@ -53,6 +53,22 @@ fn the_text_report_prints_each_alpha_threshold_next_to_the_scenarios() {
 }
 
 #[test]
+fn the_commit_graph_is_measured_against_its_threshold_through_the_core_api() {
+    let report = run_placeholders();
+
+    let graph = report
+        .thresholds
+        .iter()
+        .find(|threshold| threshold.id == "graph")
+        .expect("graph threshold");
+    assert_eq!(graph.measured_by, ["history-first-page"]);
+    assert!(report
+        .results
+        .iter()
+        .any(|result| result.scenario == "history-scroll-ten-pages"));
+}
+
+#[test]
 fn the_results_are_recorded_in_a_machine_readable_form() {
     let report = run_placeholders();
 

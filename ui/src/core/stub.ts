@@ -1,4 +1,4 @@
-import type { CoreApi, CoreEvent, Tab, WorktreeStatus } from "./api";
+import type { CoreApi, CoreEvent, HistoryRow, Tab, WorktreeStatus } from "./api";
 
 export const emptyStatus: WorktreeStatus = { conflicts: [], staged: [], unstaged: [] };
 
@@ -8,10 +8,14 @@ export interface StubCoreApi extends CoreApi {
   readonly watchedWorktrees: ReadonlySet<string>;
 }
 
-/** A fake core that "knows" the given repositories by folder path and never touches Git. */
+/**
+ * A fake core that "knows" the given repositories by folder path and never touches Git.
+ * `histories` holds each Worktree's commits, already laid out, newest first.
+ */
 export function createStubCoreApi(
   repositories: Record<string, Tab> = {},
   statuses: Record<string, WorktreeStatus> = {},
+  histories: Record<string, HistoryRow[]> = {},
 ): StubCoreApi {
   const handlers = new Set<(event: CoreEvent) => void>();
   const current = new Map(Object.entries(statuses));
@@ -32,6 +36,14 @@ export function createStubCoreApi(
     },
     async watchWorktree(path) {
       watched.add(path);
+    },
+    async historyPage(worktreePath, offset, limit) {
+      const rows = histories[worktreePath] ?? [];
+      return {
+        offset,
+        rows: rows.slice(offset, offset + limit),
+        hasMore: rows.length > offset + limit,
+      };
     },
     async onEvent(handler) {
       handlers.add(handler);

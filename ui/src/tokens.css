@@ -25,6 +25,16 @@
   --color-danger-strong: oklch(0.55 0.19 25);
   --color-on-danger: oklch(0.98 0.01 25);
 
+  /* Told apart by hue only, at one lightness and chroma, so no slot outshouts another. */
+  --color-category-0: oklch(0.75 0.13 250);
+  --color-category-1: oklch(0.75 0.13 150);
+  --color-category-2: oklch(0.75 0.13 320);
+  --color-category-3: oklch(0.75 0.13 60);
+  --color-category-4: oklch(0.75 0.13 200);
+  --color-category-5: oklch(0.75 0.13 20);
+  --color-category-6: oklch(0.75 0.13 285);
+  --color-category-7: oklch(0.75 0.13 110);
+
   --font-ui: "Geist Variable", Geist, system-ui, sans-serif;
   --font-mono: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, monospace;
 
@@ -49,6 +59,7 @@
   --window-control-width: 46px;
   --window-control-icon: 10px;
   --sidebar-width: 208px;
+  --avatar-size: 22px;
 
   color-scheme: dark;
 }

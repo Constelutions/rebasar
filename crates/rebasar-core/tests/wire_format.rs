@@ -1,4 +1,7 @@
-use rebasar_core::{ApiError, ChangeKind, CoreEvent, FileChange, Head, Tab, WorktreeStatus};
+use rebasar_core::{
+    ApiError, ChangeKind, CoreEvent, Edge, EdgeKind, FileChange, Head, HistoryPage, HistoryRow,
+    RefKind, RefLabel, Tab, WorktreeStatus,
+};
 use serde_json::json;
 
 fn tab() -> Tab {
@@ -112,5 +115,74 @@ fn a_worktree_changed_event_serialises_to_the_shape_the_ui_expects() {
         })
         .unwrap(),
         json!({ "type": "worktreeChanged", "worktreePath": "/work/sample" })
+    );
+}
+
+#[test]
+fn a_history_page_serialises_to_the_shape_the_ui_expects() {
+    let page = HistoryPage {
+        offset: 40,
+        has_more: true,
+        rows: vec![HistoryRow {
+            id: "abc1234def".to_owned(),
+            short_id: "abc1234".to_owned(),
+            subject: "Fix the thing".to_owned(),
+            author_name: "Ada".to_owned(),
+            author_email: "ada@example.com".to_owned(),
+            timestamp: 1_700_000_000,
+            lane: 1,
+            lane_count: 2,
+            edges: vec![
+                Edge {
+                    kind: EdgeKind::Through,
+                    lane: 0,
+                },
+                Edge {
+                    kind: EdgeKind::Incoming,
+                    lane: 1,
+                },
+                Edge {
+                    kind: EdgeKind::Outgoing,
+                    lane: 0,
+                },
+            ],
+            refs: vec![
+                RefLabel {
+                    kind: RefKind::LocalBranch,
+                    name: "main".to_owned(),
+                },
+                RefLabel {
+                    kind: RefKind::RemoteBranch,
+                    name: "origin/main".to_owned(),
+                },
+            ],
+        }],
+    };
+
+    assert_eq!(
+        serde_json::to_value(page).unwrap(),
+        json!({
+            "offset": 40,
+            "hasMore": true,
+            "rows": [{
+                "id": "abc1234def",
+                "shortId": "abc1234",
+                "subject": "Fix the thing",
+                "authorName": "Ada",
+                "authorEmail": "ada@example.com",
+                "timestamp": 1_700_000_000,
+                "lane": 1,
+                "laneCount": 2,
+                "edges": [
+                    { "kind": "through", "lane": 0 },
+                    { "kind": "incoming", "lane": 1 },
+                    { "kind": "outgoing", "lane": 0 },
+                ],
+                "refs": [
+                    { "kind": "localBranch", "name": "main" },
+                    { "kind": "remoteBranch", "name": "origin/main" },
+                ],
+            }],
+        })
     );
 }
