@@ -37,5 +37,6 @@ See [`docs/benchmarks.md`](docs/benchmarks.md) for the fixtures, the thresholds 
 
 - [`CONTEXT.md`](CONTEXT.md): the project's domain language.
 - [`docs/adr/`](docs/adr/): architecture decisions.
+- [`docs/command-palette.md`](docs/command-palette.md): how a feature registers its commands in the Ctrl+P palette.
 - [`docs/benchmarks.md`](docs/benchmarks.md): large-Repository fixtures and the benchmark harness.
 - [`docs/agents/`](docs/agents/): configuration for the agent skills used in this repo.

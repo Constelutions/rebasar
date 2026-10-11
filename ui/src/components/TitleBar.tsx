@@ -1,3 +1,4 @@
+import { usePalette } from "../palette/PaletteProvider";
 import type { AppWindow } from "../shell/appWindow";
 import { shortcuts } from "../shortcuts";
 import type { OpenTab } from "../useOpenTabs";
@@ -20,6 +21,8 @@ export function TitleBar({
   onSelectTab,
   onOpenFolder,
 }: TitleBarProps) {
+  const palette = usePalette();
+
   return (
     <header className="title-bar" data-tauri-drag-region>
       <RepositorySwitcher tabs={tabs} onSelect={onSelectTab} />
@@ -34,6 +37,10 @@ export function TitleBar({
         +
       </button>
       <div className="title-bar-spacer" data-tauri-drag-region />
+      <button type="button" className="palette-trigger" onClick={palette.open}>
+        Search or run…
+        <kbd>{shortcuts.commandPalette.label}</kbd>
+      </button>
       <WindowControls appWindow={appWindow} />
     </header>
   );
