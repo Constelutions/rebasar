@@ -25,6 +25,17 @@
   --color-danger-strong: oklch(0.55 0.19 25);
   --color-on-danger: oklch(0.98 0.01 25);
 
+  --color-added-surface: oklch(0.78 0.14 150 / 0.14);
+  --color-removed-surface: oklch(0.72 0.17 25 / 0.14);
+  --color-hunk-surface: oklch(0.28 0.04 250 / 0.6);
+
+  --color-syntax-keyword: oklch(0.76 0.13 320);
+  --color-syntax-string: oklch(0.8 0.12 150);
+  --color-syntax-comment: oklch(0.6 0.02 265);
+  --color-syntax-number: oklch(0.82 0.12 60);
+  --color-syntax-title: oklch(0.8 0.11 250);
+  --color-syntax-attribute: oklch(0.82 0.1 200);
+
   /* Told apart by hue only, at one lightness and chroma, so no slot outshouts another. */
   --color-category-0: oklch(0.75 0.13 250);
   --color-category-1: oklch(0.75 0.13 150);
@@ -55,9 +66,11 @@
 
   --title-bar-height: 48px;
   --control-height: 34px;
-  --row-height: 26px;
   --window-control-width: 46px;
   --window-control-icon: 10px;
+  --diff-row-height: 20px;
+  --diff-number-width: 44px;
+  --changes-files-width: 340px;
   --sidebar-width: 208px;
   --avatar-size: 22px;
 

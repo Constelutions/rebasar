@@ -96,6 +96,45 @@ export interface HistoryCount {
   total: number;
 }
 
+export type ChangeList = "conflicts" | "staged" | "unstaged";
+
+export interface DiffRequest {
+  path: string;
+  originalPath: string | null;
+  list: ChangeList;
+  /** Computes the diff of a file that would otherwise come back collapsed. */
+  loadLarge?: boolean;
+}
+
+export type LineKind = "context" | "added" | "removed";
+
+export interface DiffLine {
+  kind: LineKind;
+  oldNumber: number | null;
+  newNumber: number | null;
+  text: string;
+}
+
+export interface Hunk {
+  oldStart: number;
+  oldLines: number;
+  newStart: number;
+  newLines: number;
+  lines: DiffLine[];
+}
+
+export type DiffContent =
+  | { kind: "text"; hunks: Hunk[] }
+  | { kind: "binary"; oldBytes: number | null; newBytes: number | null }
+  | { kind: "collapsed"; bytes: number; lines: number | null };
+
+export interface FileDiff {
+  path: string;
+  originalPath: string | null;
+  /** File modes in octal, as Git prints them. */
+  modeChange: { old: string; new: string } | null;
+  content: DiffContent;
+}
 
 export type CoreEvent =
   | { type: "tabOpened"; tab: Tab }
@@ -105,6 +144,7 @@ export interface CoreApi {
   /** Rejects with an {@link ApiError} when the folder cannot be opened. */
   openFolder(path: string): Promise<Tab>;
   worktreeStatus(path: string): Promise<WorktreeStatus>;
+  fileDiff(path: string, request: DiffRequest): Promise<FileDiff>;
   /** Makes the core emit `worktreeChanged` whenever files change under the Worktree. */
   watchWorktree(path: string): Promise<void>;
   /**

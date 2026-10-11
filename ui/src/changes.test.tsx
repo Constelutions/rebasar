@@ -1,4 +1,4 @@
-import { screen, within } from "@testing-library/react";
+import { fireEvent, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import type { FileChange, WorktreeStatus } from "./core/api";
@@ -32,77 +32,86 @@ async function openChanges(worktreeStatus: WorktreeStatus = status) {
   return { user, api };
 }
 
-function group(name: string) {
-  return within(screen.getByRole("region", { name }));
+function treeRows() {
+  return within(screen.getByRole("list", { name: "Changed files" })).getAllByRole("listitem");
 }
 
-function row(scope: ReturnType<typeof group>, text: string) {
-  const element = scope.getByText(text).closest("li");
-  if (!element) throw new Error(`no row for ${text}`);
-  return element;
+function groupRows(name: string) {
+  const rows = treeRows();
+  const start = rows.findIndex((item) => item.querySelector("h2")?.textContent === name);
+  if (start < 0) return [];
+  const next = rows.findIndex((item, index) => index > start && item.querySelector("h2"));
+  return rows.slice(start + 1, next < 0 ? undefined : next);
+}
+
+function row(group: string, text: string) {
+  const found = groupRows(group).find((item) => within(item).queryByText(text));
+  if (!found) throw new Error(`no row for ${text} in ${group}`);
+  return found;
+}
+
+function hasRow(group: string, text: string) {
+  return groupRows(group).some((item) => within(item).queryByText(text));
 }
 
 it("groups the files into Conflicts, Staged and Unstaged", async () => {
   await openChanges();
+  await screen.findByRole("list", { name: "Changed files" });
 
-  expect(await screen.findByRole("region", { name: "Conflicts" })).toBeInTheDocument();
-  expect(group("Staged").getByText("stub.ts")).toBeInTheDocument();
-  expect(group("Unstaged").getByText("guide.md")).toBeInTheDocument();
-  expect(group("Conflicts").getByText("App.tsx")).toBeInTheDocument();
-  expect(group("Staged").queryByText("guide.md")).not.toBeInTheDocument();
+  expect(hasRow("Conflicts", "App.tsx")).toBe(true);
+  expect(hasRow("Staged", "stub.ts")).toBe(true);
+  expect(hasRow("Unstaged", "guide.md")).toBe(true);
+  expect(hasRow("Staged", "guide.md")).toBe(false);
 });
 
 it("shows each file with its status letter and its added and removed counts", async () => {
   await openChanges();
-  await screen.findByRole("region", { name: "Staged" });
+  await screen.findByRole("list", { name: "Changed files" });
 
-  const stub = row(group("Staged"), "stub.ts");
+  const stub = row("Staged", "stub.ts");
   expect(stub).toHaveTextContent("A");
   expect(stub).toHaveTextContent("+10");
   expect(stub).toHaveTextContent("−0");
 
-  const readme = row(group("Staged"), "README.md");
+  const readme = row("Staged", "README.md");
   expect(readme).toHaveTextContent("D");
   expect(readme).toHaveTextContent("−4");
 
-  expect(row(group("Unstaged"), "guide.md")).toHaveTextContent("U");
-  expect(row(group("Staged"), "api.ts")).toHaveTextContent("M");
+  expect(row("Unstaged", "guide.md")).toHaveTextContent("U");
+  expect(row("Staged", "api.ts")).toHaveTextContent("M");
 });
 
 it("shows files inside folders and totals the counts on each folder", async () => {
   await openChanges();
-  await screen.findByRole("region", { name: "Staged" });
+  await screen.findByRole("list", { name: "Changed files" });
 
-  const staged = group("Staged");
-  const src = staged.getByRole("button", { name: /^src/ });
+  const src = within(row("Staged", "src")).getByRole("button");
   expect(src).toHaveTextContent("+13");
   expect(src).toHaveTextContent("−1");
-  expect(staged.getByRole("button", { name: /^core/ })).toHaveTextContent("+13");
-  expect(staged.getByText("stub.ts")).toBeInTheDocument();
+  expect(within(row("Staged", "core")).getByRole("button")).toHaveTextContent("+13");
+  expect(hasRow("Staged", "stub.ts")).toBe(true);
 });
 
 it("collapses and expands a folder", async () => {
   const { user } = await openChanges();
-  await screen.findByRole("region", { name: "Staged" });
-  const folder = group("Staged").getByRole("button", { name: /^src/ });
+  await screen.findByRole("list", { name: "Changed files" });
+  const folder = () => within(row("Staged", "src")).getByRole("button");
 
-  await user.click(folder);
+  await user.click(folder());
 
-  expect(folder).toHaveAttribute("aria-expanded", "false");
-  expect(group("Staged").queryByText("stub.ts")).not.toBeInTheDocument();
+  expect(folder()).toHaveAttribute("aria-expanded", "false");
+  expect(hasRow("Staged", "stub.ts")).toBe(false);
 
-  await user.click(folder);
+  await user.click(folder());
 
-  expect(group("Staged").getByText("stub.ts")).toBeInTheDocument();
+  expect(hasRow("Staged", "stub.ts")).toBe(true);
 });
 
 it("lists folders before files", async () => {
   await openChanges();
-  await screen.findByRole("region", { name: "Staged" });
+  await screen.findByRole("list", { name: "Changed files" });
 
-  const names = group("Staged")
-    .getAllByRole("listitem")
-    .map((item) => item.firstElementChild?.textContent ?? "");
+  const names = groupRows("Staged").map((item) => item.textContent ?? "");
 
   expect(names[0]).toMatch(/^src/);
   expect(names.at(-1)).toMatch(/README\.md/);
@@ -113,9 +122,9 @@ it("shows no counts for a binary file", async () => {
     ...status,
     unstaged: [{ ...change("logo.png", "untracked", 0, 0), added: null, removed: null }],
   });
-  await screen.findByRole("region", { name: "Unstaged" });
+  await screen.findByRole("list", { name: "Changed files" });
 
-  const logo = row(group("Unstaged"), "logo.png");
+  const logo = row("Unstaged", "logo.png");
 
   expect(logo).toHaveTextContent("U");
   expect(logo).not.toHaveTextContent("+");
@@ -126,9 +135,9 @@ it("shows where a renamed file came from", async () => {
     ...status,
     staged: [{ ...change("src/new.ts", "renamed", 0, 0), originalPath: "src/old.ts" }],
   });
-  await screen.findByRole("region", { name: "Staged" });
+  await screen.findByRole("list", { name: "Changed files" });
 
-  const renamed = row(group("Staged"), "new.ts");
+  const renamed = row("Staged", "new.ts");
 
   expect(renamed).toHaveTextContent("R");
   expect(renamed).toHaveTextContent("src/old.ts");
@@ -136,9 +145,10 @@ it("shows where a renamed file came from", async () => {
 
 it("omits groups that have no files", async () => {
   await openChanges({ ...status, conflicts: [] });
-  await screen.findByRole("region", { name: "Staged" });
+  await screen.findByRole("list", { name: "Changed files" });
 
-  expect(screen.queryByRole("region", { name: "Conflicts" })).not.toBeInTheDocument();
+  expect(groupRows("Conflicts")).toEqual([]);
+  expect(screen.queryByRole("heading", { name: "Conflicts" })).not.toBeInTheDocument();
 });
 
 it("says so when the Worktree is clean", async () => {
@@ -157,8 +167,8 @@ it("refreshes by itself when the core reports a change made outside the app", as
     unstaged: [change("from-terminal.txt", "untracked", 2, 0)],
   });
 
-  await screen.findByRole("region", { name: "Unstaged" });
-  expect(group("Unstaged").getByText("from-terminal.txt")).toBeInTheDocument();
+  await screen.findByRole("list", { name: "Changed files" });
+  expect(hasRow("Unstaged", "from-terminal.txt")).toBe(true);
   expect(screen.queryByText(/no changes/i)).not.toBeInTheDocument();
 });
 
@@ -166,4 +176,30 @@ it("starts watching a Worktree as soon as its Tab is opened", async () => {
   const { api } = await openChanges();
 
   expect([...api.watchedWorktrees]).toEqual([sampleTab.worktreePath]);
+});
+
+it("renders only the rows in view when thousands of files changed", async () => {
+  const many = Array.from({ length: 5000 }, (_, index) =>
+    change(`src/file-${String(index).padStart(4, "0")}.ts`, "modified", 1, 1),
+  );
+  await openChanges({ conflicts: [], staged: [], unstaged: many });
+  await screen.findByRole("list", { name: "Changed files" });
+
+  expect(treeRows().length).toBeLessThan(100);
+  expect(hasRow("Unstaged", "file-0000.ts")).toBe(true);
+  expect(hasRow("Unstaged", "file-4999.ts")).toBe(false);
+});
+
+it("renders the rows that scroll into view", async () => {
+  const many = Array.from({ length: 5000 }, (_, index) =>
+    change(`file-${String(index).padStart(4, "0")}.ts`, "modified", 1, 1),
+  );
+  await openChanges({ conflicts: [], staged: [], unstaged: many });
+  const list = await screen.findByRole("list", { name: "Changed files" });
+
+  list.scrollTop = 4950 * 26;
+  fireEvent.scroll(list);
+
+  expect(within(list).getByText("file-4950.ts")).toBeInTheDocument();
+  expect(within(list).queryByText("file-0000.ts")).not.toBeInTheDocument();
 });

@@ -5,12 +5,16 @@ use std::sync::{Arc, Mutex};
 use serde::Serialize;
 use thiserror::Error;
 
+mod diff;
 mod history;
 pub mod platform;
 pub mod query;
 mod status;
 mod watch;
 
+pub use diff::{
+    ChangeList, DiffContent, DiffLine, DiffRequest, FileDiff, Hunk, LineKind, ModeChange,
+};
 pub use status::{ChangeKind, FileChange, WorktreeStatus};
 use watch::WorktreeWatch;
 
@@ -128,6 +132,11 @@ impl Core {
     pub fn worktree_status(&self, path: &Path) -> Result<WorktreeStatus, ApiError> {
         let (_, repo) = open_worktree(path)?;
         status::read(&repo)
+    }
+
+    pub fn file_diff(&self, path: &Path, request: &DiffRequest) -> Result<FileDiff, ApiError> {
+        let (_, repo) = open_worktree(path)?;
+        diff::read(&repo, request)
     }
 
     pub fn open_folder(&self, path: &Path) -> Result<Tab, ApiError> {

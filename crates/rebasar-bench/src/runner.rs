@@ -2,11 +2,11 @@ use std::io;
 use std::path::PathBuf;
 use std::time::Instant;
 
-use rebasar_core::{ApiError, Core, HistoryFilter};
+use rebasar_core::{ApiError, ChangeList, Core, DiffRequest, HistoryFilter};
 
 use crate::fixtures::{FixtureCache, Scale};
 use crate::report::{Report, ScenarioResult, Verdict};
-use crate::thresholds::{Limit, Threshold, GRAPH, STATUS};
+use crate::thresholds::{Limit, Threshold, FIRST_CHANGESET_FILE, GRAPH, STATUS};
 
 const PAGE_ROWS: usize = 100;
 const SCROLLED_PAGES: usize = 10;
@@ -86,6 +86,27 @@ pub fn scenarios() -> Vec<Scenario> {
             core.worktree_status(&fixtures.changeset).map(drop)
         })
         .after_warm_up(),
+        Scenario::new("first-changeset-file", |core, fixtures| {
+            let status = core.worktree_status(&fixtures.changeset)?;
+            let first = status
+                .unstaged
+                .first()
+                .ok_or_else(|| ApiError::Unexpected {
+                    message: "the changeset fixture has no changes".to_owned(),
+                })?;
+            core.file_diff(
+                &fixtures.changeset,
+                &DiffRequest {
+                    path: first.path.clone(),
+                    original_path: None,
+                    list: ChangeList::Unstaged,
+                    load_large: false,
+                },
+            )
+            .map(drop)
+        })
+        .after_warm_up()
+        .against(&FIRST_CHANGESET_FILE),
     ]
 }
 

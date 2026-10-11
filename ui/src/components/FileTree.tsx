@@ -1,7 +1,10 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
-import type { ChangeKind, FileChange } from "../core/api";
-import { type FileNode, type FolderNode, type TreeNode, buildFileTree } from "./changeTree";
+import type { ChangeKind, ChangeList, FileChange } from "../core/api";
+import { type GroupTree, type TreeRow, fileKey, flattenChanges } from "./changeTree";
+import { VirtualList } from "./VirtualList";
+
+export const TREE_ROW_HEIGHT = 26;
 
 const statusLetters: Record<ChangeKind, { letter: string; label: string }> = {
   added: { letter: "A", label: "Added" },
@@ -13,77 +16,100 @@ const statusLetters: Record<ChangeKind, { letter: string; label: string }> = {
   conflicted: { letter: "!", label: "Conflicted" },
 };
 
-export function FileTree({ changes }: { changes: FileChange[] }) {
-  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
+export interface FileSelection {
+  list: ChangeList;
+  path: string;
+}
 
-  function toggle(path: string) {
+interface FileTreeProps {
+  trees: GroupTree[];
+  selected: FileSelection | null;
+  onSelect: (list: ChangeList, change: FileChange) => void;
+}
+
+export function FileTree({ trees, selected, onSelect }: FileTreeProps) {
+  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
+  const rows = useMemo(() => flattenChanges(trees, collapsed), [trees, collapsed]);
+
+  function toggle(key: string) {
     setCollapsed((current) => {
       const next = new Set(current);
-      if (!next.delete(path)) next.add(path);
+      if (!next.delete(key)) next.add(key);
       return next;
     });
   }
 
-  return <TreeLevel nodes={buildFileTree(changes)} collapsed={collapsed} onToggle={toggle} />;
-}
+  const selectedKey = selected && fileKey(selected.list, selected.path);
 
-interface TreeLevelProps {
-  nodes: TreeNode[];
-  collapsed: ReadonlySet<string>;
-  onToggle: (path: string) => void;
-}
-
-function TreeLevel({ nodes, collapsed, onToggle }: TreeLevelProps) {
   return (
-    <ul className="file-tree">
-      {nodes.map((node) =>
-        node.type === "folder" ? (
-          <FolderRow key={node.path} folder={node} collapsed={collapsed} onToggle={onToggle} />
-        ) : (
-          <FileRow key={node.change.path} file={node} />
-        ),
+    <VirtualList
+      label="Changed files"
+      className="file-tree"
+      items={rows}
+      rowHeight={TREE_ROW_HEIGHT}
+      getKey={(row) => row.key}
+      renderRow={(row) => (
+        <TreeRowView
+          row={row}
+          selected={row.type === "file" && row.key === selectedKey}
+          onToggle={toggle}
+          onSelect={onSelect}
+        />
       )}
-    </ul>
+    />
   );
 }
 
-function FileRow({ file }: { file: FileNode }) {
-  const { kind, originalPath, added, removed } = file.change;
-  return (
-    <li>
-      <div className="tree-row">
-        <span className={`status-letter status-${kind}`} title={statusLetters[kind].label}>
-          {statusLetters[kind].letter}
-        </span>
-        <span className="tree-name">{file.name}</span>
-        {originalPath && <span className="renamed-from">{originalPath}</span>}
-        <LineCounts added={added} removed={removed} />
-      </div>
-    </li>
-  );
+interface TreeRowViewProps {
+  row: TreeRow;
+  selected: boolean;
+  onToggle: (key: string) => void;
+  onSelect: (list: ChangeList, change: FileChange) => void;
 }
 
-interface FolderRowProps {
-  folder: FolderNode;
-  collapsed: ReadonlySet<string>;
-  onToggle: (path: string) => void;
-}
+function TreeRowView({ row, selected, onToggle, onSelect }: TreeRowViewProps) {
+  const indent = { paddingLeft: `calc(var(--space-4) * ${"depth" in row ? row.depth : 0})` };
 
-function FolderRow({ folder, collapsed, onToggle }: FolderRowProps) {
-  const expanded = !collapsed.has(folder.path);
-  return (
-    <li>
+  if (row.type === "group") {
+    return (
+      <header className="change-group-header">
+        <h2>{row.name}</h2>
+        <span className="change-group-count">{row.count}</span>
+      </header>
+    );
+  }
+
+  if (row.type === "folder") {
+    return (
       <button
         type="button"
-        aria-expanded={expanded}
+        aria-expanded={row.expanded}
         className="tree-row folder-row"
-        onClick={() => onToggle(folder.path)}
+        style={indent}
+        onClick={() => onToggle(row.key)}
       >
-        <span className="tree-name">{folder.name}</span>
-        <LineCounts added={folder.added} removed={folder.removed} />
+        <span className="tree-name">{row.folder.name}</span>
+        <LineCounts added={row.folder.added} removed={row.folder.removed} />
       </button>
-      {expanded && <TreeLevel nodes={folder.children} collapsed={collapsed} onToggle={onToggle} />}
-    </li>
+    );
+  }
+
+  const { kind, originalPath, added, removed } = row.file.change;
+  return (
+    <button
+      type="button"
+      aria-current={selected || undefined}
+      className="tree-row file-row"
+      style={indent}
+      onClick={() => onSelect(row.list, row.file.change)}
+    >
+      <span className={`status-letter status-${kind}`} title={statusLetters[kind].label}>
+        {statusLetters[kind].letter}
+      </span>
+      <span className="tree-name">{row.file.name}</span>
+      {originalPath && <span className="renamed-from">{originalPath}</span>}
+      <LineCounts added={added} removed={removed} />
+    </button>
   );
 }
 

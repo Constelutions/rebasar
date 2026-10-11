@@ -5,6 +5,7 @@ import { TitleBar } from "./components/TitleBar";
 import { ViewPane } from "./components/ViewPane";
 import type { CoreApi, Tab } from "./core/api";
 import { describeError } from "./core/describeError";
+import { type Highlighter, HighlighterProvider, defaultHighlighter } from "./highlight/highlighter";
 import type { AppWindow } from "./shell/appWindow";
 import { shortcuts, useShortcut } from "./shortcuts";
 import type { ViewName } from "./views";
@@ -13,9 +14,10 @@ interface AppProps {
   api: CoreApi;
   pickFolder: () => Promise<string | null>;
   appWindow: AppWindow;
+  highlighter?: Highlighter;
 }
 
-export function App({ api, pickFolder, appWindow }: AppProps) {
+export function App({ api, pickFolder, appWindow, highlighter = defaultHighlighter }: AppProps) {
   const [tabs, setTabs] = useState<Tab[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [view, setView] = useState<ViewName>("Home");
@@ -49,18 +51,20 @@ export function App({ api, pickFolder, appWindow }: AppProps) {
   useShortcut(shortcuts.openFolder, openFolder);
 
   return (
-    <div className="app">
-      <TitleBar tabs={tabs} appWindow={appWindow} onOpenFolder={openFolder} />
-      {error && (
-        <p role="alert" className="error">
-          {error}
-        </p>
-      )}
-      <div className="app-body">
-        <Sidebar selected={view} onSelect={setView} />
-        <ViewPane view={view} api={api} tab={tabs.at(-1)} />
+    <HighlighterProvider value={highlighter}>
+      <div className="app">
+        <TitleBar tabs={tabs} appWindow={appWindow} onOpenFolder={openFolder} />
+        {error && (
+          <p role="alert" className="error">
+            {error}
+          </p>
+        )}
+        <div className="app-body">
+          <Sidebar selected={view} onSelect={setView} />
+          <ViewPane view={view} api={api} tab={tabs.at(-1)} />
+        </div>
       </div>
-    </div>
+    </HighlighterProvider>
   );
 }
 

@@ -132,3 +132,15 @@ fn status_is_measured_against_the_status_threshold() {
         .expect("status threshold");
     assert_eq!(status.measured_by, ["status-worktree"]);
 }
+
+#[test]
+fn the_first_changeset_file_is_measured_by_listing_the_changes_and_diffing_the_first() {
+    let report = run_placeholders();
+
+    let first_file = report
+        .thresholds
+        .iter()
+        .find(|row| row.id == "first-changeset-file")
+        .expect("first-changeset-file threshold");
+    assert_eq!(first_file.measured_by, ["first-changeset-file"]);
+}
