@@ -3,7 +3,8 @@ import { useEffect, useState } from "react";
 import { Sidebar } from "./components/Sidebar";
 import { TitleBar } from "./components/TitleBar";
 import { ViewPane } from "./components/ViewPane";
-import { type ApiError, type CoreApi, type Tab, isApiError } from "./core/api";
+import type { CoreApi, Tab } from "./core/api";
+import { describeError } from "./core/describeError";
 import type { AppWindow } from "./shell/appWindow";
 import { shortcuts, useShortcut } from "./shortcuts";
 import type { ViewName } from "./views";
@@ -23,6 +24,9 @@ export function App({ api, pickFolder, appWindow }: AppProps) {
     const subscription = api.onEvent((event) => {
       if (event.type === "tabOpened") {
         setTabs((current) => withTab(current, event.tab));
+        api
+          .watchWorktree(event.tab.worktreePath)
+          .catch((failure) => setError(describeError(failure)));
       }
     });
     return () => {
@@ -54,7 +58,7 @@ export function App({ api, pickFolder, appWindow }: AppProps) {
       )}
       <div className="app-body">
         <Sidebar selected={view} onSelect={setView} />
-        <ViewPane view={view} />
+        <ViewPane view={view} api={api} tab={tabs.at(-1)} />
       </div>
     </div>
   );
@@ -63,20 +67,4 @@ export function App({ api, pickFolder, appWindow }: AppProps) {
 function withTab(tabs: Tab[], opened: Tab): Tab[] {
   const others = tabs.filter((tab) => tab.worktreePath !== opened.worktreePath);
   return [...others, opened];
-}
-
-function describeError(failure: unknown): string {
-  if (!isApiError(failure)) return String(failure);
-  return describeApiError(failure);
-}
-
-function describeApiError(error: ApiError): string {
-  switch (error.kind) {
-    case "folderNotFound":
-      return `${error.path} does not exist.`;
-    case "notARepository":
-      return `${error.path} is not a Git repository.`;
-    case "unexpected":
-      return error.message;
-  }
 }

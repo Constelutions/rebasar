@@ -2,7 +2,7 @@
 
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::{Command, Output};
 
 use tempfile::TempDir;
 
@@ -33,6 +33,26 @@ impl TempRepo {
         self
     }
 
+    /// Writes `contents` without staging it, creating parent folders as needed.
+    pub fn write_file(&self, relative_path: &str, contents: impl AsRef<[u8]>) -> &Self {
+        let file = self.path.join(relative_path);
+        if let Some(parent) = file.parent() {
+            fs::create_dir_all(parent).expect("create parent folders");
+        }
+        fs::write(file, contents).expect("write file");
+        self
+    }
+
+    pub fn delete_file(&self, relative_path: &str) -> &Self {
+        fs::remove_file(self.path.join(relative_path)).expect("delete file");
+        self
+    }
+
+    pub fn stage(&self, relative_path: &str) -> &Self {
+        self.git(&["add", "--all", "--", relative_path]);
+        self
+    }
+
     pub fn detach_head(&self) -> &Self {
         self.git(&["checkout", "--detach"]);
         self
@@ -56,8 +76,27 @@ impl TempRepo {
     }
 
     pub fn git(&self, args: &[&str]) -> String {
+        let output = self.run_git(args);
+        assert!(
+            output.status.success(),
+            "git {args:?} failed: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        String::from_utf8_lossy(&output.stdout).into_owned()
+    }
+
+    /// For commands that are expected to stop, such as a merge that conflicts.
+    pub fn git_fails(&self, args: &[&str]) {
+        let output = self.run_git(args);
+        assert!(
+            !output.status.success(),
+            "git {args:?} was expected to fail"
+        );
+    }
+
+    fn run_git(&self, args: &[&str]) -> Output {
         let global_config = self.root.path().join("empty.gitconfig");
-        let output = Command::new("git")
+        Command::new("git")
             .args(args)
             .current_dir(&self.path)
             .env("GIT_CONFIG_GLOBAL", &global_config)
@@ -67,12 +106,6 @@ impl TempRepo {
             .env("GIT_COMMITTER_NAME", "Test Author")
             .env("GIT_COMMITTER_EMAIL", "author@example.com")
             .output()
-            .expect("run git");
-        assert!(
-            output.status.success(),
-            "git {args:?} failed: {}",
-            String::from_utf8_lossy(&output.stderr)
-        );
-        String::from_utf8_lossy(&output.stdout).into_owned()
+            .expect("run git")
     }
 }

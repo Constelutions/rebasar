@@ -1,6 +1,8 @@
 use rebasar_bench::{
     run, scenarios, FixtureCache, Limit, Report, Scale, Scenario, Verdict, COLD_START, THRESHOLDS,
 };
+use std::sync::atomic::{AtomicUsize, Ordering};
+
 use serde_json::Value;
 
 fn run_placeholders() -> Report {
@@ -85,4 +87,32 @@ fn benchmarks_report_a_missed_threshold_without_failing_the_run() {
 
     assert_eq!(report.results[0].verdict, Verdict::Exceeded);
     assert!(report.to_string().contains("exceeded"));
+}
+
+#[test]
+fn a_warmed_up_scenario_runs_once_untimed_before_the_timed_run() {
+    static RUNS: AtomicUsize = AtomicUsize::new(0);
+    let dir = tempfile::tempdir().expect("create cache dir");
+    let cache = FixtureCache::new(dir.path());
+    let scenario = Scenario::new("counts-its-runs", |_, _| {
+        RUNS.fetch_add(1, Ordering::SeqCst);
+        Ok(())
+    })
+    .after_warm_up();
+
+    run(&cache, &Scale::SMOKE, &[scenario]).expect("run benchmarks");
+
+    assert_eq!(RUNS.load(Ordering::SeqCst), 2);
+}
+
+#[test]
+fn status_is_measured_against_the_status_threshold() {
+    let report = run_placeholders();
+
+    let status = report
+        .thresholds
+        .iter()
+        .find(|row| row.id == "status")
+        .expect("status threshold");
+    assert_eq!(status.measured_by, ["status-worktree"]);
 }

@@ -1,9 +1,16 @@
-use std::path::Path;
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex};
 
 use serde::Serialize;
 use thiserror::Error;
 
 pub mod platform;
+mod status;
+mod watch;
+
+pub use status::{ChangeKind, FileChange, WorktreeStatus};
+use watch::WorktreeWatch;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -21,9 +28,14 @@ pub enum Head {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[serde(tag = "type", rename_all = "camelCase")]
+#[serde(
+    tag = "type",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
 pub enum CoreEvent {
     TabOpened { tab: Tab },
+    WorktreeChanged { worktree_path: String },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Error, Serialize)]
@@ -46,31 +58,54 @@ impl ApiError {
 }
 
 pub struct Core {
-    on_event: Box<dyn Fn(CoreEvent) + Send + Sync>,
+    on_event: Arc<dyn Fn(CoreEvent) + Send + Sync>,
+    watches: Mutex<HashMap<PathBuf, WorktreeWatch>>,
 }
 
 impl Core {
     pub fn new(on_event: impl Fn(CoreEvent) + Send + Sync + 'static) -> Self {
         Self {
-            on_event: Box::new(on_event),
+            on_event: Arc::new(on_event),
+            watches: Mutex::new(HashMap::new()),
         }
     }
 
+    /// Emits [`CoreEvent::WorktreeChanged`] after files change under the Worktree, whoever
+    /// changed them. Watching an already watched Worktree does nothing.
+    pub fn watch_worktree(&self, path: &Path) -> Result<(), ApiError> {
+        let (worktree_path, repo) = open_worktree(path)?;
+        let mut watches = self.watches.lock().expect("watch registry lock");
+        if watches.contains_key(&worktree_path) {
+            return Ok(());
+        }
+
+        let on_event = Arc::clone(&self.on_event);
+        let reported_path = worktree_path.to_string_lossy().into_owned();
+        let watch = WorktreeWatch::start(&repo, &worktree_path, move || {
+            on_event(CoreEvent::WorktreeChanged {
+                worktree_path: reported_path.clone(),
+            });
+        })?;
+        watches.insert(worktree_path, watch);
+        Ok(())
+    }
+
+    pub fn unwatch_worktree(&self, path: &Path) {
+        if let Ok(worktree_path) = platform::canonical(path) {
+            self.watches
+                .lock()
+                .expect("watch registry lock")
+                .remove(&worktree_path);
+        }
+    }
+
+    pub fn worktree_status(&self, path: &Path) -> Result<WorktreeStatus, ApiError> {
+        let (_, repo) = open_worktree(path)?;
+        status::read(&repo)
+    }
+
     pub fn open_folder(&self, path: &Path) -> Result<Tab, ApiError> {
-        if !path.exists() {
-            return Err(ApiError::FolderNotFound {
-                path: path.to_string_lossy().into_owned(),
-            });
-        }
-        let worktree_path = platform::canonical(path).map_err(ApiError::unexpected)?;
-        // Every Worktree root, main or linked, holds a `.git` entry (a folder or a file). Bare
-        // repositories have none and have no Worktree to show as a Tab.
-        if !worktree_path.join(".git").exists() {
-            return Err(ApiError::NotARepository {
-                path: worktree_path.to_string_lossy().into_owned(),
-            });
-        }
-        let repo = gix::open(&worktree_path).map_err(ApiError::unexpected)?;
+        let (worktree_path, repo) = open_worktree(path)?;
 
         let head = match repo.head_name().map_err(ApiError::unexpected)? {
             Some(name) => Head::Branch {
@@ -98,4 +133,22 @@ impl Core {
         (self.on_event)(CoreEvent::TabOpened { tab: tab.clone() });
         Ok(tab)
     }
+}
+
+fn open_worktree(path: &Path) -> Result<(PathBuf, gix::Repository), ApiError> {
+    if !path.exists() {
+        return Err(ApiError::FolderNotFound {
+            path: path.to_string_lossy().into_owned(),
+        });
+    }
+    let worktree_path = platform::canonical(path).map_err(ApiError::unexpected)?;
+    // Every Worktree root, main or linked, holds a `.git` entry (a folder or a file). Bare
+    // repositories have none and have no Worktree to show as a Tab.
+    if !worktree_path.join(".git").exists() {
+        return Err(ApiError::NotARepository {
+            path: worktree_path.to_string_lossy().into_owned(),
+        });
+    }
+    let repo = gix::open(&worktree_path).map_err(ApiError::unexpected)?;
+    Ok((worktree_path, repo))
 }

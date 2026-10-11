@@ -40,4 +40,4 @@ Defined once, in `crates/rebasar-bench/src/thresholds.rs`: cold start, commit gr
 
 ## Adding a scenario
 
-Add a `Scenario` to `scenarios()` in `crates/rebasar-bench/src/runner.rs`: a name and a function over `&Core` and the fixture paths, optionally `.against(&THRESHOLD)`. The placeholder `open-folder-*` scenarios have no threshold; they exist to prove the pipeline. Scenarios are timed as wall-clock durations; a memory scenario will need the runner extended to measure memory.
+Add a `Scenario` to `scenarios()` in `crates/rebasar-bench/src/runner.rs`: a name and a function over `&Core` and the fixture paths, optionally `.against(&THRESHOLD)`. Call `.after_warm_up()` for an operation the app repeats on a warm file cache: the action then runs once untimed before the timed run. The `status-worktree` scenario does this and is measured against the 100k-file status threshold; `status-changeset` times the same read on the changeset fixture without a threshold. The placeholder `open-folder-*` scenarios have no threshold; they exist to prove the pipeline. Scenarios are timed as wall-clock durations; a memory scenario will need the runner extended to measure memory.

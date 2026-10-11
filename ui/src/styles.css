@@ -169,8 +169,11 @@ button {
 }
 
 .view-pane {
+  display: flex;
   flex: 1;
+  flex-direction: column;
   min-width: 0;
+  min-height: 0;
   padding: var(--space-5);
   background: var(--color-surface);
   border: 1px solid var(--color-border);
@@ -191,4 +194,129 @@ button {
   margin: 0;
   padding: var(--space-2) var(--space-4);
   color: var(--color-danger);
+}
+
+.changes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  flex: 1;
+  min-height: 0;
+  margin-top: var(--space-4);
+  overflow-y: auto;
+}
+
+.change-group-header {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+
+.change-group-header h2 {
+  margin: 0;
+  font-size: var(--text-md);
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+
+.change-group-count {
+  font: var(--text-xs) var(--font-mono);
+  color: var(--color-text-subtle);
+}
+
+.file-tree {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.file-tree .file-tree {
+  padding-left: var(--space-4);
+}
+
+.tree-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  box-sizing: border-box;
+  width: 100%;
+  min-height: var(--row-height);
+  padding: 0 var(--space-2);
+  text-align: left;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-sm);
+}
+
+.folder-row {
+  cursor: pointer;
+  color: var(--color-text-muted);
+}
+
+.folder-row:hover {
+  background: var(--color-hover);
+}
+
+.folder-row::before {
+  content: "▾";
+  width: var(--space-4);
+  color: var(--color-text-subtle);
+}
+
+.folder-row[aria-expanded="false"]::before {
+  content: "▸";
+}
+
+.tree-name {
+  flex: none;
+}
+
+.renamed-from {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: var(--text-xs) var(--font-mono);
+  color: var(--color-text-subtle);
+}
+
+.line-counts {
+  display: flex;
+  gap: var(--space-2);
+  margin-left: auto;
+  font: var(--text-xs) var(--font-mono);
+}
+
+.count-added {
+  color: var(--color-success);
+}
+
+.count-removed {
+  color: var(--color-danger);
+}
+
+.status-letter {
+  width: var(--space-4);
+  font: 600 var(--text-xs) var(--font-mono);
+  text-align: center;
+}
+
+.status-added,
+.status-untracked {
+  color: var(--color-success);
+}
+
+.status-modified,
+.status-typeChanged {
+  color: var(--color-warning);
+}
+
+.status-deleted,
+.status-conflicted {
+  color: var(--color-danger);
+}
+
+.status-renamed {
+  color: var(--color-accent);
 }
