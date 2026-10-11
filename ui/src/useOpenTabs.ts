@@ -15,6 +15,7 @@ export function useOpenTabs(api: CoreApi) {
   const [activePath, setActivePath] = useState<string | null>(null);
   const [pollingPaths, setPollingPaths] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [restoredView, setRestoredView] = useState<string | null>(null);
   const latestRequests = useRef(new Map<string, number>());
 
   const refresh = useCallback(
@@ -52,11 +53,50 @@ export function useOpenTabs(api: CoreApi) {
   );
 
   useEffect(() => {
+    let cancelled = false;
+
+    async function restore() {
+      const session = await api.restoreSession();
+      if (cancelled) return;
+      setOpenTabs((current) => session.tabs.reduce(withTab, current));
+      setRestoredView(session.view);
+      if (session.active !== null) select(session.active);
+
+      // One at a time and after a paint, so that many restored Tabs never delay the first one.
+      for (const { worktreePath } of session.tabs) {
+        if (worktreePath === session.active) continue;
+        await nextTask();
+        if (cancelled) return;
+        await api.watchBackgroundTab(worktreePath).catch(() => {});
+        await refresh(worktreePath);
+      }
+    }
+
+    restore().catch((failure) => setError(describeError(failure)));
+    return () => {
+      cancelled = true;
+    };
+  }, [api, refresh, select]);
+
+  useEffect(() => {
+    if (activePath === null) return;
+    if (openTabs.some((open) => open.tab.worktreePath === activePath)) return;
+    const next = openTabs.at(-1);
+    if (next) select(next.tab.worktreePath);
+    else setActivePath(null);
+  }, [openTabs, activePath, select]);
+
+  useEffect(() => {
     const subscription = api.onEvent((event) => {
       switch (event.type) {
         case "tabOpened":
           setOpenTabs((current) => withTab(current, event.tab));
           select(event.tab.worktreePath);
+          break;
+        case "tabClosed":
+          setOpenTabs((current) =>
+            current.filter((open) => open.tab.worktreePath !== event.worktreePath),
+          );
           break;
         case "worktreeChanged":
           void refresh(event.worktreePath);
@@ -75,6 +115,7 @@ export function useOpenTabs(api: CoreApi) {
     openTabs,
     activeTab: openTabs.find((open) => open.tab.worktreePath === activePath),
     pollingPaths,
+    restoredView,
     error,
     setError,
     select,
@@ -88,4 +129,8 @@ function withTab(tabs: OpenTab[], opened: Tab): OpenTab[] {
     );
   }
   return [...tabs, { tab: opened, status: null, error: null }];
+}
+
+function nextTask(): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, 0));
 }

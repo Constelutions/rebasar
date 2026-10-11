@@ -66,6 +66,24 @@ impl Registry {
         path: PathBuf,
         repo: &gix::Repository,
     ) -> Result<(), ApiError> {
+        self.register_at(path, repo, |entries, entry| entries.push(entry))
+    }
+
+    /// Opens the Worktree as the Tab used longest ago, leaving the Tabs already open as they are.
+    pub(crate) fn register_least_recent(
+        &mut self,
+        path: PathBuf,
+        repo: &gix::Repository,
+    ) -> Result<(), ApiError> {
+        self.register_at(path, repo, |entries, entry| entries.insert(0, entry))
+    }
+
+    fn register_at(
+        &mut self,
+        path: PathBuf,
+        repo: &gix::Repository,
+        place: impl FnOnce(&mut Vec<Entry>, Entry),
+    ) -> Result<(), ApiError> {
         let active = Arc::new(AtomicBool::new(false));
         let mode = match self.start_watch(&path, repo, &active) {
             Ok(watch) => Mode::Watched { _watch: watch },
@@ -77,12 +95,15 @@ impl Registry {
                 }
             }
         };
-        self.entries.push(Entry {
-            path,
-            active,
-            mode,
-            caches: HashMap::new(),
-        });
+        place(
+            &mut self.entries,
+            Entry {
+                path,
+                active,
+                mode,
+                caches: HashMap::new(),
+            },
+        );
         self.after_use_changed();
         Ok(())
     }

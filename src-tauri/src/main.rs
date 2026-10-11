@@ -4,11 +4,12 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use rebasar_core::{
-    ApiError, CommitDetail, CommitDiffRequest, CommitHit, Core, DiffRequest, FileDiff, GitHubAuthStatus,
-    GitHubRepository, GitIdentity, GitSetup, HistoryCount, HistoryFilter, HistoryPage, MutationId,
-    MutationOutcome, PullRequest, RefLabel, Settings, Tab, WorktreeStatus,
+    ApiError, CommitDetail, CommitDiffRequest, CommitHit, Core, DiffRequest, FileDiff,
+    GitHubAuthStatus, GitHubRepository, GitIdentity, GitSetup, Group, HistoryCount, HistoryFilter,
+    HistoryPage, MutationId, MutationOutcome, PullRequest, RefLabel, RepositoryList, Session,
+    Settings, Tab, WindowBounds, WorktreeStatus,
 };
-use tauri::{Emitter, Manager, State};
+use tauri::{Emitter, Manager, PhysicalSize, State, WebviewWindow, WindowEvent};
 
 #[tauri::command]
 async fn open_folder(core: State<'_, Arc<Core>>, path: PathBuf) -> Result<Tab, ApiError> {
@@ -280,6 +281,109 @@ async fn list_branches(
         .map_err(ApiError::unexpected)?
 }
 
+#[tauri::command]
+async fn restore_session(core: State<'_, Arc<Core>>) -> Result<Session, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.restore_session())
+        .await
+        .map_err(ApiError::unexpected)
+}
+
+#[tauri::command]
+async fn watch_background_tab(core: State<'_, Arc<Core>>, path: PathBuf) -> Result<(), ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.watch_background_tab(&path))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn save_view(core: State<'_, Arc<Core>>, view: String) -> Result<(), ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.save_view(&view))
+        .await
+        .map_err(ApiError::unexpected)
+}
+
+#[tauri::command]
+async fn list_repositories(core: State<'_, Arc<Core>>) -> Result<RepositoryList, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.repositories())
+        .await
+        .map_err(ApiError::unexpected)
+}
+
+#[tauri::command]
+async fn create_group(core: State<'_, Arc<Core>>, name: String) -> Result<Group, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.create_group(&name))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn rename_group(
+    core: State<'_, Arc<Core>>,
+    id: String,
+    name: String,
+) -> Result<(), ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.rename_group(&id, &name))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn move_group(core: State<'_, Arc<Core>>, id: String, index: usize) -> Result<(), ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.move_group(&id, index))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn move_repository(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+    group_id: Option<String>,
+) -> Result<(), ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.move_repository(&path, group_id.as_deref()))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn locate_repository(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+    new_path: PathBuf,
+) -> Result<(), ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.locate_repository(&path, &new_path))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn remove_repository(core: State<'_, Arc<Core>>, path: PathBuf) -> Result<(), ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.remove_repository(&path))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+fn restore_window(window: &WebviewWindow, bounds: WindowBounds) {
+    if let Err(error) = window.set_size(PhysicalSize::new(bounds.width, bounds.height)) {
+        eprintln!("failed to restore the window size: {error}");
+    }
+    if bounds.maximized {
+        if let Err(error) = window.maximize() {
+            eprintln!("failed to maximize the window: {error}");
+        }
+    }
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
@@ -289,10 +393,29 @@ fn main() {
                 if let Err(error) = handle.emit("core-event", event) {
                     eprintln!("failed to emit core event: {error}");
                 }
-            });
+            })
+            .with_registry_file(app.path().app_config_dir()?.join("registry.json"));
+            if let (Some(window), Some(bounds)) =
+                (app.get_webview_window("main"), core.window_bounds())
+            {
+                restore_window(&window, bounds);
+            }
             let config_dir = app.path().app_config_dir()?;
             app.manage(Arc::new(core.with_config_dir(config_dir)));
             Ok(())
+        })
+        .on_window_event(|window, event| {
+            if !matches!(event, WindowEvent::CloseRequested { .. }) {
+                return;
+            }
+            if window.is_minimized().unwrap_or(false) {
+                return;
+            }
+            if let (Ok(size), Ok(maximized)) = (window.inner_size(), window.is_maximized()) {
+                window
+                    .state::<Arc<Core>>()
+                    .remember_window(size.width, size.height, maximized);
+            }
         })
         .invoke_handler(tauri::generate_handler![
             open_folder,
@@ -320,7 +443,17 @@ fn main() {
             git_identity,
             set_git_identity,
             commit_detail,
-            commit_file_diff
+            commit_file_diff,
+            restore_session,
+            watch_background_tab,
+            save_view,
+            list_repositories,
+            create_group,
+            rename_group,
+            move_group,
+            move_repository,
+            locate_repository,
+            remove_repository
         ])
         .run(tauri::generate_context!())
         .expect("failed to run Rebasar");

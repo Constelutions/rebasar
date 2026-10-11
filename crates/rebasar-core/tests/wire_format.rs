@@ -2,10 +2,11 @@ use rebasar_core::{
     ApiError, AppearanceSettings, ChangeKind, ChangeList, CheckState, CommitDetail,
     CommitDiffRequest, CommitHit, CommitParent, CoreEvent, DiffContent, DiffLine, DiffMode,
     DiffRequest, DiffSettings, Edge, EdgeKind, FileChange, FileDiff, GitHubAuthStatus,
-    GitHubRepository, GitIdentity, GitSetup, Head, HistoryCount, HistoryFilter, HistoryPage,
-    HistoryRow, Hunk, LineKind, ModeChange, MutationId, MutationInfo, MutationOutcome,
-    OutputStream, PullRequest, RefKind, RefLabel, ReviewState, Settings, Tab, TokenSource,
-    WhitespaceMode, WorktreeStatus,
+    GitHubRepository, GitIdentity, GitSetup, Group, Head, HistoryCount, HistoryFilter,
+    HistoryPage, HistoryRow, Hunk, LineKind, ModeChange, MutationId, MutationInfo,
+    MutationOutcome, OutputStream, PullRequest, RefKind, RefLabel, RepositoryEntry,
+    RepositoryList, ReviewState, Session, Settings, Tab, TokenSource, WhitespaceMode,
+    WorktreeEntry, WorktreeStatus,
 };
 use serde_json::json;
 
@@ -639,5 +640,101 @@ fn a_commit_hit_serialises_to_the_shape_the_ui_expects() {
             "authorName": "Ada",
             "timestamp": 1_700_000_000,
         })
+    );
+}
+
+#[test]
+fn a_tab_closed_event_serialises_to_the_shape_the_ui_expects() {
+    assert_eq!(
+        serde_json::to_value(CoreEvent::TabClosed {
+            worktree_path: "/work/sample".to_owned()
+        })
+        .unwrap(),
+        json!({ "type": "tabClosed", "worktreePath": "/work/sample" })
+    );
+}
+
+#[test]
+fn a_repository_list_serialises_to_the_shape_the_ui_expects() {
+    let list = RepositoryList {
+        groups: vec![Group {
+            id: "group-1".to_owned(),
+            name: "Work".to_owned(),
+        }],
+        repositories: vec![RepositoryEntry {
+            path: "/work/sample".to_owned(),
+            name: "sample".to_owned(),
+            group_id: Some("group-1".to_owned()),
+            missing: false,
+            worktrees: vec![WorktreeEntry {
+                path: "/work/sample".to_owned(),
+                main: true,
+                head: Head::Branch {
+                    name: "main".to_owned(),
+                },
+            }],
+        }],
+    };
+
+    assert_eq!(
+        serde_json::to_value(list).unwrap(),
+        json!({
+            "groups": [{ "id": "group-1", "name": "Work" }],
+            "repositories": [{
+                "path": "/work/sample",
+                "name": "sample",
+                "groupId": "group-1",
+                "missing": false,
+                "worktrees": [{
+                    "path": "/work/sample",
+                    "main": true,
+                    "head": { "kind": "branch", "name": "main" },
+                }],
+            }],
+        })
+    );
+}
+
+#[test]
+fn a_session_serialises_to_the_shape_the_ui_expects() {
+    let session = Session {
+        tabs: vec![tab()],
+        active: Some("/work/sample".to_owned()),
+        view: None,
+    };
+
+    assert_eq!(
+        serde_json::to_value(session).unwrap(),
+        json!({
+            "tabs": [{
+                "repositoryName": "sample",
+                "worktreePath": "/work/sample",
+                "head": { "kind": "branch", "name": "main" },
+            }],
+            "active": "/work/sample",
+            "view": null,
+        })
+    );
+}
+
+#[test]
+fn the_errors_of_the_registry_serialise_to_the_shape_the_ui_expects() {
+    assert_eq!(
+        serde_json::to_value(ApiError::InvalidGroupName).unwrap(),
+        json!({ "kind": "invalidGroupName" })
+    );
+    assert_eq!(
+        serde_json::to_value(ApiError::GroupNotFound {
+            id: "group-9".to_owned()
+        })
+        .unwrap(),
+        json!({ "kind": "groupNotFound", "id": "group-9" })
+    );
+    assert_eq!(
+        serde_json::to_value(ApiError::RepositoryNotFound {
+            path: "/work/gone".to_owned()
+        })
+        .unwrap(),
+        json!({ "kind": "repositoryNotFound", "path": "/work/gone" })
     );
 }

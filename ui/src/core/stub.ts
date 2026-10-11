@@ -9,10 +9,14 @@ import {
   type GitHubAuthStatus,
   type GitHubRepository,
   type GitSetup,
+  type Group,
   type GitIdentity,
   type Head,
   type HistoryRow,
   type RefLabel,
+  type RepositoryEntry,
+  type RepositoryList,
+  type Session,
   type MutationOutcome,
   type PullRequest,
   type Tab,
@@ -48,6 +52,11 @@ export interface MutationFailure {
 }
 
 export interface StubCoreState {
+  /** What the app restores on launch; its Tabs are known to the stub as Repositories. */
+  session?: Session;
+  groups?: Group[];
+  /** The Repositories the registry already holds, as an earlier run would have left them. */
+  registry?: RepositoryEntry[];
   settings?: Settings;
   identity?: GitIdentity;
 }
@@ -80,6 +89,8 @@ export interface StubCoreApi extends CoreApi {
   setPolling(paths: string[]): void;
   /** Replaces the branches the Worktree's Repository lists; by default just the checked-out one. */
   setBranches(path: string, branches: RefLabel[]): void;
+  /** Deletes the Repository's folder outside the app; the next listing shows it as missing. */
+  loseRepository(path: string): void;
   /** Makes status reads wait until the returned function is called. */
   holdStatusReads(): () => void;
   /** Delivers an event as if the core had emitted it, to drive streaming and progress. */
@@ -87,6 +98,10 @@ export interface StubCoreApi extends CoreApi {
   /** Makes the next stage, unstage or commit fail the way `git` would. */
   failNextMutation(failure: MutationFailure): void;
   readonly watchedWorktrees: ReadonlySet<string>;
+  /** The Tabs the core was asked to watch in the background, in that order. */
+  readonly backgroundWatched: readonly string[];
+  /** The view the user last switched to, as the core remembers it. */
+  readonly savedView: string | null;
   readonly cancelledMutations: readonly number[];
   readonly commits: readonly { worktreePath: string; message: string }[];
   /** Every diff the UI asked for, in order. */
@@ -127,6 +142,14 @@ export function createStubCoreApi(
   const commits: { worktreePath: string; message: string }[] = [];
   const failures: MutationFailure[] = [];
   let nextMutationId = 1;
+  const backgroundWatched: string[] = [];
+  const session = state.session ?? { tabs: [], active: null, view: null };
+  const groups = [...(state.groups ?? [])];
+  const registry = (state.registry ?? []).map((entry) => ({ ...entry }));
+  const lost = new Set<string>();
+  const openTabs = new Map(session.tabs.map((tab) => [tab.worktreePath, tab]));
+  let nextGroup = groups.length;
+  let savedView: string | null = null;
   let settings = state.settings ?? defaultSettings;
   let identity = state.identity ?? { name: null, email: null };
   const emit = (event: CoreEvent) => handlers.forEach((handler) => handler(event));
@@ -170,9 +193,47 @@ export function createStubCoreApi(
   let source: TokenSource | null = github.signedInWith ?? null;
   const authStatus = (): GitHubAuthStatus => ({ source });
 
+  for (const tab of session.tabs) tabs.set(tab.worktreePath, tab);
+
+  function repositoryAt(path: string): RepositoryEntry {
+    const entry = registry.find((candidate) => candidate.path === path);
+    if (!entry) throw { kind: "repositoryNotFound", path };
+    return entry;
+  }
+
+  function closeTabsOf(entry: RepositoryEntry) {
+    for (const worktree of entry.worktrees) {
+      if (openTabs.delete(worktree.path)) {
+        emit({ type: "tabClosed", worktreePath: worktree.path });
+      }
+    }
+  }
+
+  function validName(name: string): string {
+    const trimmed = name.trim();
+    if (trimmed === "") throw { kind: "invalidGroupName" };
+    return trimmed;
+  }
+
+  function groupIndex(id: string): number {
+    const index = groups.findIndex((group) => group.id === id);
+    if (index < 0) throw { kind: "groupNotFound", id };
+    return index;
+  }
+
   return {
     async openFolder(path) {
       const tab = known(path);
+      openTabs.set(path, tab);
+      if (!registry.some((entry) => entry.worktrees.some((worktree) => worktree.path === path))) {
+        registry.push({
+          path,
+          name: tab.repositoryName,
+          groupId: null,
+          missing: false,
+          worktrees: [{ path, main: true, head: tab.head }],
+        });
+      }
       emit({ type: "tabOpened", tab });
       return tab;
     },
@@ -247,6 +308,57 @@ export function createStubCoreApi(
         branches.get(worktreePath) ??
         (head.kind === "branch" ? [{ kind: "localBranch", name: head.name }] : [])
       );
+    },
+    async restoreSession() {
+      return session;
+    },
+    async watchBackgroundTab(path) {
+      known(path);
+      watched.add(path);
+      backgroundWatched.push(path);
+    },
+    async saveView(view) {
+      savedView = view;
+    },
+    async listRepositories(): Promise<RepositoryList> {
+      const entries = registry.map((entry) => {
+        if (!lost.has(entry.path)) return entry;
+        closeTabsOf(entry);
+        return { ...entry, missing: true, worktrees: [] };
+      });
+      return { groups: [...groups], repositories: entries.map((entry) => ({ ...entry })) };
+    },
+    async createGroup(name) {
+      const group = { id: `group-${++nextGroup}`, name: validName(name) };
+      groups.push(group);
+      return group;
+    },
+    async renameGroup(id, name) {
+      groups[groupIndex(id)] = { id, name: validName(name) };
+    },
+    async moveGroup(id, index) {
+      const group = groups.splice(groupIndex(id), 1)[0]!;
+      groups.splice(Math.min(index, groups.length), 0, group);
+    },
+    async moveRepository(path, groupId) {
+      const entry = repositoryAt(path);
+      if (groupId !== null) groupIndex(groupId);
+      entry.groupId = groupId;
+    },
+    async locateRepository(path, newPath) {
+      const entry = repositoryAt(path);
+      const tab = known(newPath);
+      closeTabsOf(entry);
+      lost.delete(path);
+      entry.path = newPath;
+      entry.name = tab.repositoryName;
+      entry.missing = false;
+      entry.worktrees = [{ path: newPath, main: true, head: tab.head }];
+    },
+    async removeRepository(path) {
+      const entry = repositoryAt(path);
+      closeTabsOf(entry);
+      registry.splice(registry.indexOf(entry), 1);
     },
     async activateTab(path) {
       known(path);
@@ -341,6 +453,10 @@ export function createStubCoreApi(
     setBranches(path, labels) {
       branches.set(path, labels);
     },
+    loseRepository(path) {
+      repositoryAt(path);
+      lost.add(path);
+    },
     setPolling(paths) {
       emit({ type: "pollingTabsChanged", worktreePaths: paths });
     },
@@ -359,6 +475,10 @@ export function createStubCoreApi(
       failures.push(failure);
     },
     watchedWorktrees: watched,
+    backgroundWatched,
+    get savedView() {
+      return savedView;
+    },
     cancelledMutations: cancelled,
     commits,
     diffRequests,

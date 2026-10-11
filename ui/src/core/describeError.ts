@@ -11,6 +11,12 @@ function describeApiError(error: ApiError): string {
       return `${error.path} does not exist.`;
     case "notARepository":
       return `${error.path} is not a Git repository.`;
+    case "groupNotFound":
+      return "That Group no longer exists.";
+    case "repositoryNotFound":
+      return `${error.path} is not a known Repository.`;
+    case "invalidGroupName":
+      return "A Group needs a name.";
     case "notGithub":
       return `${error.path} has no GitHub remote.`;
     case "githubNotSignedIn":

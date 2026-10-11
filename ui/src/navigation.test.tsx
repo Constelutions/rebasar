@@ -16,7 +16,9 @@ const viewNames = [
   "Settings",
 ];
 
-const emptyViewNames = viewNames.filter((name) => name !== "Settings" && name !== "History");
+const emptyViewNames = viewNames.filter(
+  (name) => name !== "Settings" && name !== "History" && name !== "Repositories",
+);
 
 function renderSidebar() {
   renderApp();
@@ -45,6 +47,19 @@ it.each(emptyViewNames)("shows the empty %s view when it is selected", async (na
   expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(name);
   expect(sidebar.getByRole("button", { name })).toHaveAttribute("aria-current", "page");
   expect(screen.getByRole("main")).toHaveTextContent("Nothing here yet");
+});
+
+it("shows the Repositories view when it is selected", async () => {
+  const user = userEvent.setup();
+  const sidebar = renderSidebar();
+
+  await user.click(sidebar.getByRole("button", { name: "Repositories" }));
+
+  expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Repositories");
+  expect(sidebar.getByRole("button", { name: "Repositories" })).toHaveAttribute(
+    "aria-current",
+    "page",
+  );
 });
 
 it("marks only the selected view as current", async () => {
