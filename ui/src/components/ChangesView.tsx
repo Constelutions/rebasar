@@ -1,4 +1,4 @@
-import { type FormEvent, useEffect, useId, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import type {
   ChangeList,
@@ -6,12 +6,14 @@ import type {
   DiffMode,
   FileChange,
   FileDiff,
+  OutgoingCommit,
   WhitespaceMode,
   WorktreeStatus,
 } from "../core/api";
 import { describeError } from "../core/describeError";
 import { useSettings } from "../settings/SettingsContext";
 import { type ChangeGroup, type GroupTree, buildGroupTrees, firstFile } from "./changeTree";
+import { CommitComposer } from "./CommitComposer";
 import { DiffView } from "./DiffView";
 import { type FileAction, FileTree, type FileSelection } from "./FileTree";
 
@@ -25,6 +27,7 @@ interface ChangesViewProps {
 export function ChangesView({ api, worktreePath, status, error }: ChangesViewProps) {
   const [picked, setPicked] = useState<FileSelection<ChangeList> | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const { outgoing, outgoingError } = useOutgoingCommits(api, worktreePath);
   const { settings, ready } = useSettings();
   const [pickedMode, setPickedMode] = useState<DiffMode | null>(null);
   const mode = pickedMode ?? settings.diff.defaultMode;
@@ -65,44 +68,48 @@ export function ChangesView({ api, worktreePath, status, error }: ChangesViewPro
 
   return (
     <div className="changes-view">
-      {actionError && (
-        <p role="alert" className="error">
-          {actionError}
-        </p>
-      )}
-      {trees.length === 0 ? (
-        <p className="placeholder">No changes.</p>
-      ) : (
-        <div className="changes">
-          <div className="changes-files">
-            <FileTree
-              trees={trees}
-              selected={selected && { list: selected.list, path: selected.change.path }}
-              onSelect={(list, change) => setPicked({ list, path: change.path })}
-              actionFor={actionFor}
-            />
-          </div>
-          <div className="changes-diff">
-            {diff.error && (
-              <p role="alert" className="error">
-                {diff.error}
-              </p>
-            )}
-            {diff.value && (
-              <DiffView
-                key={`${selected?.list}:${diff.value.path}`}
-                diff={diff.value}
-                mode={mode}
-                onModeChange={setPickedMode}
-                onLoadLarge={diff.loadLarge}
+      <div className="changes-column">
+        {actionError && (
+          <p role="alert" className="error">
+            {actionError}
+          </p>
+        )}
+        {trees.length === 0 ? (
+          <p className="placeholder">No changes.</p>
+        ) : (
+          <div className="changes">
+            <div className="changes-files">
+              <FileTree
+                trees={trees}
+                selected={selected && { list: selected.list, path: selected.change.path }}
+                onSelect={(list, change) => setPicked({ list, path: change.path })}
+                actionFor={actionFor}
               />
-            )}
+            </div>
+            <div className="changes-diff">
+              {diff.error && (
+                <p role="alert" className="error">
+                  {diff.error}
+                </p>
+              )}
+              {diff.value && (
+                <DiffView
+                  key={`${selected?.list}:${diff.value.path}`}
+                  diff={diff.value}
+                  mode={mode}
+                  onModeChange={setPickedMode}
+                  onLoadLarge={diff.loadLarge}
+                />
+              )}
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
       <CommitComposer
-        canCommit={status.staged.length > 0}
-        onCommit={(message) => api.commit(worktreePath, message)}
+        hasStagedFiles={status.staged.length > 0}
+        outgoing={outgoing}
+        outgoingError={outgoingError}
+        onCommit={(message, options) => api.commit(worktreePath, message, options)}
         onFailure={(failure) => setActionError(describeError(failure))}
       />
     </div>
@@ -112,46 +119,6 @@ export function ChangesView({ api, worktreePath, status, error }: ChangesViewPro
 /** A renamed file is two index entries, so unstaging it must name both. */
 function pathsOf(change: FileChange): string[] {
   return change.originalPath ? [change.path, change.originalPath] : [change.path];
-}
-
-interface CommitComposerProps {
-  canCommit: boolean;
-  onCommit: (message: string) => Promise<{ kind: string }>;
-  onFailure: (failure: unknown) => void;
-}
-
-function CommitComposer({ canCommit, onCommit, onFailure }: CommitComposerProps) {
-  const [message, setMessage] = useState("");
-  const [committing, setCommitting] = useState(false);
-  const messageId = useId();
-
-  async function submit(event: FormEvent) {
-    event.preventDefault();
-    setCommitting(true);
-    try {
-      const outcome = await onCommit(message);
-      if (outcome.kind === "succeeded") setMessage("");
-    } catch (failure) {
-      onFailure(failure);
-    } finally {
-      setCommitting(false);
-    }
-  }
-
-  return (
-    <form className="commit-composer" aria-label="Commit" onSubmit={submit}>
-      <label htmlFor={messageId}>Commit message</label>
-      <textarea
-        id={messageId}
-        rows={3}
-        value={message}
-        onChange={(event) => setMessage(event.target.value)}
-      />
-      <button type="submit" disabled={!canCommit || message.trim() === "" || committing}>
-        Commit
-      </button>
-    </form>
-  );
 }
 
 function changeGroups(status: WorktreeStatus): ChangeGroup<ChangeList>[] {
@@ -221,4 +188,41 @@ function useFileDiff(
     error,
     loadLarge: () => setLoadedLarge((current) => new Set(current).add(`${list}:${path}`)),
   };
+}
+
+/** The commits the branch has that its upstream lacks; read again whenever the core reports a change. */
+function useOutgoingCommits(api: CoreApi, worktreePath: string) {
+  const [outgoing, setOutgoing] = useState<OutgoingCommit[]>([]);
+  const [outgoingError, setOutgoingError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let current = true;
+    let latestRequest = 0;
+
+    async function refresh() {
+      const request = ++latestRequest;
+      try {
+        const commits = await api.outgoingCommits(worktreePath);
+        if (!current || request !== latestRequest) return;
+        setOutgoing(commits);
+        setOutgoingError(null);
+      } catch (failure) {
+        if (!current || request !== latestRequest) return;
+        setOutgoingError(describeError(failure));
+      }
+    }
+
+    void refresh();
+    const subscription = api.onEvent((event) => {
+      if (event.type === "worktreeChanged" && event.worktreePath === worktreePath) {
+        void refresh();
+      }
+    });
+    return () => {
+      current = false;
+      void subscription.then((unsubscribe) => unsubscribe());
+    };
+  }, [api, worktreePath]);
+
+  return { outgoing, outgoingError };
 }

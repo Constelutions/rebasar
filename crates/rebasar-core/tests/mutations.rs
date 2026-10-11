@@ -4,7 +4,8 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use rebasar_core::{
-    ChangeKind, Core, CoreEvent, FileChange, MutationId, MutationOutcome, OutputStream,
+    ChangeKind, CommitOptions, Core, CoreEvent, FileChange, MutationId, MutationOutcome,
+    OutputStream,
 };
 use rebasar_testkit::TempRepo;
 
@@ -106,6 +107,13 @@ fn repo_with_blocking_commit_hook() -> TempRepo {
     repo.install_hook("pre-commit", BLOCK_UNTIL_RELEASED);
     repo.write_file("staged.txt", "x\n").stage("staged.txt");
     repo
+}
+
+fn amend() -> CommitOptions {
+    CommitOptions {
+        amend: true,
+        ..CommitOptions::default()
+    }
 }
 
 fn paths(changes: &[FileChange]) -> Vec<&str> {
@@ -229,7 +237,11 @@ fn a_commit_records_the_staged_files_with_the_message() {
     let core = Core::new(|_| {});
 
     let outcome = core
-        .commit(repo.path(), "Add notes\n\nWith a body.")
+        .commit(
+            repo.path(),
+            "Add notes\n\nWith a body.",
+            CommitOptions::default(),
+        )
         .expect("commit");
 
     let status = core.worktree_status(repo.path()).expect("status");
@@ -243,11 +255,119 @@ fn a_commit_records_the_staged_files_with_the_message() {
 }
 
 #[test]
+fn a_commit_can_be_signed_off() {
+    let repo = repo_with_initial_commit();
+    repo.write_file("notes.txt", "a\n").stage("notes.txt");
+    let core = Core::new(|_| {});
+
+    let outcome = core
+        .commit(
+            repo.path(),
+            "Add notes",
+            CommitOptions {
+                sign_off: true,
+                ..CommitOptions::default()
+            },
+        )
+        .expect("commit");
+
+    assert_eq!(outcome, MutationOutcome::Succeeded);
+    assert_eq!(
+        repo.git(&["log", "-1", "--format=%B"]).trim(),
+        "Add notes\n\nSigned-off-by: Test Author <author@example.com>"
+    );
+}
+
+#[test]
+fn a_commit_is_not_signed_off_unless_asked() {
+    let repo = repo_with_initial_commit();
+    repo.write_file("notes.txt", "a\n").stage("notes.txt");
+    let core = Core::new(|_| {});
+
+    core.commit(repo.path(), "Add notes", CommitOptions::default())
+        .expect("commit");
+
+    assert_eq!(repo.git(&["log", "-1", "--format=%B"]).trim(), "Add notes");
+}
+
+#[test]
+fn amending_replaces_the_previous_commit_with_the_new_message_and_staged_files() {
+    let repo = repo_with_initial_commit();
+    repo.write_file("notes.txt", "a\n").stage("notes.txt");
+    let core = Core::new(|_| {});
+
+    let outcome = core
+        .commit(repo.path(), "Better initial commit", amend())
+        .expect("amend");
+
+    assert_eq!(outcome, MutationOutcome::Succeeded);
+    assert_eq!(repo.git(&["rev-list", "--count", "HEAD"]).trim(), "1");
+    assert_eq!(
+        repo.git(&["log", "-1", "--format=%s"]).trim(),
+        "Better initial commit"
+    );
+    assert_eq!(
+        repo.git(&["show", "--name-only", "--format=", "HEAD"])
+            .lines()
+            .collect::<Vec<_>>(),
+        ["README.md", "notes.txt"]
+    );
+}
+
+#[test]
+fn amending_without_a_message_keeps_the_previous_message() {
+    let repo = repo_with_initial_commit();
+    repo.write_file("notes.txt", "a\n").stage("notes.txt");
+    let core = Core::new(|_| {});
+
+    let outcome = core.commit(repo.path(), "", amend()).expect("amend");
+
+    assert_eq!(outcome, MutationOutcome::Succeeded);
+    assert_eq!(
+        repo.git(&["log", "-1", "--format=%s"]).trim(),
+        "Initial commit"
+    );
+    assert_eq!(repo.git(&["rev-list", "--count", "HEAD"]).trim(), "1");
+}
+
+#[test]
+fn amending_can_change_only_the_message() {
+    let repo = repo_with_initial_commit();
+    let core = Core::new(|_| {});
+
+    let outcome = core
+        .commit(repo.path(), "Reworded", amend())
+        .expect("amend");
+
+    assert_eq!(outcome, MutationOutcome::Succeeded);
+    assert_eq!(repo.git(&["log", "-1", "--format=%s"]).trim(), "Reworded");
+}
+
+#[test]
+fn an_amend_is_titled_as_one() {
+    let repo = repo_with_initial_commit();
+    let harness = Harness::new();
+
+    harness
+        .core
+        .commit(repo.path(), "Reworded", amend())
+        .expect("amend");
+
+    assert!(harness.events().iter().any(|event| matches!(
+        event,
+        CoreEvent::MutationQueued { mutation } if mutation.title == "Amend commit"
+    )));
+}
+
+#[test]
 fn a_commit_with_nothing_staged_fails() {
     let repo = repo_with_initial_commit();
     let harness = Harness::new();
 
-    let outcome = harness.core.commit(repo.path(), "Nothing").expect("commit");
+    let outcome = harness
+        .core
+        .commit(repo.path(), "Nothing", CommitOptions::default())
+        .expect("commit");
 
     assert_eq!(outcome, MutationOutcome::Failed { exit_code: Some(1) });
 }
@@ -288,7 +408,8 @@ fn hook_output_streams_while_the_mutation_runs() {
     let repo = repo_with_blocking_commit_hook();
     let harness = Harness::new();
     let path = repo.path().to_owned();
-    let commit = harness.in_background(move |core| core.commit(&path, "Add staged"));
+    let commit = harness
+        .in_background(move |core| core.commit(&path, "Add staged", CommitOptions::default()));
 
     wait_until(|| {
         harness
@@ -313,7 +434,7 @@ fn a_failing_hook_fails_the_mutation_and_its_message_is_reported() {
 
     let outcome = harness
         .core
-        .commit(repo.path(), "Add notes")
+        .commit(repo.path(), "Add notes", CommitOptions::default())
         .expect("commit");
 
     assert_eq!(outcome, MutationOutcome::Failed { exit_code: Some(1) });
@@ -341,7 +462,7 @@ fn git_runs_without_a_terminal_to_prompt_on() {
 
     harness
         .core
-        .commit(repo.path(), "Add notes")
+        .commit(repo.path(), "Add notes", CommitOptions::default())
         .expect("commit");
 
     let output = harness.output_of(OutputStream::Stderr);
@@ -357,7 +478,8 @@ fn mutations_on_one_repository_run_one_at_a_time_in_arrival_order_across_its_wor
     let harness = Harness::new();
 
     let main_path = repo.path().to_owned();
-    let commit = harness.in_background(move |core| core.commit(&main_path, "Add staged"));
+    let commit = harness
+        .in_background(move |core| core.commit(&main_path, "Add staged", CommitOptions::default()));
     harness.wait_for_count(1, is_started);
     let linked_path = linked.clone();
     let stage = harness.in_background(move |core| core.stage(&linked_path, &one("new.txt")));
@@ -416,7 +538,8 @@ fn queued_mutations_start_in_the_order_they_were_requested() {
     let harness = Harness::new();
 
     let main_path = repo.path().to_owned();
-    let commit = harness.in_background(move |core| core.commit(&main_path, "Add staged"));
+    let commit = harness
+        .in_background(move |core| core.commit(&main_path, "Add staged", CommitOptions::default()));
     harness.wait_for_count(1, is_started);
     let mut stages = Vec::new();
     for (index, name) in ["a.txt", "b.txt", "c.txt"].into_iter().enumerate() {
@@ -462,7 +585,8 @@ fn reads_and_other_repositories_are_not_held_up_by_a_running_mutation() {
     let harness = Harness::new();
 
     let busy_path = busy.path().to_owned();
-    let commit = harness.in_background(move |core| core.commit(&busy_path, "Add staged"));
+    let commit = harness
+        .in_background(move |core| core.commit(&busy_path, "Add staged", CommitOptions::default()));
     harness.wait_for_count(1, is_started);
 
     let status = harness.core.worktree_status(busy.path()).expect("status");
@@ -485,7 +609,8 @@ fn cancelling_a_running_mutation_ends_git_and_its_hooks_and_frees_the_queue() {
     let harness = Harness::new();
 
     let path = repo.path().to_owned();
-    let commit = harness.in_background(move |core| core.commit(&path, "Add staged"));
+    let commit = harness
+        .in_background(move |core| core.commit(&path, "Add staged", CommitOptions::default()));
     harness.wait_for_count(1, is_started);
     let path = repo.path().to_owned();
     let later = harness.in_background(move |core| core.stage(&path, &one("later.txt")));
@@ -505,7 +630,8 @@ fn cancelling_a_queued_mutation_means_it_never_runs() {
     let harness = Harness::new();
 
     let path = repo.path().to_owned();
-    let commit = harness.in_background(move |core| core.commit(&path, "Add staged"));
+    let commit = harness
+        .in_background(move |core| core.commit(&path, "Add staged", CommitOptions::default()));
     harness.wait_for_count(1, is_started);
     let path = repo.path().to_owned();
     let later = harness.in_background(move |core| core.stage(&path, &one("later.txt")));
@@ -564,7 +690,7 @@ fn a_line_ended_by_a_carriage_return_is_reported_as_a_progress_update() {
 
     harness
         .core
-        .commit(repo.path(), "Add notes")
+        .commit(repo.path(), "Add notes", CommitOptions::default())
         .expect("commit");
 
     let lines: Vec<(String, bool)> = harness

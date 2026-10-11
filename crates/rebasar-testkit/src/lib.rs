@@ -255,6 +255,24 @@ impl TempRepo {
         worktree_path
     }
 
+    /// Adds a remote called `name` that is an empty bare repository beside this one.
+    pub fn add_bare_remote(&self, name: &str) -> &Self {
+        let remote_path = self.root.path().join(format!("{name}.git"));
+        self.git(&[
+            "init",
+            "--bare",
+            "--initial-branch=main",
+            remote_path.to_str().expect("utf-8 remote path"),
+        ]);
+        self.git(&[
+            "remote",
+            "add",
+            name,
+            remote_path.to_str().expect("utf-8 remote path"),
+        ]);
+        self
+    }
+
     pub fn head_commit(&self) -> String {
         self.git(&["rev-parse", "HEAD"]).trim().to_owned()
     }
