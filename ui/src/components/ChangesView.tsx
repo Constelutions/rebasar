@@ -23,7 +23,7 @@ interface ChangesViewProps {
 }
 
 export function ChangesView({ api, worktreePath, status, error }: ChangesViewProps) {
-  const [picked, setPicked] = useState<FileSelection | null>(null);
+  const [picked, setPicked] = useState<FileSelection<ChangeList> | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const { settings, ready } = useSettings();
   const [pickedMode, setPickedMode] = useState<DiffMode | null>(null);
@@ -154,8 +154,8 @@ function CommitComposer({ canCommit, onCommit, onFailure }: CommitComposerProps)
   );
 }
 
-function changeGroups(status: WorktreeStatus): ChangeGroup[] {
-  const groups: ChangeGroup[] = [
+function changeGroups(status: WorktreeStatus): ChangeGroup<ChangeList>[] {
+  const groups: ChangeGroup<ChangeList>[] = [
     { list: "conflicts", name: "Conflicts", changes: status.conflicts },
     { list: "staged", name: "Staged", changes: status.staged },
     { list: "unstaged", name: "Unstaged", changes: status.unstaged },
@@ -169,7 +169,10 @@ interface Selected {
 }
 
 /** Keeps the file the user picked while it is still changed; otherwise falls back to the first. */
-function resolveSelection(trees: GroupTree[], picked: FileSelection | null): Selected | null {
+function resolveSelection(
+  trees: GroupTree<ChangeList>[],
+  picked: FileSelection<ChangeList> | null,
+): Selected | null {
   const change = trees
     .find(({ group }) => group.list === picked?.list)
     ?.group.changes.find((candidate) => candidate.path === picked?.path);

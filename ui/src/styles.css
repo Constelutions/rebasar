@@ -1261,3 +1261,106 @@ button {
   font: inherit;
   user-select: text;
 }
+
+.history {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.history-scroller {
+  flex-basis: 0;
+}
+
+.history[data-detail-open] .history-scroller {
+  flex: 2;
+  margin-bottom: 0;
+}
+
+.history-item.commit {
+  cursor: pointer;
+}
+
+.history-item.commit[aria-current="true"] {
+  background: var(--color-selected);
+}
+
+.commit-detail {
+  position: relative;
+  display: flex;
+  flex: 3;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-height: 0;
+  margin-top: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-border);
+}
+
+.commit-detail-close {
+  position: absolute;
+  top: var(--space-3);
+  right: 0;
+  width: var(--control-height);
+  height: var(--control-height);
+  color: var(--color-text-subtle);
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.commit-detail-close:hover {
+  background: var(--color-hover);
+}
+
+.commit-detail-subject {
+  margin: 0;
+  font-size: var(--text-md);
+  font-weight: 600;
+  color: var(--color-text-strong);
+}
+
+.commit-detail-body {
+  margin: 0;
+  max-height: calc(var(--space-5) * 3);
+  overflow-y: auto;
+  color: var(--color-text-muted);
+  white-space: pre-wrap;
+}
+
+.commit-meta {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: var(--space-1) var(--space-4);
+  margin: 0;
+  color: var(--color-text-muted);
+}
+
+.commit-meta dt {
+  color: var(--color-text-subtle);
+}
+
+.commit-meta dd {
+  margin: 0;
+}
+
+.commit-id,
+.commit-parents code {
+  font: var(--text-xs) var(--font-mono);
+}
+
+.commit-parents {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.parent-toggle {
+  align-self: flex-start;
+}
+
+.commit-detail > .changes {
+  margin-top: 0;
+}

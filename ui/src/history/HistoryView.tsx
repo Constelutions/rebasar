@@ -3,6 +3,7 @@ import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from "rea
 import { SegmentedControl } from "../components/SegmentedControl";
 import type { CoreApi, HistoryRow, Tab } from "../core/api";
 import { Avatar } from "./Avatar";
+import { CommitDetailPane } from "./CommitDetailPane";
 import { type Connections, CommitGraph, DayGraph } from "./CommitGraph";
 import { type Chips, FilterBar } from "./FilterBar";
 import { RefBadge } from "./RefBadge";
@@ -41,6 +42,7 @@ export function HistoryView({ api, tab }: { api: CoreApi; tab: Tab }) {
   );
   const count = useHistoryCount(api, tab.worktreePath, filter);
   const [{ orientation, style }, changeLayout] = useHistoryLayout();
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const filterBar = (
     <FilterBar
@@ -90,15 +92,28 @@ export function HistoryView({ api, tab }: { api: CoreApi; tab: Tab }) {
           onChange={(value) => changeLayout({ style: value })}
         />
       </div>
-      <HistoryList
-        key={`${orientation}-${generation}`}
-        items={items}
-        laneCount={laneCount}
-        hasMore={hasMore}
-        orientation={orientation}
-        style={style}
-        loadMore={loadMore}
-      />
+      <div className="history" data-detail-open={selectedId !== null || undefined}>
+        <HistoryList
+          key={`${orientation}-${generation}`}
+          items={items}
+          laneCount={laneCount}
+          hasMore={hasMore}
+          orientation={orientation}
+          style={style}
+          loadMore={loadMore}
+          selectedId={selectedId}
+          onSelect={setSelectedId}
+        />
+        {selectedId !== null && (
+          <CommitDetailPane
+            key={selectedId}
+            api={api}
+            worktreePath={tab.worktreePath}
+            commitId={selectedId}
+            onClose={() => setSelectedId(null)}
+          />
+        )}
+      </div>
     </>
   );
 }
@@ -110,9 +125,20 @@ interface HistoryListProps {
   orientation: Orientation;
   style: GraphStyle;
   loadMore: () => void;
+  selectedId: string | null;
+  onSelect: (commitId: string) => void;
 }
 
-function HistoryList({ items, laneCount, hasMore, orientation, style, loadMore }: HistoryListProps) {
+function HistoryList({
+  items,
+  laneCount,
+  hasMore,
+  orientation,
+  style,
+  loadMore,
+  selectedId,
+  onSelect,
+}: HistoryListProps) {
   const size = itemSize(orientation);
   const horizontal = orientation === "horizontal";
   const scroller = useRef<HTMLDivElement>(null);
@@ -126,7 +152,13 @@ function HistoryList({ items, laneCount, hasMore, orientation, style, loadMore }
     };
     measure();
     window.addEventListener("resize", measure);
-    return () => window.removeEventListener("resize", measure);
+    // Opening the detail pane shrinks the list without resizing the window.
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(measure);
+    if (scroller.current) observer?.observe(scroller.current);
+    return () => {
+      window.removeEventListener("resize", measure);
+      observer?.disconnect();
+    };
   }, [horizontal]);
 
   const first = Math.max(0, firstVisible - OVERSCAN_ITEMS);
@@ -164,6 +196,8 @@ function HistoryList({ items, laneCount, hasMore, orientation, style, loadMore }
               laneCount={laneCount}
               orientation={orientation}
               style={style}
+              selectedId={selectedId}
+              onSelect={onSelect}
             />
           );
         })}
@@ -199,6 +233,8 @@ interface HistoryItemViewProps {
   laneCount: number;
   orientation: Orientation;
   style: GraphStyle;
+  selectedId: string | null;
+  onSelect: (commitId: string) => void;
 }
 
 const HistoryItemView = memo(function HistoryItemView({
@@ -209,6 +245,8 @@ const HistoryItemView = memo(function HistoryItemView({
   laneCount,
   orientation,
   style,
+  selectedId,
+  onSelect,
 }: HistoryItemViewProps) {
   const size = itemSize(orientation);
   const position =
@@ -229,6 +267,8 @@ const HistoryItemView = memo(function HistoryItemView({
       connections={{ above: connectedAbove, below: connectedBelow }}
       graph={graph}
       style={position}
+      selected={item.row.id === selectedId}
+      onSelect={onSelect}
     />
   );
 });
@@ -238,11 +278,25 @@ interface CommitItemProps {
   connections: Connections;
   graph: { orientation: Orientation; style: GraphStyle; laneCount: number };
   style: { top: number; height: number } | { left: number; width: number };
+  selected: boolean;
+  onSelect: (commitId: string) => void;
 }
 
-function CommitItem({ row, connections, graph, style }: CommitItemProps) {
+function CommitItem({ row, connections, graph, style, selected, onSelect }: CommitItemProps) {
   return (
-    <div role="listitem" className="history-item commit" style={style}>
+    <div
+      role="listitem"
+      tabIndex={0}
+      aria-current={selected || undefined}
+      className="history-item commit"
+      style={style}
+      onClick={() => onSelect(row.id)}
+      onKeyDown={(event) => {
+        if (event.key !== "Enter" && event.key !== " ") return;
+        event.preventDefault();
+        onSelect(row.id);
+      }}
+    >
       <CommitGraph row={row} connections={connections} {...graph} />
       <Avatar name={row.authorName} email={row.authorEmail} />
       <span className="commit-message">

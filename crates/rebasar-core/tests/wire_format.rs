@@ -1,10 +1,10 @@
 use rebasar_core::{
-    ApiError, AppearanceSettings, ChangeKind, ChangeList, CheckState, CoreEvent, DiffContent,
-    DiffLine, DiffMode, DiffRequest, DiffSettings, Edge, EdgeKind, FileChange, FileDiff,
-    GitHubAuthStatus, GitHubRepository, GitIdentity, GitSetup, Head, HistoryCount,
-    HistoryFilter, HistoryPage, HistoryRow, Hunk, LineKind, ModeChange, MutationId,
-    MutationInfo, MutationOutcome, OutputStream, PullRequest, RefKind, RefLabel, ReviewState,
-    Settings, Tab, TokenSource, WhitespaceMode, WorktreeStatus,
+    ApiError, AppearanceSettings, ChangeKind, ChangeList, CheckState, CommitDetail,
+    CommitDiffRequest, CommitParent, CoreEvent, DiffContent, DiffLine, DiffMode, DiffRequest,
+    DiffSettings, Edge, EdgeKind, FileChange, FileDiff, GitHubAuthStatus, GitHubRepository,
+    GitIdentity, GitSetup, Head, HistoryCount, HistoryFilter, HistoryPage, HistoryRow, Hunk,
+    LineKind, ModeChange, MutationId, MutationInfo, MutationOutcome, OutputStream, PullRequest,
+    RefKind, RefLabel, ReviewState, Settings, Tab, TokenSource, WhitespaceMode, WorktreeStatus,
 };
 use serde_json::json;
 
@@ -549,5 +549,72 @@ fn a_git_identity_travels_with_null_for_an_unset_value() {
     assert_eq!(
         serde_json::to_value(identity).unwrap(),
         json!({ "name": "Ada", "email": null })
+    );
+}
+
+#[test]
+fn a_commit_detail_serialises_to_the_shape_the_ui_expects() {
+    let detail = CommitDetail {
+        id: "abc1234def".to_owned(),
+        short_id: "abc1234".to_owned(),
+        author_name: "Ada".to_owned(),
+        author_email: "ada@example.com".to_owned(),
+        author_timestamp: 1_700_000_000,
+        message: "Fix the thing\n\nBecause.".to_owned(),
+        parents: vec![CommitParent {
+            id: "def5678abc".to_owned(),
+            short_id: "def5678".to_owned(),
+            subject: "Before".to_owned(),
+        }],
+        files: vec![FileChange {
+            path: "src/new.rs".to_owned(),
+            original_path: Some("src/old.rs".to_owned()),
+            kind: ChangeKind::Renamed,
+            added: Some(2),
+            removed: None,
+        }],
+    };
+
+    assert_eq!(
+        serde_json::to_value(detail).unwrap(),
+        json!({
+            "id": "abc1234def",
+            "shortId": "abc1234",
+            "authorName": "Ada",
+            "authorEmail": "ada@example.com",
+            "authorTimestamp": 1_700_000_000,
+            "message": "Fix the thing\n\nBecause.",
+            "parents": [{ "id": "def5678abc", "shortId": "def5678", "subject": "Before" }],
+            "files": [{
+                "path": "src/new.rs",
+                "originalPath": "src/old.rs",
+                "kind": "renamed",
+                "added": 2,
+                "removed": null,
+            }],
+        })
+    );
+}
+
+#[test]
+fn a_commit_diff_request_deserialises_from_the_shape_the_ui_sends() {
+    let request: CommitDiffRequest = serde_json::from_value(json!({
+        "commit": "abc1234def",
+        "parent": 1,
+        "path": "src/new.rs",
+        "originalPath": "src/old.rs",
+        "loadLarge": true,
+    }))
+    .unwrap();
+
+    assert_eq!(
+        request,
+        CommitDiffRequest {
+            commit: "abc1234def".to_owned(),
+            parent: 1,
+            path: "src/new.rs".to_owned(),
+            original_path: Some("src/old.rs".to_owned()),
+            load_large: true,
+        }
     );
 }

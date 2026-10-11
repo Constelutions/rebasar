@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 
-import type { ChangeKind, ChangeList, FileChange } from "../core/api";
+import type { ChangeKind, FileChange } from "../core/api";
 import { type GroupTree, type TreeRow, fileKey, flattenChanges } from "./changeTree";
 import { VirtualList } from "./VirtualList";
 
@@ -16,8 +16,8 @@ const statusLetters: Record<ChangeKind, { letter: string; label: string }> = {
   conflicted: { letter: "!", label: "Conflicted" },
 };
 
-export interface FileSelection {
-  list: ChangeList;
+export interface FileSelection<L extends string = string> {
+  list: L;
   path: string;
 }
 
@@ -26,15 +26,20 @@ export interface FileAction {
   run: (change: FileChange) => void;
 }
 
-interface FileTreeProps {
-  trees: GroupTree[];
-  selected: FileSelection | null;
-  onSelect: (list: ChangeList, change: FileChange) => void;
+interface FileTreeProps<L extends string> {
+  trees: GroupTree<L>[];
+  selected: FileSelection<L> | null;
+  onSelect: (list: L, change: FileChange) => void;
   /** The button that moves a file out of the given list, if the list has one. */
-  actionFor?: (list: ChangeList) => FileAction | undefined;
+  actionFor?: (list: L) => FileAction | undefined;
 }
 
-export function FileTree({ trees, selected, onSelect, actionFor }: FileTreeProps) {
+export function FileTree<L extends string>({
+  trees,
+  selected,
+  onSelect,
+  actionFor,
+}: FileTreeProps<L>) {
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
   const rows = useMemo(() => flattenChanges(trees, collapsed), [trees, collapsed]);
 
@@ -68,15 +73,21 @@ export function FileTree({ trees, selected, onSelect, actionFor }: FileTreeProps
   );
 }
 
-interface TreeRowViewProps {
-  row: TreeRow;
+interface TreeRowViewProps<L extends string> {
+  row: TreeRow<L>;
   selected: boolean;
   onToggle: (key: string) => void;
-  onSelect: (list: ChangeList, change: FileChange) => void;
+  onSelect: (list: L, change: FileChange) => void;
   action: FileAction | undefined;
 }
 
-function TreeRowView({ row, selected, onToggle, onSelect, action }: TreeRowViewProps) {
+function TreeRowView<L extends string>({
+  row,
+  selected,
+  onToggle,
+  onSelect,
+  action,
+}: TreeRowViewProps<L>) {
   const indent = { paddingLeft: `calc(var(--space-4) * ${"depth" in row ? row.depth : 0})` };
 
   if (row.type === "group") {
