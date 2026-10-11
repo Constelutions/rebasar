@@ -5,6 +5,7 @@ import {
   type CommitOptions,
   type CoreApi,
   type CoreEvent,
+  type DiffLine,
   type DiffRequest,
   type FileChange,
   type FileDiff,
@@ -13,6 +14,9 @@ import {
   type GitSetup,
   type Group,
   type GitIdentity,
+  type Hunk,
+  type LineSelection,
+  type ChangeList,
   type Head,
   type HistoryRow,
   type RefLabel,
@@ -117,6 +121,8 @@ export interface StubCoreApi extends CoreApi {
   readonly commits: readonly RecordedCommit[];
   readonly assessedMutations: readonly MutationKind[];
   readonly discards: readonly { worktreePath: string; paths: string[] }[];
+  /** The lines the UI staged or unstaged, in order. */
+  readonly stagedLines: readonly { direction: "stage" | "unstage"; selection: LineSelection }[];
   /** Every diff the UI asked for, in order. */
   readonly diffRequests: readonly DiffRequest[];
   /** Every diff of a file in a commit the UI asked for, in order. */
@@ -148,6 +154,7 @@ export function createStubCoreApi(
   const tabs = new Map(Object.entries(repositories));
   const watched = new Set<string>();
   const branches = new Map<string, RefLabel[]>();
+  const currentDiffs = new Map(Object.entries(diffs));
   const diffRequests: DiffRequest[] = [];
   const commitDiffRequests: CommitDiffRequest[] = [];
   const commitDetailRequests: (readonly [string, number])[] = [];
@@ -157,6 +164,7 @@ export function createStubCoreApi(
   const failures: MutationFailure[] = [];
   const assessed: MutationKind[] = [];
   const discards: { worktreePath: string; paths: string[] }[] = [];
+  const stagedLines: { direction: "stage" | "unstage"; selection: LineSelection }[] = [];
   let nextMutationId = 1;
   const backgroundWatched: string[] = [];
   const session = state.session ?? { tabs: [], active: null, view: null };
@@ -261,7 +269,7 @@ export function createStubCoreApi(
     async fileDiff(_path, request) {
       diffRequests.push(request);
       return (
-        diffs[diffKey(request)] ?? {
+        currentDiffs.get(diffKey(request)) ?? {
           path: request.path,
           originalPath: request.originalPath,
           modeChange: null,
@@ -409,6 +417,38 @@ export function createStubCoreApi(
     async checkGit() {
       return gitSetup;
     },
+    async stageLines(path, selection) {
+      stagedLines.push({ direction: "stage", selection });
+      return mutate(path, linesTitle("Stage", selection), (status) => {
+        const left = takeLines(currentDiffs, "unstaged", selection);
+        addLines(currentDiffs, "staged", selection);
+        const file = status.unstaged.find((candidate) => candidate.path === selection.path);
+        if (!file) return status;
+        return {
+          ...status,
+          staged: status.staged.some((candidate) => candidate.path === file.path)
+            ? status.staged
+            : [...status.staged, asStaged(file)],
+          unstaged: left ? status.unstaged : status.unstaged.filter((other) => other !== file),
+        };
+      });
+    },
+    async unstageLines(path, selection) {
+      stagedLines.push({ direction: "unstage", selection });
+      return mutate(path, linesTitle("Unstage", selection), (status) => {
+        const left = takeLines(currentDiffs, "staged", selection);
+        addLines(currentDiffs, "unstaged", selection);
+        const file = status.staged.find((candidate) => candidate.path === selection.path);
+        if (!file) return status;
+        return {
+          ...status,
+          staged: left ? status.staged : status.staged.filter((other) => other !== file),
+          unstaged: status.unstaged.some((candidate) => candidate.path === file.path)
+            ? status.unstaged
+            : [...status.unstaged, asUnstaged(file)],
+        };
+      });
+    },
     async stageFiles(path, paths) {
       return mutate(path, titleFor("Stage", paths), (status) => ({
         ...status,
@@ -533,6 +573,7 @@ export function createStubCoreApi(
     commits,
     assessedMutations: assessed,
     discards,
+    stagedLines,
     diffRequests,
     commitDiffRequests,
     commitDetailRequests,
@@ -552,6 +593,55 @@ function asStaged(file: FileChange): FileChange {
 
 function asUnstaged(file: FileChange): FileChange {
   return file.kind === "added" ? { ...file, kind: "untracked" } : file;
+}
+
+function linesTitle(verb: string, selection: LineSelection): string {
+  const count = selection.lines.length;
+  return `${verb} ${count === 1 ? "1 line" : `${count} lines`} of ${selection.path}`;
+}
+
+function sameLine(a: DiffLine, b: DiffLine): boolean {
+  return a.kind === b.kind && a.oldNumber === b.oldNumber && a.newNumber === b.newNumber;
+}
+
+/** Whether the file still has changed lines in `list` once the selection has left it. */
+function takeLines(
+  diffs: Map<string, FileDiff>,
+  list: ChangeList,
+  selection: LineSelection,
+): boolean {
+  const key = diffKey({ list, path: selection.path });
+  const diff = diffs.get(key);
+  if (diff?.content.kind !== "text") return false;
+
+  const hunks = diff.content.hunks
+    .map((hunk) => ({
+      ...hunk,
+      lines: hunk.lines.filter((line) => !selection.lines.some((picked) => sameLine(picked, line))),
+    }))
+    .filter((hunk) => hunk.lines.some((line) => line.kind !== "context"));
+  diffs.set(key, { ...diff, content: { kind: "text", hunks } });
+  return hunks.length > 0;
+}
+
+function addLines(diffs: Map<string, FileDiff>, list: ChangeList, selection: LineSelection) {
+  const key = diffKey({ list, path: selection.path });
+  const diff = diffs.get(key) ?? {
+    path: selection.path,
+    originalPath: selection.originalPath,
+    modeChange: null,
+    content: { kind: "text" as const, hunks: [] },
+  };
+  if (diff.content.kind !== "text") return;
+
+  const hunk: Hunk = {
+    oldStart: selection.lines.find((line) => line.oldNumber !== null)?.oldNumber ?? 0,
+    oldLines: selection.lines.filter((line) => line.kind === "removed").length,
+    newStart: selection.lines.find((line) => line.newNumber !== null)?.newNumber ?? 0,
+    newLines: selection.lines.filter((line) => line.kind === "added").length,
+    lines: selection.lines,
+  };
+  diffs.set(key, { ...diff, content: { kind: "text", hunks: [...diff.content.hunks, hunk] } });
 }
 
 function blankToNull(value: string | null) {

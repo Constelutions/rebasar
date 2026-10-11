@@ -1,7 +1,7 @@
 import type { DiffLine, Hunk } from "../core/api";
 
 export type DiffRow =
-  | { type: "hunk"; key: string; header: string }
+  | { type: "hunk"; key: string; hunk: Hunk; header: string }
   | { type: "line"; key: string; line: DiffLine }
   | { type: "pair"; key: string; left: DiffLine | null; right: DiffLine | null };
 
@@ -11,7 +11,7 @@ export function hunkHeader(hunk: Hunk) {
 
 export function unifiedRows(hunks: Hunk[]): DiffRow[] {
   return hunks.flatMap((hunk, hunkIndex) => [
-    { type: "hunk" as const, key: `h${hunkIndex}`, header: hunkHeader(hunk) },
+    { type: "hunk" as const, key: `h${hunkIndex}`, hunk, header: hunkHeader(hunk) },
     ...hunk.lines.map((line, index) => ({
       type: "line" as const,
       key: `h${hunkIndex}:${index}`,
@@ -24,7 +24,7 @@ export function unifiedRows(hunks: Hunk[]): DiffRow[] {
 export function sideBySideRows(hunks: Hunk[]): DiffRow[] {
   const rows: DiffRow[] = [];
   hunks.forEach((hunk, hunkIndex) => {
-    rows.push({ type: "hunk", key: `h${hunkIndex}`, header: hunkHeader(hunk) });
+    rows.push({ type: "hunk", key: `h${hunkIndex}`, hunk, header: hunkHeader(hunk) });
 
     let removed: DiffLine[] = [];
     let added: DiffLine[] = [];
@@ -53,4 +53,17 @@ export function sideBySideRows(hunks: Hunk[]): DiffRow[] {
     flush();
   });
   return rows;
+}
+
+export function isChanged(line: DiffLine) {
+  return line.kind !== "context";
+}
+
+export function changedLines(hunk: Hunk): DiffLine[] {
+  return hunk.lines.filter(isChanged);
+}
+
+/** Identifies a line across refreshes of the same diff. */
+export function lineKey(line: DiffLine) {
+  return `${line.kind}:${line.oldNumber}:${line.newNumber}`;
 }

@@ -15,7 +15,7 @@ import { useSettings } from "../settings/SettingsContext";
 import { useConfirmation } from "../useConfirmation";
 import { type ChangeGroup, type GroupTree, buildGroupTrees, firstFile } from "./changeTree";
 import { CommitComposer } from "./CommitComposer";
-import { DiffView } from "./DiffView";
+import { DiffView, type LineStaging } from "./DiffView";
 import { type FileAction, FileTree, type FileSelection } from "./FileTree";
 
 interface ChangesViewProps {
@@ -77,6 +77,26 @@ export function ChangesView({ api, worktreePath, status, error }: ChangesViewPro
     destructive: true,
     run: (change) => discard([change.path]),
   };
+  const staging: LineStaging | undefined =
+    selected && selected.list !== "conflicts"
+      ? {
+          label: selected.list === "staged" ? "Unstage" : "Stage",
+          apply: (lines) => {
+            // The file also appears in the other list once partly staged; stay on this one.
+            setPicked({ list: selected.list, path: selected.change.path });
+            const selection = {
+              path: selected.change.path,
+              originalPath: selected.change.originalPath,
+              lines,
+            };
+            void report(
+              selected.list === "staged"
+                ? api.unstageLines(worktreePath, selection)
+                : api.stageLines(worktreePath, selection),
+            );
+          },
+        }
+      : undefined;
   const actionsFor = (list: ChangeList): FileAction[] =>
     list === "unstaged" ? [stage, discardFile] : list === "staged" ? [unstage] : [];
   const groupActionFor = (list: ChangeList) =>
@@ -118,6 +138,7 @@ export function ChangesView({ api, worktreePath, status, error }: ChangesViewPro
                   mode={mode}
                   onModeChange={setPickedMode}
                   onLoadLarge={diff.loadLarge}
+                  staging={staging}
                 />
               )}
             </div>

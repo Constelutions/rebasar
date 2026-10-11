@@ -130,6 +130,13 @@ export interface DiffRequest {
 
 export type LineKind = "context" | "added" | "removed";
 
+/** The added and removed lines picked in the diff of one file, exactly as the diff showed them. */
+export interface LineSelection {
+  path: string;
+  originalPath: string | null;
+  lines: DiffLine[];
+}
+
 export interface DiffLine {
   kind: LineKind;
   oldNumber: number | null;
@@ -390,6 +397,9 @@ export interface CoreApi {
   stageFiles(path: string, paths: string[]): Promise<MutationOutcome>;
   /** For a renamed file pass both its paths. */
   unstageFiles(path: string, paths: string[]): Promise<MutationOutcome>;
+  /** Rejects when the file no longer matches the diff the lines were picked from. */
+  stageLines(path: string, selection: LineSelection): Promise<MutationOutcome>;
+  unstageLines(path: string, selection: LineSelection): Promise<MutationOutcome>;
   /** An amend with an empty message keeps the previous commit's message. */
   commit(path: string, message: string, options: CommitOptions): Promise<MutationOutcome>;
   /** Newest first. */

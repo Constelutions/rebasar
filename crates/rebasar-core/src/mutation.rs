@@ -4,7 +4,7 @@
 
 use std::collections::{HashMap, VecDeque};
 use std::ffi::OsString;
-use std::io::Read;
+use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -51,6 +51,7 @@ pub enum MutationOutcome {
 pub(crate) struct Mutation {
     title: String,
     args: Vec<OsString>,
+    stdin: Option<Vec<u8>>,
 }
 
 impl Mutation {
@@ -62,7 +63,13 @@ impl Mutation {
         Self {
             title: title.into(),
             args: args.into_iter().map(Into::into).collect(),
+            stdin: None,
         }
+    }
+
+    pub(crate) fn with_stdin(mut self, input: Vec<u8>) -> Self {
+        self.stdin = Some(input);
+        self
     }
 }
 
@@ -160,12 +167,16 @@ impl MutationRunner {
         mutation: &Mutation,
         control: &Control,
     ) -> MutationOutcome {
-        let spawned = platform::non_interactive_git_command()
+        let mut command = platform::non_interactive_git_command();
+        command
             .current_dir(worktree_path)
             .args(&mutation.args)
             .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn();
+            .stderr(Stdio::piped());
+        if mutation.stdin.is_some() {
+            command.stdin(Stdio::piped());
+        }
+        let spawned = command.spawn();
         let mut child = match spawned {
             Ok(child) => child,
             Err(error) => {
@@ -191,7 +202,13 @@ impl MutationRunner {
 
         let stdout = child.stdout.take().expect("piped stdout");
         let stderr = child.stderr.take().expect("piped stderr");
+        let stdin = child.stdin.take();
         let status = std::thread::scope(|scope| {
+            if let (Some(mut stdin), Some(input)) = (stdin, mutation.stdin.as_deref()) {
+                // Written beside the readers so a full pipe in either direction cannot stall
+                // git; a failed write surfaces as git's own exit status.
+                scope.spawn(move || stdin.write_all(input));
+            }
             scope.spawn(|| self.stream_output(id, OutputStream::Stdout, stdout));
             scope.spawn(|| self.stream_output(id, OutputStream::Stderr, stderr));
             child.wait()

@@ -15,6 +15,7 @@ import type {
   GitHubAuthStatus,
   GitHubRepository,
   GitIdentity,
+  LineSelection,
   PullRequest,
   RefLabel,
   RepositoryList,
@@ -54,6 +55,10 @@ export const tauriCoreApi: CoreApi = {
   checkGit: () => invoke<GitSetup>("check_git"),
   stageFiles: (path, paths) => invoke<MutationOutcome>("stage_files", { path, paths }),
   unstageFiles: (path, paths) => invoke<MutationOutcome>("unstage_files", { path, paths }),
+  stageLines: (path, selection: LineSelection) =>
+    invoke<MutationOutcome>("stage_lines", { path, selection }),
+  unstageLines: (path, selection: LineSelection) =>
+    invoke<MutationOutcome>("unstage_lines", { path, selection }),
   commit: (path, message, options) =>
     invoke<MutationOutcome>("commit", { path, message, options }),
   outgoingCommits: (path) => invoke<OutgoingCommit[]>("outgoing_commits", { path }),

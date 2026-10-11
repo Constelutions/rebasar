@@ -6,7 +6,7 @@ use std::sync::Arc;
 use rebasar_core::{
     ApiError, Assessment, CommitDetail, CommitDiffRequest, CommitHit, CommitOptions, Core,
     DiffRequest, FileDiff, GitHubAuthStatus, GitHubRepository, GitIdentity, GitSetup, Group,
-    HistoryCount, HistoryFilter, HistoryPage, MutationId, MutationKind, MutationOutcome,
+    HistoryCount, HistoryFilter, HistoryPage, LineSelection, MutationId, MutationKind, MutationOutcome,
     OutgoingCommit, PullRequest, RefLabel, RepositoryList, Session, Settings, Tab, WindowBounds,
     WorktreeStatus,
 };
@@ -172,6 +172,30 @@ async fn unstage_files(
 ) -> Result<MutationOutcome, ApiError> {
     let core = Arc::clone(&core);
     tauri::async_runtime::spawn_blocking(move || core.unstage(&path, &paths))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn stage_lines(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+    selection: LineSelection,
+) -> Result<MutationOutcome, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.stage_lines(&path, &selection))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn unstage_lines(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+    selection: LineSelection,
+) -> Result<MutationOutcome, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.unstage_lines(&path, &selection))
         .await
         .map_err(ApiError::unexpected)?
 }
@@ -473,6 +497,8 @@ fn main() {
             check_git,
             stage_files,
             unstage_files,
+            stage_lines,
+            unstage_lines,
             commit,
             assess_mutation,
             discard_changes,

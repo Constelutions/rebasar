@@ -22,6 +22,7 @@ mod registry;
 mod repositories;
 mod session;
 mod settings;
+mod staging;
 mod status;
 mod tabs;
 mod watch;
@@ -43,6 +44,8 @@ pub use identity::GitIdentity;
 pub use safety::{Assessment, Loss, MutationKind};
 pub use settings::{AppearanceSettings, DiffMode, DiffSettings, Settings};
 use registry::RegistryStore;
+use staging::Direction;
+pub use staging::LineSelection;
 pub use registry::{Group, WindowBounds};
 pub use repositories::{RepositoryEntry, RepositoryList, WorktreeEntry};
 pub use session::Session;
@@ -271,6 +274,51 @@ impl Core {
             .chain(paths.iter().map(String::as_str));
         self.mutations
             .run(worktree, Mutation::new(files_title("Unstage", paths), args))
+    }
+
+    /// Stages only the lines picked in the diff of the file. Fails without changing anything when
+    /// the file no longer matches the diff the lines were picked from.
+    pub fn stage_lines(
+        &self,
+        worktree: &Path,
+        selection: &LineSelection,
+    ) -> Result<MutationOutcome, ApiError> {
+        self.apply_lines(worktree, selection, Direction::Stage)
+    }
+
+    /// Takes only the lines picked in the diff of the staged file out of the index again.
+    pub fn unstage_lines(
+        &self,
+        worktree: &Path,
+        selection: &LineSelection,
+    ) -> Result<MutationOutcome, ApiError> {
+        self.apply_lines(worktree, selection, Direction::Unstage)
+    }
+
+    fn apply_lines(
+        &self,
+        worktree: &Path,
+        selection: &LineSelection,
+        direction: Direction,
+    ) -> Result<MutationOutcome, ApiError> {
+        let (_, repo) = open_worktree(worktree)?;
+        let Some(patch) = staging::patch_for(&repo, selection, direction)? else {
+            return Ok(MutationOutcome::Succeeded);
+        };
+        drop(repo);
+
+        let verb = match direction {
+            Direction::Stage => "Stage",
+            Direction::Unstage => "Unstage",
+        };
+        let title = format!(
+            "{verb} {} of {}",
+            lines_title(selection.lines.len()),
+            selection.path
+        );
+        let args = ["apply", "--cached", "--whitespace=nowarn", "--", "-"];
+        self.mutations
+            .run(worktree, Mutation::new(title, args).with_stdin(patch))
     }
 
     /// An amend with an empty `message` keeps the previous commit's message.
@@ -609,6 +657,13 @@ fn files_title(verb: &str, paths: &[String]) -> String {
     match paths {
         [only] => format!("{verb} {only}"),
         _ => format!("{verb} {} files", paths.len()),
+    }
+}
+
+fn lines_title(count: usize) -> String {
+    match count {
+        1 => "1 line".to_owned(),
+        _ => format!("{count} lines"),
     }
 }
 
