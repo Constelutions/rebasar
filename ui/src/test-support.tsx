@@ -72,9 +72,9 @@ export function renderApp({
 /** Opens a folder whose Worktree has the given laid-out commits and switches to the History view. */
 export async function showHistory(rows: HistoryRow[], wrap: (api: CoreApi) => CoreApi = (api) => api) {
   const user = userEvent.setup();
-  const api = wrap(createStubCoreApi({ [sampleTab.worktreePath]: sampleTab },
-      {},
-      { [sampleTab.worktreePath]: rows },));
+  const api = wrap(
+    createStubCoreApi({ [sampleTab.worktreePath]: sampleTab }, {}, { [sampleTab.worktreePath]: rows }),
+  );
   renderApp({ api, pickFolder: async () => sampleTab.worktreePath });
   await user.click(screen.getByRole("button", { name: /open folder/i }));
   await screen.findByRole("tab");
