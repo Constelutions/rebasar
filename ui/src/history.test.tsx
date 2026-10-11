@@ -30,7 +30,7 @@ function recordingPageRequests(requested: number[]) {
 
 async function showHistory(rows: HistoryRow[], wrap: (api: CoreApi) => CoreApi = (api) => api) {
   const user = userEvent.setup();
-  const api = wrap(createStubCoreApi({ [worktree]: sampleTab }, { [worktree]: rows }));
+  const api = wrap(createStubCoreApi({ [worktree]: sampleTab }, {}, { [worktree]: rows }));
   renderApp({ api, pickFolder: async () => worktree });
   await user.click(screen.getByRole("button", { name: /open folder/i }));
   await screen.findByRole("tab");
