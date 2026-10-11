@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/rebasar-core", "crates/rebasar-testkit", "src-tauri"]
+members = ["crates/rebasar-core", "crates/rebasar-testkit", "crates/rebasar-bench", "src-tauri"]
 
 [workspace.package]
 version = "0.1.0"
