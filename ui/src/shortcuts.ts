@@ -9,6 +9,7 @@ interface Shortcut {
 export const shortcuts = {
   openFolder: { key: "o", label: "Ctrl+O" },
   openSettings: { key: ",", label: "Ctrl+," },
+  commandPalette: { key: "p", label: "Ctrl+P" },
 } satisfies Record<string, Shortcut>;
 
 export function useShortcut(shortcut: Shortcut, handler: () => void) {

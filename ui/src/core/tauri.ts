@@ -4,6 +4,7 @@ import { listen } from "@tauri-apps/api/event";
 import type {
   CommitDetail,
   CommitDiffRequest,
+  CommitHit,
   CoreApi,
   CoreEvent,
   DiffRequest,
@@ -14,6 +15,7 @@ import type {
   GitHubRepository,
   GitIdentity,
   PullRequest,
+  RefLabel,
   Settings,
   GitSetup,
   MutationOutcome,
@@ -23,6 +25,9 @@ import type {
 
 export const tauriCoreApi: CoreApi = {
   openFolder: (path) => invoke<Tab>("open_folder", { path }),
+  findCommits: (worktreePath, query, limit) =>
+    invoke<CommitHit[]>("find_commits", { worktreePath, query, limit }),
+  listBranches: (worktreePath) => invoke<RefLabel[]>("list_branches", { worktreePath }),
   worktreeStatus: (path) => invoke<WorktreeStatus>("worktree_status", { path }),
   fileDiff: (path, request: DiffRequest) => invoke<FileDiff>("file_diff", { path, request }),
   watchWorktree: (path) => invoke<void>("watch_worktree", { path }),

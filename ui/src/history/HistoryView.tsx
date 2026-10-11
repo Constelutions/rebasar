@@ -2,10 +2,12 @@ import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from "rea
 
 import { SegmentedControl } from "../components/SegmentedControl";
 import type { CoreApi, HistoryRow, Tab } from "../core/api";
+import { useDebounced } from "../useDebounced";
 import { Avatar } from "./Avatar";
 import { CommitDetailPane } from "./CommitDetailPane";
 import { type Connections, CommitGraph, DayGraph } from "./CommitGraph";
 import { type Chips, FilterBar } from "./FilterBar";
+import { defaultChips, useHistoryCommands } from "./historyCommands";
 import { RefBadge } from "./RefBadge";
 import { type GraphStyle, type Orientation, itemSize } from "./geometry";
 import { type HistoryItem, formatTime } from "./items";
@@ -30,9 +32,16 @@ const graphStyles = [
   { value: "linear", label: "Linear" },
 ] as const;
 
-export function HistoryView({ api, tab }: { api: CoreApi; tab: Tab }) {
-  const [queryText, setQueryText] = useState("");
-  const [chips, setChips] = useState<Chips>({ allBranches: true, mine: false, merges: false });
+interface HistoryViewProps {
+  api: CoreApi;
+  tab: Tab;
+  initialQuery?: string;
+}
+
+export function HistoryView({ api, tab, initialQuery = "" }: HistoryViewProps) {
+  const [queryText, setQueryText] = useState(initialQuery);
+  const [chips, setChips] = useState<Chips>(defaultChips);
+  useHistoryCommands({ queryText, setQueryText, chips, setChips });
   const query = useDebounced(queryText, QUERY_DEBOUNCE_MS);
   const filter = useMemo(() => ({ query, ...chips }), [query, chips]);
   const { items, laneCount, loaded, hasMore, error, queryError, generation, loadMore } = useHistory(
@@ -204,15 +213,6 @@ function HistoryList({
       </div>
     </div>
   );
-}
-
-function useDebounced<T>(value: T, delayMs: number): T {
-  const [debounced, setDebounced] = useState(value);
-  useEffect(() => {
-    const timer = setTimeout(() => setDebounced(value), delayMs);
-    return () => clearTimeout(timer);
-  }, [value, delayMs]);
-  return debounced;
 }
 
 function itemKey(item: HistoryItem): string {

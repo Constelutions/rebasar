@@ -12,6 +12,7 @@ import {
   type GitIdentity,
   type Head,
   type HistoryRow,
+  type RefLabel,
   type MutationOutcome,
   type PullRequest,
   type Tab,
@@ -77,6 +78,8 @@ export interface StubCoreApi extends CoreApi {
   checkOut(path: string, head: Head): void;
   /** Reports which Tabs the core has fallen back to polling, as when the watch limit is hit. */
   setPolling(paths: string[]): void;
+  /** Replaces the branches the Worktree's Repository lists; by default just the checked-out one. */
+  setBranches(path: string, branches: RefLabel[]): void;
   /** Makes status reads wait until the returned function is called. */
   holdStatusReads(): () => void;
   /** Delivers an event as if the core had emitted it, to drive streaming and progress. */
@@ -116,6 +119,7 @@ export function createStubCoreApi(
   const current = new Map(Object.entries(statuses));
   const tabs = new Map(Object.entries(repositories));
   const watched = new Set<string>();
+  const branches = new Map<string, RefLabel[]>();
   const diffRequests: DiffRequest[] = [];
   const commitDiffRequests: CommitDiffRequest[] = [];
   const commitDetailRequests: (readonly [string, number])[] = [];
@@ -222,6 +226,28 @@ export function createStubCoreApi(
         }
       );
     },
+    async findCommits(worktreePath, query, limit) {
+      const needle = query.trim().toLowerCase();
+      const rows = histories[worktreePath] ?? [];
+      const byHash = isHashPrefix(needle) ? rows.filter((row) => row.id.startsWith(needle)) : [];
+      const byMessage = rows.filter(
+        (row) => !byHash.includes(row) && row.subject.toLowerCase().includes(needle),
+      );
+      return [...byHash, ...byMessage].slice(0, limit).map((row) => ({
+        id: row.id,
+        shortId: row.shortId,
+        subject: row.subject,
+        authorName: row.authorName,
+        timestamp: row.timestamp,
+      }));
+    },
+    async listBranches(worktreePath) {
+      const head = known(worktreePath).head;
+      return (
+        branches.get(worktreePath) ??
+        (head.kind === "branch" ? [{ kind: "localBranch", name: head.name }] : [])
+      );
+    },
     async activateTab(path) {
       known(path);
       watched.add(path);
@@ -312,6 +338,9 @@ export function createStubCoreApi(
       tabs.set(path, { ...known(path), head });
       emit({ type: "worktreeChanged", worktreePath: path });
     },
+    setBranches(path, labels) {
+      branches.set(path, labels);
+    },
     setPolling(paths) {
       emit({ type: "pollingTabsChanged", worktreePaths: paths });
     },
@@ -356,4 +385,8 @@ function asUnstaged(file: FileChange): FileChange {
 function blankToNull(value: string | null) {
   const trimmed = value?.trim();
   return trimmed ? trimmed : null;
+}
+
+function isHashPrefix(text: string): boolean {
+  return /^[0-9a-f]{4,40}$/.test(text);
 }

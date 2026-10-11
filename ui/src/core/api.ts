@@ -19,6 +19,16 @@ export type ApiError =
   | { kind: "githubRequestFailed"; message: string }
   | { kind: "unexpected"; message: string };
 
+/** A commit the command palette offers to jump to. */
+export interface CommitHit {
+  id: string;
+  shortId: string;
+  subject: string;
+  authorName: string;
+  /** Seconds since the Unix epoch. */
+  timestamp: number;
+}
+
 export type ChangeKind =
   | "added"
   | "modified"
@@ -273,6 +283,14 @@ export interface CoreApi {
   ): Promise<HistoryPage>;
   /** How many commits `filter` lets through, out of all of them. Rejects like `historyPage`. */
   historyCount(worktreePath: string, filter: HistoryFilter): Promise<HistoryCount>;
+  /**
+   * The newest `limit` commits of every branch that match `query`, in the History filter's
+   * syntax; a query that is one hexadecimal word also finds commits by hash, ahead of the rest.
+   * Rejects like `historyPage`.
+   */
+  findCommits(worktreePath: string, query: string, limit: number): Promise<CommitHit[]>;
+  /** The local and remote branches of the Worktree's Repository, sorted by name. */
+  listBranches(worktreePath: string): Promise<RefLabel[]>;
   /**
    * Describes a commit and lists its changed files against its `parent`-th parent. Rejects with
    * an {@link ApiError}.

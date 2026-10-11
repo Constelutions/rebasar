@@ -6,22 +6,30 @@ import { ChangesView } from "./ChangesView";
 import { PullRequestsView } from "./PullRequestsView";
 import { SettingsView } from "./SettingsView";
 
+export interface CommitSearch {
+  query: string;
+  /** Tells a search repeated with the same query from the one already shown. */
+  id: number;
+}
+
 interface ViewPaneProps {
   view: ViewName;
   api: CoreApi;
   tab: OpenTab | undefined;
+  /** The query History starts with; a new search replaces whatever was typed there. */
+  commitSearch: CommitSearch;
 }
 
-export function ViewPane({ view, api, tab }: ViewPaneProps) {
+export function ViewPane({ view, api, tab, commitSearch }: ViewPaneProps) {
   return (
     <main className="view-pane">
       <h1>{view}</h1>
-      <ViewContent view={view} api={api} tab={tab} />
+      <ViewContent view={view} api={api} tab={tab} commitSearch={commitSearch} />
     </main>
   );
 }
 
-function ViewContent({ view, api, tab }: ViewPaneProps) {
+function ViewContent({ view, api, tab, commitSearch }: ViewPaneProps) {
   if (view === "Settings") return <SettingsView api={api} />;
   if (view === "Changes" && tab) {
     return (
@@ -35,7 +43,14 @@ function ViewContent({ view, api, tab }: ViewPaneProps) {
   }
   if (view === "History") {
     if (!tab) return <p className="placeholder">Open a folder to see its history.</p>;
-    return <HistoryView key={tab.tab.worktreePath} api={api} tab={tab.tab} />;
+    return (
+      <HistoryView
+        key={`${tab.tab.worktreePath}:${commitSearch.id}`}
+        api={api}
+        tab={tab.tab}
+        initialQuery={commitSearch.query}
+      />
+    );
   }
   if (view === "Pull requests" && tab) return <PullRequestsView api={api} tab={tab.tab} />;
   return <p className="placeholder">Nothing here yet.</p>;

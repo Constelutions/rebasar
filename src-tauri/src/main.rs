@@ -4,9 +4,9 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use rebasar_core::{
-    ApiError, CommitDetail, CommitDiffRequest, Core, DiffRequest, FileDiff, GitHubAuthStatus,
+    ApiError, CommitDetail, CommitDiffRequest, CommitHit, Core, DiffRequest, FileDiff, GitHubAuthStatus,
     GitHubRepository, GitIdentity, GitSetup, HistoryCount, HistoryFilter, HistoryPage, MutationId,
-    MutationOutcome, PullRequest, Settings, Tab, WorktreeStatus,
+    MutationOutcome, PullRequest, RefLabel, Settings, Tab, WorktreeStatus,
 };
 use tauri::{Emitter, Manager, State};
 
@@ -256,6 +256,30 @@ async fn commit_file_diff(
         .map_err(ApiError::unexpected)?
 }
 
+#[tauri::command]
+async fn find_commits(
+    core: State<'_, Arc<Core>>,
+    worktree_path: PathBuf,
+    query: String,
+    limit: usize,
+) -> Result<Vec<CommitHit>, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.find_commits(&worktree_path, &query, limit))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn list_branches(
+    core: State<'_, Arc<Core>>,
+    worktree_path: PathBuf,
+) -> Result<Vec<RefLabel>, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.list_branches(&worktree_path))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
@@ -277,6 +301,8 @@ fn main() {
             watch_worktree,
             history_page,
             history_count,
+            find_commits,
+            list_branches,
             activate_tab,
             refresh_tab,
             github_remote,

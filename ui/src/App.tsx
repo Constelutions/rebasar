@@ -1,18 +1,21 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { OutputPanel } from "./components/OutputPanel";
 import { SetupScreen } from "./components/SetupScreen";
 import { Sidebar } from "./components/Sidebar";
 import { TitleBar } from "./components/TitleBar";
-import { ViewPane } from "./components/ViewPane";
+import { type CommitSearch, ViewPane } from "./components/ViewPane";
 import type { CoreApi, GitSetup } from "./core/api";
 import { describeError } from "./core/describeError";
 import { type Highlighter, HighlighterProvider, defaultHighlighter } from "./highlight/highlighter";
+import { PaletteProvider } from "./palette/PaletteProvider";
+import type { PaletteContext } from "./palette/registry";
+import { SettingsProvider, useStoredSettings } from "./settings/SettingsContext";
 import type { AppWindow } from "./shell/appWindow";
 import { shortcuts, useShortcut } from "./shortcuts";
+import { useShellCommands } from "./shellCommands";
 import { useMutations } from "./useMutations";
-import { useOpenTabs } from "./useOpenTabs";
-import { SettingsProvider, useStoredSettings } from "./settings/SettingsContext";
+import { type OpenTab, useOpenTabs } from "./useOpenTabs";
 import type { ViewName } from "./views";
 
 interface AppProps {
@@ -25,6 +28,7 @@ interface AppProps {
 export function App({ api, pickFolder, appWindow, highlighter = defaultHighlighter }: AppProps) {
   const { openTabs, activeTab, pollingPaths, error, setError, select } = useOpenTabs(api);
   const [view, setView] = useState<ViewName>("Home");
+  const [commitSearch, setCommitSearch] = useState<CommitSearch>({ query: "", id: 0 });
   const [gitSetup, setGitSetup] = useState<GitSetup | null>(null);
   const runs = useMutations(api);
   const storedSettings = useStoredSettings(api);
@@ -34,9 +38,9 @@ export function App({ api, pickFolder, appWindow, highlighter = defaultHighlight
       .checkGit()
       .then(setGitSetup)
       .catch((failure) => setError(describeError(failure)));
-  }, [api]);
+  }, [api, setError]);
 
-  async function openFolder() {
+  const openFolder = useCallback(async () => {
     const path = await pickFolder();
     if (path === null) return;
 
@@ -46,7 +50,14 @@ export function App({ api, pickFolder, appWindow, highlighter = defaultHighlight
     } catch (failure) {
       setError(describeError(failure));
     }
-  }
+  }, [api, pickFolder, setError]);
+
+  const showCommits = useCallback((query: string) => {
+    setCommitSearch((current) => ({ query, id: current.id + 1 }));
+    setView("History");
+  }, []);
+
+  const paletteContext = useMemo<PaletteContext>(() => ({ activeTab, view }), [activeTab, view]);
 
   useShortcut(shortcuts.openFolder, openFolder);
   useShortcut(shortcuts.openSettings, () => setView("Settings"));
@@ -54,39 +65,111 @@ export function App({ api, pickFolder, appWindow, highlighter = defaultHighlight
   return (
     <SettingsProvider value={storedSettings}>
       <HighlighterProvider value={highlighter}>
-        <div className="app">
-          <TitleBar
-            tabs={openTabs}
-            activePath={activeTab?.tab.worktreePath}
+        <PaletteProvider
+          api={api}
+          context={paletteContext}
+          onShowCommits={showCommits}
+          onError={(failure) => setError(describeError(failure))}
+        >
+          <Shell
+            api={api}
             appWindow={appWindow}
-            onSelectTab={select}
-            onOpenFolder={openFolder}
+            openTabs={openTabs}
+            activeTab={activeTab}
+            pollingPaths={pollingPaths}
+            error={error}
+            view={view}
+            commitSearch={commitSearch}
+            gitSetup={gitSetup}
+            runs={runs}
+            openFolder={openFolder}
+            selectTab={select}
+            showView={setView}
+            showCommits={showCommits}
           />
-          {error && (
-            <p role="alert" className="error">
-              {error}
-            </p>
-          )}
-          {pollingPaths.length > 0 && (
-            <p role="status" className="notice">
-              The operating system's file-watch limit was reached, so {pollingPaths.length}{" "}
-              {pollingPaths.length === 1 ? "Tab is" : "Tabs are"} checked periodically instead of
-              live, starting with the ones used least recently.
-            </p>
-          )}
-          {gitSetup && gitSetup.kind !== "ready" ? (
-            <SetupScreen setup={gitSetup} />
-          ) : (
-            <>
-              <div className="app-body">
-                <Sidebar selected={view} onSelect={setView} />
-                <ViewPane view={view} api={api} tab={activeTab} />
-              </div>
-              <OutputPanel runs={runs} onCancel={(run) => void api.cancelMutation(run.id)} />
-            </>
-          )}
-        </div>
+        </PaletteProvider>
       </HighlighterProvider>
     </SettingsProvider>
+  );
+}
+
+interface ShellProps {
+  api: CoreApi;
+  appWindow: AppWindow;
+  openTabs: OpenTab[];
+  activeTab: OpenTab | undefined;
+  pollingPaths: string[];
+  error: string | null;
+  view: ViewName;
+  commitSearch: CommitSearch;
+  gitSetup: GitSetup | null;
+  runs: ReturnType<typeof useMutations>;
+  openFolder: () => void;
+  selectTab: (worktreePath: string) => void;
+  showView: (view: ViewName) => void;
+  showCommits: (query: string) => void;
+}
+
+function Shell({
+  api,
+  appWindow,
+  openTabs,
+  activeTab,
+  pollingPaths,
+  error,
+  view,
+  commitSearch,
+  gitSetup,
+  runs,
+  openFolder,
+  selectTab,
+  showView,
+  showCommits,
+}: ShellProps) {
+  useShellCommands({
+    api,
+    appWindow,
+    openTabs,
+    activeTab,
+    view,
+    openFolder,
+    selectTab,
+    showView,
+    showCommits,
+  });
+
+  return (
+    <div className="app">
+      <TitleBar
+        tabs={openTabs}
+        activePath={activeTab?.tab.worktreePath}
+        appWindow={appWindow}
+        onSelectTab={selectTab}
+        onOpenFolder={openFolder}
+      />
+      {error && (
+        <p role="alert" className="error">
+          {error}
+        </p>
+      )}
+      {pollingPaths.length > 0 && (
+        <p role="status" className="notice">
+          The operating system's file-watch limit was reached, so {pollingPaths.length}{" "}
+          {pollingPaths.length === 1 ? "Tab is" : "Tabs are"} checked periodically instead of live,
+          starting with the ones used least recently.
+        </p>
+      )}
+      {gitSetup && gitSetup.kind !== "ready" ? (
+        <SetupScreen setup={gitSetup} />
+      ) : (
+        <>
+          <div className="app-body">
+            <Sidebar selected={view} onSelect={showView} />
+            <ViewPane view={view} api={api} tab={activeTab} commitSearch={commitSearch} />
+          </div>
+          <OutputPanel runs={runs} onCancel={(run) => void api.cancelMutation(run.id)} />
+        </>
+      )}
+    </div>
   );
 }
