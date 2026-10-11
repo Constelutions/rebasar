@@ -1,5 +1,6 @@
 use rebasar_core::{
     ChangeList, Core, DiffContent, DiffRequest, FileDiff, Hunk, LineKind, ModeChange,
+    WhitespaceMode,
 };
 use rebasar_testkit::TempRepo;
 
@@ -9,6 +10,14 @@ fn request(path: &str, list: ChangeList) -> DiffRequest {
         original_path: None,
         list,
         load_large: false,
+        whitespace: WhitespaceMode::Show,
+    }
+}
+
+fn ignoring_whitespace(path: &str) -> DiffRequest {
+    DiffRequest {
+        whitespace: WhitespaceMode::IgnoreAll,
+        ..request(path, ChangeList::Unstaged)
     }
 }
 
@@ -458,4 +467,51 @@ fn a_diff_request_for_a_plain_folder_reports_it() {
         error,
         rebasar_core::ApiError::NotARepository { .. }
     ));
+}
+
+#[test]
+fn whitespace_only_edits_are_shown_by_default() {
+    let repo = repo_with_initial_commit();
+    repo.write_file("README.md", "one\n  two\nthree \n");
+
+    let diff = diff_of(&repo, &request("README.md", ChangeList::Unstaged));
+
+    assert_eq!(
+        rendered(&hunks(&diff)[0]),
+        [" one", "-two", "-three", "+  two", "+three "]
+    );
+}
+
+#[test]
+fn ignoring_whitespace_hides_edits_that_only_touch_whitespace() {
+    let repo = repo_with_initial_commit();
+    repo.write_file("README.md", "one\n  two\nthree \n");
+
+    let diff = diff_of(&repo, &ignoring_whitespace("README.md"));
+
+    assert_eq!(diff.content, DiffContent::Text { hunks: Vec::new() });
+}
+
+#[test]
+fn ignoring_whitespace_still_shows_the_real_edits_next_to_whitespace_ones() {
+    let repo = repo_with_initial_commit();
+    repo.write_file("README.md", "ONE\n\ttwo\nthree\n");
+
+    let diff = diff_of(&repo, &ignoring_whitespace("README.md"));
+
+    assert_eq!(
+        rendered(&hunks(&diff)[0]),
+        ["-one", "+ONE", " two", " three"]
+    );
+}
+
+#[test]
+fn ignoring_whitespace_treats_inner_spacing_and_line_endings_alike() {
+    let repo = repo_with_initial_commit();
+    repo.commit_file("code.txt", "let a = 1;\nlet b = 2;", "Add code");
+    repo.write_file("code.txt", "let   a=1;\r\nlet b = 2;\n");
+
+    let diff = diff_of(&repo, &ignoring_whitespace("code.txt"));
+
+    assert_eq!(diff.content, DiffContent::Text { hunks: Vec::new() });
 }

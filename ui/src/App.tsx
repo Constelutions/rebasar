@@ -12,6 +12,7 @@ import type { AppWindow } from "./shell/appWindow";
 import { shortcuts, useShortcut } from "./shortcuts";
 import { useMutations } from "./useMutations";
 import { useOpenTabs } from "./useOpenTabs";
+import { SettingsProvider, useStoredSettings } from "./settings/SettingsContext";
 import type { ViewName } from "./views";
 
 interface AppProps {
@@ -26,6 +27,7 @@ export function App({ api, pickFolder, appWindow, highlighter = defaultHighlight
   const [view, setView] = useState<ViewName>("Home");
   const [gitSetup, setGitSetup] = useState<GitSetup | null>(null);
   const runs = useMutations(api);
+  const storedSettings = useStoredSettings(api);
 
   useEffect(() => {
     api
@@ -47,41 +49,44 @@ export function App({ api, pickFolder, appWindow, highlighter = defaultHighlight
   }
 
   useShortcut(shortcuts.openFolder, openFolder);
+  useShortcut(shortcuts.openSettings, () => setView("Settings"));
 
   return (
-    <HighlighterProvider value={highlighter}>
-      <div className="app">
-        <TitleBar
-          tabs={openTabs}
-          activePath={activeTab?.tab.worktreePath}
-          appWindow={appWindow}
-          onSelectTab={select}
-          onOpenFolder={openFolder}
-        />
-        {error && (
-          <p role="alert" className="error">
-            {error}
-          </p>
-        )}
-        {pollingPaths.length > 0 && (
-          <p role="status" className="notice">
-            The operating system's file-watch limit was reached, so {pollingPaths.length}{" "}
-            {pollingPaths.length === 1 ? "Tab is" : "Tabs are"} checked periodically instead of live,
-            starting with the ones used least recently.
-          </p>
-        )}
-        {gitSetup && gitSetup.kind !== "ready" ? (
-          <SetupScreen setup={gitSetup} />
-        ) : (
-          <>
-            <div className="app-body">
-              <Sidebar selected={view} onSelect={setView} />
-              <ViewPane view={view} api={api} tab={activeTab} />
-            </div>
-            <OutputPanel runs={runs} onCancel={(run) => void api.cancelMutation(run.id)} />
-          </>
-        )}
-      </div>
-    </HighlighterProvider>
+    <SettingsProvider value={storedSettings}>
+      <HighlighterProvider value={highlighter}>
+        <div className="app">
+          <TitleBar
+            tabs={openTabs}
+            activePath={activeTab?.tab.worktreePath}
+            appWindow={appWindow}
+            onSelectTab={select}
+            onOpenFolder={openFolder}
+          />
+          {error && (
+            <p role="alert" className="error">
+              {error}
+            </p>
+          )}
+          {pollingPaths.length > 0 && (
+            <p role="status" className="notice">
+              The operating system's file-watch limit was reached, so {pollingPaths.length}{" "}
+              {pollingPaths.length === 1 ? "Tab is" : "Tabs are"} checked periodically instead of
+              live, starting with the ones used least recently.
+            </p>
+          )}
+          {gitSetup && gitSetup.kind !== "ready" ? (
+            <SetupScreen setup={gitSetup} />
+          ) : (
+            <>
+              <div className="app-body">
+                <Sidebar selected={view} onSelect={setView} />
+                <ViewPane view={view} api={api} tab={activeTab} />
+              </div>
+              <OutputPanel runs={runs} onCancel={(run) => void api.cancelMutation(run.id)} />
+            </>
+          )}
+        </div>
+      </HighlighterProvider>
+    </SettingsProvider>
   );
 }

@@ -10,16 +10,19 @@ mod diff;
 mod git_setup;
 pub mod github;
 mod history;
+mod identity;
 mod mutation;
 pub mod platform;
 mod poll;
 pub mod query;
+mod settings;
 mod status;
 mod tabs;
 mod watch;
 
 pub use diff::{
     ChangeList, DiffContent, DiffLine, DiffRequest, FileDiff, Hunk, LineKind, ModeChange,
+    WhitespaceMode,
 };
 pub use github::{
     CheckState, GitHubAuthStatus, GitHubRepository, PullRequest, ReviewState, TokenSource,
@@ -28,6 +31,8 @@ use github::{GitHub, GitHubServices};
 pub use git_setup::{GitSetup, GitVersion, MINIMUM_GIT_VERSION};
 use mutation::{Mutation, MutationRunner};
 pub use mutation::{MutationId, MutationInfo, MutationOutcome, OutputStream};
+pub use identity::GitIdentity;
+pub use settings::{AppearanceSettings, DiffMode, DiffSettings, Settings};
 pub use status::{ChangeKind, FileChange, WorktreeStatus};
 pub use tabs::CacheKind;
 use tabs::Registry;
@@ -163,6 +168,8 @@ pub struct Core {
     totals: Mutex<HashMap<PathBuf, (u64, usize)>>,
     github: GitHub,
     mutations: MutationRunner,
+    config_dir: Option<PathBuf>,
+    settings_write: Mutex<()>,
 }
 
 impl Core {
@@ -197,6 +204,8 @@ impl Core {
             histories: Mutex::new(HashMap::new()),
             totals: Mutex::new(HashMap::new()),
             github: GitHub::new(github),
+            config_dir: None,
+            settings_write: Mutex::new(()),
         }
     }
 
@@ -240,6 +249,42 @@ impl Core {
     /// Ends a queued or running mutation. Does nothing for one that has already finished.
     pub fn cancel_mutation(&self, id: MutationId) {
         self.mutations.cancel(id);
+    }
+
+    /// The folder holding the app's own files; settings need one.
+    pub fn with_config_dir(mut self, config_dir: PathBuf) -> Self {
+        self.config_dir = Some(config_dir);
+        self
+    }
+
+    pub fn settings(&self) -> Result<Settings, ApiError> {
+        Ok(settings::read(self.config_dir()?))
+    }
+
+    /// Replaces the stored settings and returns them as stored, with out-of-range values
+    /// brought back into range.
+    pub fn update_settings(&self, new_settings: &Settings) -> Result<Settings, ApiError> {
+        let config_dir = self.config_dir()?;
+        let _writing = self.settings_write.lock().expect("settings write lock");
+        settings::write(config_dir, new_settings.clone())
+    }
+
+    /// The identity in the user's global Git configuration.
+    pub fn git_identity(&self) -> Result<GitIdentity, ApiError> {
+        identity::read()
+    }
+
+    /// Writes the identity to the global Git configuration; a blank value removes it.
+    pub fn set_git_identity(&self, new_identity: &GitIdentity) -> Result<GitIdentity, ApiError> {
+        identity::write(new_identity)
+    }
+
+    fn config_dir(&self) -> Result<&Path, ApiError> {
+        self.config_dir
+            .as_deref()
+            .ok_or_else(|| ApiError::Unexpected {
+                message: "no config folder was set for the app".to_owned(),
+            })
     }
 
     /// Emits [`CoreEvent::WorktreeChanged`] after files change under the Worktree, whoever

@@ -1,10 +1,18 @@
 import { type FormEvent, useEffect, useId, useMemo, useState } from "react";
 
-import type { ChangeList, CoreApi, FileChange, FileDiff, WorktreeStatus } from "../core/api";
+import type {
+  ChangeList,
+  CoreApi,
+  DiffMode,
+  FileChange,
+  FileDiff,
+  WhitespaceMode,
+  WorktreeStatus,
+} from "../core/api";
 import { describeError } from "../core/describeError";
+import { useSettings } from "../settings/SettingsContext";
 import { type ChangeGroup, type GroupTree, buildGroupTrees, firstFile } from "./changeTree";
 import { DiffView } from "./DiffView";
-import type { DiffMode } from "./diffRows";
 import { type FileAction, FileTree, type FileSelection } from "./FileTree";
 
 interface ChangesViewProps {
@@ -16,12 +24,15 @@ interface ChangesViewProps {
 
 export function ChangesView({ api, worktreePath, status, error }: ChangesViewProps) {
   const [picked, setPicked] = useState<FileSelection | null>(null);
-  const [mode, setMode] = useState<DiffMode>("unified");
   const [actionError, setActionError] = useState<string | null>(null);
+  const { settings, ready } = useSettings();
+  const [pickedMode, setPickedMode] = useState<DiffMode | null>(null);
+  const mode = pickedMode ?? settings.diff.defaultMode;
 
   const trees = useMemo(() => buildGroupTrees(status ? changeGroups(status) : []), [status]);
   const selected = useMemo(() => resolveSelection(trees, picked), [trees, picked]);
-  const diff = useFileDiff(api, worktreePath, status, selected);
+  const whitespace = ready ? settings.diff.whitespace : null;
+  const diff = useFileDiff(api, worktreePath, status, selected, whitespace);
 
   if (error) {
     return (
@@ -82,7 +93,7 @@ export function ChangesView({ api, worktreePath, status, error }: ChangesViewPro
                 key={`${selected?.list}:${diff.value.path}`}
                 diff={diff.value}
                 mode={mode}
-                onModeChange={setMode}
+                onModeChange={setPickedMode}
                 onLoadLarge={diff.loadLarge}
               />
             )}
@@ -171,6 +182,7 @@ function useFileDiff(
   worktreePath: string,
   status: WorktreeStatus | null,
   selected: Selected | null,
+  whitespace: WhitespaceMode | null,
 ) {
   const [loaded, setLoaded] = useState<{ list: ChangeList; diff: FileDiff } | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -182,11 +194,11 @@ function useFileDiff(
   const forced = loadedLarge.has(`${list}:${path}`);
 
   useEffect(() => {
-    if (!list || !path) return;
+    if (!list || !path || !whitespace) return;
     let current = true;
     setError(null);
     api
-      .fileDiff(worktreePath, { path, originalPath, list, loadLarge: forced })
+      .fileDiff(worktreePath, { path, originalPath, list, loadLarge: forced, whitespace })
       .then((fresh) => {
         if (!current) return;
         setLoaded({ list, diff: fresh });
@@ -199,7 +211,7 @@ function useFileDiff(
       current = false;
     };
     // A new status means the file may have changed on disk, so its diff is read again.
-  }, [api, worktreePath, list, path, originalPath, forced, status]);
+  }, [api, worktreePath, list, path, originalPath, forced, whitespace, status]);
 
   return {
     value: loaded && loaded.list === list && loaded.diff.path === path ? loaded.diff : null,

@@ -100,6 +100,10 @@ export interface HistoryCount {
   total: number;
 }
 
+export type WhitespaceMode = "show" | "ignoreAll";
+
+export type DiffMode = "unified" | "sideBySide";
+
 export type ChangeList = "conflicts" | "staged" | "unstaged";
 
 export interface DiffRequest {
@@ -108,6 +112,7 @@ export interface DiffRequest {
   list: ChangeList;
   /** Computes the diff of a file that would otherwise come back collapsed. */
   loadLarge?: boolean;
+  whitespace?: WhitespaceMode;
 }
 
 export type LineKind = "context" | "added" | "removed";
@@ -186,6 +191,22 @@ export type MutationOutcome =
 
 export type OutputStream = "stdout" | "stderr";
 
+export interface Settings {
+  diff: { whitespace: WhitespaceMode; defaultMode: DiffMode };
+  appearance: { codeFontSize: number };
+}
+
+/** `null` is a value that is not set in the Git configuration. */
+export interface GitIdentity {
+  name: string | null;
+  email: string | null;
+}
+
+export const defaultSettings: Settings = {
+  diff: { whitespace: "show", defaultMode: "unified" },
+  appearance: { codeFontSize: 12 },
+};
+
 export type CoreEvent =
   | { type: "tabOpened"; tab: Tab }
   | { type: "worktreeChanged"; worktreePath: string }
@@ -246,6 +267,13 @@ export interface CoreApi {
   commit(path: string, message: string): Promise<MutationOutcome>;
   /** Does nothing for a mutation that has already finished. */
   cancelMutation(mutationId: number): Promise<void>;
+  settings(): Promise<Settings>;
+  /** Resolves to the settings as stored, with out-of-range values brought back into range. */
+  updateSettings(settings: Settings): Promise<Settings>;
+  /** The identity in the user's global Git configuration. */
+  gitIdentity(): Promise<GitIdentity>;
+  /** Writes to the global Git configuration; a blank value removes it. */
+  setGitIdentity(identity: GitIdentity): Promise<GitIdentity>;
   /** Resolves to a function that stops the subscription. */
   onEvent(handler: (event: CoreEvent) => void): Promise<() => void>;
 }

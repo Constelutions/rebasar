@@ -1,19 +1,22 @@
-import type {
-  CoreApi,
-  CoreEvent,
-  DiffRequest,
-  FileChange,
-  FileDiff,
-  GitHubAuthStatus,
-  GitHubRepository,
-  GitSetup,
-  Head,
-  HistoryRow,
-  MutationOutcome,
-  PullRequest,
-  Tab,
-  TokenSource,
-  WorktreeStatus,
+import {
+  type CoreApi,
+  type CoreEvent,
+  type DiffRequest,
+  type FileChange,
+  type FileDiff,
+  type GitHubAuthStatus,
+  type GitHubRepository,
+  type GitSetup,
+  type GitIdentity,
+  type Head,
+  type HistoryRow,
+  type MutationOutcome,
+  type PullRequest,
+  type Tab,
+  type TokenSource,
+  type WorktreeStatus,
+  type Settings,
+  defaultSettings,
 } from "./api";
 
 export const emptyStatus: WorktreeStatus = { conflicts: [], staged: [], unstaged: [] };
@@ -39,6 +42,11 @@ export interface MutationFailure {
   exitCode: number;
   /** Written to stderr, as a failing hook would. */
   output: string[];
+}
+
+export interface StubCoreState {
+  settings?: Settings;
+  identity?: GitIdentity;
 }
 
 export interface StubCoreApi extends CoreApi {
@@ -76,6 +84,7 @@ export function createStubCoreApi(
   diffs: Record<string, FileDiff> = {},
   github: StubGitHub = {},
   gitSetup: GitSetup = ready,
+  state: StubCoreState = {},
 ): StubCoreApi {
   const handlers = new Set<(event: CoreEvent) => void>();
   const current = new Map(Object.entries(statuses));
@@ -86,6 +95,8 @@ export function createStubCoreApi(
   const commits: { worktreePath: string; message: string }[] = [];
   const failures: MutationFailure[] = [];
   let nextMutationId = 1;
+  let settings = state.settings ?? defaultSettings;
+  let identity = state.identity ?? { name: null, email: null };
   const emit = (event: CoreEvent) => handlers.forEach((handler) => handler(event));
   let active: string | null = null;
   let held: Promise<void> | null = null;
@@ -228,6 +239,20 @@ export function createStubCoreApi(
     async cancelMutation(mutationId) {
       cancelled.push(mutationId);
     },
+    async settings() {
+      return settings;
+    },
+    async updateSettings(updated) {
+      settings = updated;
+      return settings;
+    },
+    async gitIdentity() {
+      return identity;
+    },
+    async setGitIdentity(updated) {
+      identity = { name: blankToNull(updated.name), email: blankToNull(updated.email) };
+      return identity;
+    },
     async onEvent(handler) {
       handlers.add(handler);
       return () => handlers.delete(handler);
@@ -277,4 +302,9 @@ function asStaged(file: FileChange): FileChange {
 
 function asUnstaged(file: FileChange): FileChange {
   return file.kind === "added" ? { ...file, kind: "untracked" } : file;
+}
+
+function blankToNull(value: string | null) {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : null;
 }

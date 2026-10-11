@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use rebasar_core::{
     ApiError, Core, DiffRequest, FileDiff, GitHubAuthStatus, GitHubRepository, HistoryCount,
-    GitSetup, HistoryFilter, HistoryPage, MutationId, MutationOutcome, PullRequest, Tab,
+    GitIdentity, GitSetup, HistoryFilter, HistoryPage, MutationId, MutationOutcome, PullRequest, Settings, Tab,
     WorktreeStatus,
 };
 use tauri::{Emitter, Manager, State};
@@ -191,6 +191,44 @@ fn cancel_mutation(core: State<'_, Arc<Core>>, mutation_id: MutationId) {
     core.cancel_mutation(mutation_id);
 }
 
+#[tauri::command]
+async fn settings(core: State<'_, Arc<Core>>) -> Result<Settings, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.settings())
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn update_settings(
+    core: State<'_, Arc<Core>>,
+    settings: Settings,
+) -> Result<Settings, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.update_settings(&settings))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn git_identity(core: State<'_, Arc<Core>>) -> Result<GitIdentity, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.git_identity())
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn set_git_identity(
+    core: State<'_, Arc<Core>>,
+    identity: GitIdentity,
+) -> Result<GitIdentity, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.set_git_identity(&identity))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
@@ -201,7 +239,8 @@ fn main() {
                     eprintln!("failed to emit core event: {error}");
                 }
             });
-            app.manage(Arc::new(core));
+            let config_dir = app.path().app_config_dir()?;
+            app.manage(Arc::new(core.with_config_dir(config_dir)));
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -222,7 +261,11 @@ fn main() {
             stage_files,
             unstage_files,
             commit,
-            cancel_mutation
+            cancel_mutation,
+            settings,
+            update_settings,
+            git_identity,
+            set_git_identity
         ])
         .run(tauri::generate_context!())
         .expect("failed to run Rebasar");

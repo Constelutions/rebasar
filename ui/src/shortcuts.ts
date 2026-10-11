@@ -8,6 +8,7 @@ interface Shortcut {
 /** Every shortcut is Ctrl-based: the mockup's Command key maps to Ctrl on Windows and Linux. */
 export const shortcuts = {
   openFolder: { key: "o", label: "Ctrl+O" },
+  openSettings: { key: ",", label: "Ctrl+," },
 } satisfies Record<string, Shortcut>;
 
 export function useShortcut(shortcut: Shortcut, handler: () => void) {

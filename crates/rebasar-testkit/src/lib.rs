@@ -4,6 +4,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Mutex, MutexGuard};
 
 use tempfile::TempDir;
 
@@ -11,6 +12,85 @@ pub const AUTHOR_NAME: &str = "Test Author";
 pub const AUTHOR_EMAIL: &str = "author@example.com";
 const FIRST_COMMIT_TIME: u64 = 1_700_000_000;
 const SECONDS_BETWEEN_COMMITS: u64 = 60;
+
+static GLOBAL_CONFIG_LOCK: Mutex<()> = Mutex::new(());
+
+/// Points the process's `git` at an empty, throwaway global configuration, so a test can read
+/// and write `--global` settings without touching the developer's own.
+///
+/// The environment is shared by the whole test process, so holding one of these serialises the
+/// tests that use it.
+pub struct IsolatedGitConfig {
+    _lock: MutexGuard<'static, ()>,
+    root: TempDir,
+}
+
+impl IsolatedGitConfig {
+    pub fn new() -> Self {
+        let lock = GLOBAL_CONFIG_LOCK
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let config = Self {
+            _lock: lock,
+            root: tempfile::tempdir().expect("create temp dir"),
+        };
+        std::env::set_var("GIT_CONFIG_GLOBAL", config.global_config_path());
+        std::env::set_var("GIT_CONFIG_NOSYSTEM", "1");
+        config
+    }
+
+    pub fn global_config_path(&self) -> PathBuf {
+        self.root.path().join("global.gitconfig")
+    }
+
+    pub fn set_global(&self, key: &str, value: &str) {
+        self.run(&["--file", &self.path_arg(), key, value]);
+    }
+
+    pub fn global(&self, key: &str) -> Option<String> {
+        let output = Command::new("git")
+            .args(["config", "--file", &self.path_arg(), "--get", key])
+            .output()
+            .expect("run git");
+        output
+            .status
+            .success()
+            .then(|| String::from_utf8_lossy(&output.stdout).trim().to_owned())
+    }
+
+    fn path_arg(&self) -> String {
+        self.global_config_path()
+            .to_str()
+            .expect("utf-8 config path")
+            .to_owned()
+    }
+
+    fn run(&self, args: &[&str]) {
+        let output = Command::new("git")
+            .arg("config")
+            .args(args)
+            .output()
+            .expect("run git");
+        assert!(
+            output.status.success(),
+            "git config {args:?} failed: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+}
+
+impl Default for IsolatedGitConfig {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Drop for IsolatedGitConfig {
+    fn drop(&mut self) {
+        std::env::remove_var("GIT_CONFIG_GLOBAL");
+        std::env::remove_var("GIT_CONFIG_NOSYSTEM");
+    }
+}
 
 pub struct TempRepo {
     root: TempDir,
