@@ -167,10 +167,40 @@ export interface PullRequest {
   review: ReviewState;
 }
 
+export type GitSetup =
+  | { kind: "ready"; version: string }
+  | { kind: "missing"; minimum: string }
+  | { kind: "tooOld"; version: string; minimum: string };
+
+/** A Git command that changes a Repository; the core runs them one at a time per Repository. */
+export interface MutationInfo {
+  id: number;
+  worktreePath: string;
+  title: string;
+}
+
+export type MutationOutcome =
+  | { kind: "succeeded" }
+  | { kind: "failed"; exitCode: number | null }
+  | { kind: "cancelled" };
+
+export type OutputStream = "stdout" | "stderr";
+
 export type CoreEvent =
   | { type: "tabOpened"; tab: Tab }
   | { type: "worktreeChanged"; worktreePath: string }
-  | { type: "pollingTabsChanged"; worktreePaths: string[] };
+  | { type: "pollingTabsChanged"; worktreePaths: string[] }
+  | { type: "mutationQueued"; mutation: MutationInfo }
+  | { type: "mutationStarted"; mutationId: number }
+  /** A `transient` line is a progress update that the next line replaces. */
+  | {
+      type: "mutationOutput";
+      mutationId: number;
+      stream: OutputStream;
+      text: string;
+      transient: boolean;
+    }
+  | { type: "mutationFinished"; mutationId: number; outcome: MutationOutcome };
 
 export interface CoreApi {
   /** Rejects with an {@link ApiError} when the folder cannot be opened. */
@@ -205,6 +235,17 @@ export interface CoreApi {
   signOutOfGitHub(): Promise<GitHubAuthStatus>;
   /** Open pull requests of the Repository's GitHub remote, most recently updated first. */
   pullRequests(path: string): Promise<PullRequest[]>;
+  checkGit(): Promise<GitSetup>;
+  /**
+   * The mutation methods resolve when the mutation has finished, after waiting for earlier
+   * ones on the same Repository; follow its progress through the `mutation*` events.
+   */
+  stageFiles(path: string, paths: string[]): Promise<MutationOutcome>;
+  /** For a renamed file pass both its paths. */
+  unstageFiles(path: string, paths: string[]): Promise<MutationOutcome>;
+  commit(path: string, message: string): Promise<MutationOutcome>;
+  /** Does nothing for a mutation that has already finished. */
+  cancelMutation(mutationId: number): Promise<void>;
   /** Resolves to a function that stops the subscription. */
   onEvent(handler: (event: CoreEvent) => void): Promise<() => void>;
 }

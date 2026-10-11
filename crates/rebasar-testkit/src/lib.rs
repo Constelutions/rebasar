@@ -33,6 +33,7 @@ impl TempRepo {
         // Set in the repository itself so the machine's own identity never leaks into a test.
         repo.git(&["config", "user.name", AUTHOR_NAME]);
         repo.git(&["config", "user.email", AUTHOR_EMAIL]);
+        repo.git(&["config", "commit.gpgsign", "false"]);
         repo
     }
 
@@ -90,6 +91,19 @@ impl TempRepo {
         }
         fs::write(file, contents).expect("write file");
         self.git(&["add", file_name]);
+    }
+
+    /// Installs a hook that every Worktree of the repository runs, written as a `sh` script.
+    pub fn install_hook(&self, name: &str, script: &str) -> &Self {
+        let hook = self.path.join(".git").join("hooks").join(name);
+        fs::write(&hook, format!("#!/bin/sh\n{script}\n")).expect("write hook");
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            fs::set_permissions(&hook, fs::Permissions::from_mode(0o755))
+                .expect("make hook executable");
+        }
+        self
     }
 
     pub fn detach_head(&self) -> &Self {

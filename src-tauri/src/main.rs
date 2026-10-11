@@ -5,7 +5,8 @@ use std::sync::Arc;
 
 use rebasar_core::{
     ApiError, Core, DiffRequest, FileDiff, GitHubAuthStatus, GitHubRepository, HistoryCount,
-    HistoryFilter, HistoryPage, PullRequest, Tab, WorktreeStatus,
+    GitSetup, HistoryFilter, HistoryPage, MutationId, MutationOutcome, PullRequest, Tab,
+    WorktreeStatus,
 };
 use tauri::{Emitter, Manager, State};
 
@@ -141,6 +142,55 @@ async fn pull_requests(
         .map_err(ApiError::unexpected)?
 }
 
+#[tauri::command]
+async fn check_git(core: State<'_, Arc<Core>>) -> Result<GitSetup, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.check_git())
+        .await
+        .map_err(ApiError::unexpected)
+}
+
+#[tauri::command]
+async fn stage_files(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+    paths: Vec<String>,
+) -> Result<MutationOutcome, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.stage(&path, &paths))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn unstage_files(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+    paths: Vec<String>,
+) -> Result<MutationOutcome, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.unstage(&path, &paths))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn commit(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+    message: String,
+) -> Result<MutationOutcome, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.commit(&path, &message))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+fn cancel_mutation(core: State<'_, Arc<Core>>, mutation_id: MutationId) {
+    core.cancel_mutation(mutation_id);
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
@@ -167,7 +217,12 @@ fn main() {
             github_auth_status,
             sign_in_to_github,
             sign_out_of_github,
-            pull_requests
+            pull_requests,
+            check_git,
+            stage_files,
+            unstage_files,
+            commit,
+            cancel_mutation
         ])
         .run(tauri::generate_context!())
         .expect("failed to run Rebasar");

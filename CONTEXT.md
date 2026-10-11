@@ -23,3 +23,7 @@ _Avoid_: Folder, category, collection
 **Operation in progress**:
 A merge, rebase, cherry-pick or revert that Git has paused mid-way and that the user must continue, skip or abort. It belongs to one Worktree and exists only while Git is paused.
 _Avoid_: Current action, pending operation
+
+**Mutation**:
+A Git command that changes a Repository, run through the system `git` by the mutation queue: one at a time per Repository (across all its Worktrees), with its output streamed to the output panel and cancellable while queued or running. Reads are not mutations.
+_Avoid_: Operation (that word means an Operation in progress), action, job

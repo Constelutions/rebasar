@@ -7,8 +7,10 @@ use serde::Serialize;
 use thiserror::Error;
 
 mod diff;
+mod git_setup;
 pub mod github;
 mod history;
+mod mutation;
 pub mod platform;
 mod poll;
 pub mod query;
@@ -23,6 +25,9 @@ pub use github::{
     CheckState, GitHubAuthStatus, GitHubRepository, PullRequest, ReviewState, TokenSource,
 };
 use github::{GitHub, GitHubServices};
+pub use git_setup::{GitSetup, GitVersion, MINIMUM_GIT_VERSION};
+use mutation::{Mutation, MutationRunner};
+pub use mutation::{MutationId, MutationInfo, MutationOutcome, OutputStream};
 pub use status::{ChangeKind, FileChange, WorktreeStatus};
 pub use tabs::CacheKind;
 use tabs::Registry;
@@ -63,6 +68,24 @@ pub enum CoreEvent {
     /// first. Sent whenever the list changes, including when it becomes empty again.
     PollingTabsChanged {
         worktree_paths: Vec<String>,
+    },
+    MutationQueued {
+        mutation: MutationInfo,
+    },
+    MutationStarted {
+        mutation_id: MutationId,
+    },
+    /// One line of `git` output, hooks included. A `transient` line is a progress update that
+    /// the next line replaces.
+    MutationOutput {
+        mutation_id: MutationId,
+        stream: OutputStream,
+        text: String,
+        transient: bool,
+    },
+    MutationFinished {
+        mutation_id: MutationId,
+        outcome: MutationOutcome,
     },
 }
 
@@ -139,6 +162,7 @@ pub struct Core {
     histories: Mutex<HashMap<PathBuf, Arc<Mutex<history::Layout>>>>,
     totals: Mutex<HashMap<PathBuf, (u64, usize)>>,
     github: GitHub,
+    mutations: MutationRunner,
 }
 
 impl Core {
@@ -167,12 +191,55 @@ impl Core {
     ) -> Self {
         let on_event: Arc<dyn Fn(CoreEvent) + Send + Sync> = Arc::new(on_event);
         Self {
+            mutations: MutationRunner::new(Arc::clone(&on_event)),
             tabs: Mutex::new(Registry::new(settings, Arc::clone(&on_event))),
             on_event,
             histories: Mutex::new(HashMap::new()),
             totals: Mutex::new(HashMap::new()),
             github: GitHub::new(github),
         }
+    }
+
+    pub fn check_git(&self) -> GitSetup {
+        GitSetup::check()
+    }
+
+    /// Stages the whole files, deletions included. Blocks until the mutation has finished.
+    pub fn stage(&self, worktree: &Path, paths: &[String]) -> Result<MutationOutcome, ApiError> {
+        // `git add --all --` without paths would stage the entire working tree.
+        if paths.is_empty() {
+            return Ok(MutationOutcome::Succeeded);
+        }
+        let args = ["--literal-pathspecs", "add", "--all", "--"]
+            .into_iter()
+            .chain(paths.iter().map(String::as_str));
+        self.mutations
+            .run(worktree, Mutation::new(files_title("Stage", paths), args))
+    }
+
+    /// Removes the whole files from the index. For a renamed file pass both its paths.
+    pub fn unstage(&self, worktree: &Path, paths: &[String]) -> Result<MutationOutcome, ApiError> {
+        // `git reset` without paths would unstage everything.
+        if paths.is_empty() {
+            return Ok(MutationOutcome::Succeeded);
+        }
+        let args = ["--literal-pathspecs", "reset", "--quiet", "--"]
+            .into_iter()
+            .chain(paths.iter().map(String::as_str));
+        self.mutations
+            .run(worktree, Mutation::new(files_title("Unstage", paths), args))
+    }
+
+    pub fn commit(&self, worktree: &Path, message: &str) -> Result<MutationOutcome, ApiError> {
+        self.mutations.run(
+            worktree,
+            Mutation::new("Commit", ["commit", "--message", message]),
+        )
+    }
+
+    /// Ends a queued or running mutation. Does nothing for one that has already finished.
+    pub fn cancel_mutation(&self, id: MutationId) {
+        self.mutations.cancel(id);
     }
 
     /// Emits [`CoreEvent::WorktreeChanged`] after files change under the Worktree, whoever
@@ -318,6 +385,13 @@ fn read_tab(repo: &gix::Repository, worktree_path: &Path) -> Result<Tab, ApiErro
         worktree_path: worktree_path.to_string_lossy().into_owned(),
         head,
     })
+}
+
+fn files_title(verb: &str, paths: &[String]) -> String {
+    match paths {
+        [only] => format!("{verb} {only}"),
+        _ => format!("{verb} {} files", paths.len()),
+    }
 }
 
 fn open_worktree(path: &Path) -> Result<(PathBuf, gix::Repository), ApiError> {
