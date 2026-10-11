@@ -3,9 +3,13 @@ import type {
   CoreEvent,
   DiffRequest,
   FileDiff,
-  HistoryRow,
+  GitHubAuthStatus,
+  GitHubRepository,
   Head,
+  HistoryRow,
+  PullRequest,
   Tab,
+  TokenSource,
   WorktreeStatus,
 } from "./api";
 
@@ -13,6 +17,17 @@ export const emptyStatus: WorktreeStatus = { conflicts: [], staged: [], unstaged
 
 export function diffKey({ list, path }: Pick<DiffRequest, "list" | "path">) {
   return `${list}:${path}`;
+}
+
+export interface StubGitHub {
+  /** GitHub remote by Worktree path; a Worktree that is not listed has no GitHub remote. */
+  remotes?: Record<string, GitHubRepository>;
+  /** Who is signed in before the test starts. */
+  signedInWith?: TokenSource | null;
+  /** The pasted tokens GitHub accepts. */
+  validTokens?: string[];
+  /** Open pull requests by Worktree path. */
+  pullRequests?: Record<string, PullRequest[]>;
 }
 
 export interface StubCoreApi extends CoreApi {
@@ -42,6 +57,7 @@ export function createStubCoreApi(
   statuses: Record<string, WorktreeStatus> = {},
   histories: Record<string, HistoryRow[]> = {},
   diffs: Record<string, FileDiff> = {},
+  github: StubGitHub = {},
 ): StubCoreApi {
   const handlers = new Set<(event: CoreEvent) => void>();
   const current = new Map(Object.entries(statuses));
@@ -59,6 +75,8 @@ export function createStubCoreApi(
     }
     return tab;
   }
+  let source: TokenSource | null = github.signedInWith ?? null;
+  const authStatus = (): GitHubAuthStatus => ({ source });
 
   return {
     async openFolder(path) {
@@ -104,6 +122,28 @@ export function createStubCoreApi(
     },
     async refreshTab(path) {
       return known(path);
+    },
+    async githubRemote(path) {
+      return github.remotes?.[path] ?? null;
+    },
+    async githubAuthStatus() {
+      return authStatus();
+    },
+    async signInToGitHub(token) {
+      if (!github.validTokens?.includes(token.trim())) {
+        throw { kind: "githubTokenRejected" };
+      }
+      source ??= "personalAccessToken";
+      return authStatus();
+    },
+    async signOutOfGitHub() {
+      if (source === "personalAccessToken") source = null;
+      return authStatus();
+    },
+    async pullRequests(path) {
+      if (!github.remotes?.[path]) throw { kind: "notGithub", path };
+      if (source === null) throw { kind: "githubNotSignedIn" };
+      return github.pullRequests?.[path] ?? [];
     },
     async onEvent(handler) {
       handlers.add(handler);

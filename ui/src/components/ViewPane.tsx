@@ -3,6 +3,7 @@ import { HistoryView } from "../history/HistoryView";
 import type { ViewName } from "../views";
 import type { OpenTab } from "../useOpenTabs";
 import { ChangesView } from "./ChangesView";
+import { PullRequestsView } from "./PullRequestsView";
 
 interface ViewPaneProps {
   view: ViewName;
@@ -27,6 +28,8 @@ export function ViewPane({ view, api, tab }: ViewPaneProps) {
         ) : (
           <p className="placeholder">Open a folder to see its history.</p>
         )
+      ) : view === "Pull requests" && tab ? (
+        <PullRequestsView api={api} tab={tab.tab} />
       ) : (
         <p className="placeholder">Nothing here yet.</p>
       )}

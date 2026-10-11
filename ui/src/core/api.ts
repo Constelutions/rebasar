@@ -13,6 +13,10 @@ export type ApiError =
   | { kind: "notARepository"; path: string }
   /** `start..end` are character offsets into the query text. */
   | { kind: "invalidQuery"; message: string; start: number; end: number }
+  | { kind: "notGithub"; path: string }
+  | { kind: "githubNotSignedIn" }
+  | { kind: "githubTokenRejected" }
+  | { kind: "githubRequestFailed"; message: string }
   | { kind: "unexpected"; message: string };
 
 export type ChangeKind =
@@ -136,6 +140,33 @@ export interface FileDiff {
   content: DiffContent;
 }
 
+export interface GitHubRepository {
+  owner: string;
+  name: string;
+}
+
+export type TokenSource = "ghCli" | "personalAccessToken";
+
+export interface GitHubAuthStatus {
+  /** `null` when nobody is signed in. */
+  source: TokenSource | null;
+}
+
+export type CheckState = "none" | "pending" | "success" | "failure";
+export type ReviewState = "none" | "reviewRequired" | "changesRequested" | "approved";
+
+export interface PullRequest {
+  number: number;
+  title: string;
+  url: string;
+  author: string;
+  headBranch: string;
+  baseBranch: string;
+  isDraft: boolean;
+  checks: CheckState;
+  review: ReviewState;
+}
+
 export type CoreEvent =
   | { type: "tabOpened"; tab: Tab }
   | { type: "worktreeChanged"; worktreePath: string }
@@ -165,6 +196,15 @@ export interface CoreApi {
   activateTab(path: string): Promise<void>;
   /** Reads the Tab again, so that a branch switched outside the app shows. */
   refreshTab(path: string): Promise<Tab>;
+  /** `null` when none of the Repository's remotes is on GitHub. */
+  githubRemote(path: string): Promise<GitHubRepository | null>;
+  githubAuthStatus(): Promise<GitHubAuthStatus>;
+  /** Rejects with `githubTokenRejected` when GitHub does not accept the token. */
+  signInToGitHub(token: string): Promise<GitHubAuthStatus>;
+  /** Forgets a pasted token; a `gh` CLI sign-in stays. */
+  signOutOfGitHub(): Promise<GitHubAuthStatus>;
+  /** Open pull requests of the Repository's GitHub remote, most recently updated first. */
+  pullRequests(path: string): Promise<PullRequest[]>;
   /** Resolves to a function that stops the subscription. */
   onEvent(handler: (event: CoreEvent) => void): Promise<() => void>;
 }

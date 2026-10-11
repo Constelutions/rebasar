@@ -7,6 +7,7 @@ use serde::Serialize;
 use thiserror::Error;
 
 mod diff;
+pub mod github;
 mod history;
 pub mod platform;
 mod poll;
@@ -18,6 +19,10 @@ mod watch;
 pub use diff::{
     ChangeList, DiffContent, DiffLine, DiffRequest, FileDiff, Hunk, LineKind, ModeChange,
 };
+pub use github::{
+    CheckState, GitHubAuthStatus, GitHubRepository, PullRequest, ReviewState, TokenSource,
+};
+use github::{GitHub, GitHubServices};
 pub use status::{ChangeKind, FileChange, WorktreeStatus};
 pub use tabs::CacheKind;
 use tabs::Registry;
@@ -68,6 +73,14 @@ pub enum ApiError {
     FolderNotFound { path: String },
     #[error("{path} is not a Git repository")]
     NotARepository { path: String },
+    #[error("{path} has no GitHub remote")]
+    NotGithub { path: String },
+    #[error("not signed in to GitHub")]
+    GithubNotSignedIn,
+    #[error("GitHub rejected the token")]
+    GithubTokenRejected,
+    #[error("{message}")]
+    GithubRequestFailed { message: String },
     #[error("{message}")]
     InvalidQuery {
         message: String,
@@ -125,15 +138,31 @@ pub struct Core {
     tabs: Mutex<Registry>,
     histories: Mutex<HashMap<PathBuf, Arc<Mutex<history::Layout>>>>,
     totals: Mutex<HashMap<PathBuf, (u64, usize)>>,
+    github: GitHub,
 }
 
 impl Core {
     pub fn new(on_event: impl Fn(CoreEvent) + Send + Sync + 'static) -> Self {
-        Self::with_settings(CoreSettings::default(), on_event)
+        Self::build(CoreSettings::default(), GitHubServices::system(), on_event)
     }
 
     pub fn with_settings(
         settings: CoreSettings,
+        on_event: impl Fn(CoreEvent) + Send + Sync + 'static,
+    ) -> Self {
+        Self::build(settings, GitHubServices::system(), on_event)
+    }
+
+    pub fn with_github(
+        on_event: impl Fn(CoreEvent) + Send + Sync + 'static,
+        github: GitHubServices,
+    ) -> Self {
+        Self::build(CoreSettings::default(), github, on_event)
+    }
+
+    fn build(
+        settings: CoreSettings,
+        github: GitHubServices,
         on_event: impl Fn(CoreEvent) + Send + Sync + 'static,
     ) -> Self {
         let on_event: Arc<dyn Fn(CoreEvent) + Send + Sync> = Arc::new(on_event);
@@ -142,6 +171,7 @@ impl Core {
             on_event,
             histories: Mutex::new(HashMap::new()),
             totals: Mutex::new(HashMap::new()),
+            github: GitHub::new(github),
         }
     }
 
@@ -216,6 +246,34 @@ impl Core {
     pub fn refresh_tab(&self, path: &Path) -> Result<Tab, ApiError> {
         let (worktree_path, repo) = open_worktree(path)?;
         read_tab(&repo, &worktree_path)
+    }
+
+    pub fn github_remote(&self, path: &Path) -> Result<Option<GitHubRepository>, ApiError> {
+        let (_, repo) = open_worktree(path)?;
+        Ok(github::find_remote(&repo))
+    }
+
+    pub fn github_auth_status(&self) -> Result<GitHubAuthStatus, ApiError> {
+        self.github.auth_status()
+    }
+
+    /// Checks the token with GitHub before keeping it in the credential store. The token is
+    /// only for the GitHub API; `git` keeps using its own credentials.
+    pub fn sign_in_to_github(&self, token: &str) -> Result<GitHubAuthStatus, ApiError> {
+        self.github.sign_in(token)
+    }
+
+    /// Forgets the stored token. A `gh` CLI sign-in is the user's and stays.
+    pub fn sign_out_of_github(&self) -> Result<GitHubAuthStatus, ApiError> {
+        self.github.sign_out()
+    }
+
+    pub fn pull_requests(&self, path: &Path) -> Result<Vec<PullRequest>, ApiError> {
+        let (worktree_path, repo) = open_worktree(path)?;
+        let repository = github::find_remote(&repo).ok_or_else(|| ApiError::NotGithub {
+            path: worktree_path.to_string_lossy().into_owned(),
+        })?;
+        self.github.pull_requests(&repository)
     }
 
     pub fn worktree_status(&self, path: &Path) -> Result<WorktreeStatus, ApiError> {

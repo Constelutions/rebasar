@@ -10,9 +10,14 @@ dunce = "1.0.5"
 gix = { version = "0.89.0", default-features = false, features = ["max-performance-safe", "sha1", "status"] }
 notify = "8.2.0"
 serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.151"
 thiserror = "2.0.21"
+ureq = { version = "3.4.2", default-features = false, features = ["native-tls"] }
+
+[target.'cfg(windows)'.dependencies]
+keyring-core = "1.0.0"
+windows-native-keyring-store = { version = "1.1.0", default-features = false }
 
 [dev-dependencies]
 rebasar-testkit = { path = "../rebasar-testkit" }
-serde_json = "1.0.151"
 tempfile = "3.27.0"

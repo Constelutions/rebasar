@@ -4,8 +4,8 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use rebasar_core::{
-    ApiError, Core, DiffRequest, FileDiff, HistoryCount, HistoryFilter, HistoryPage, Tab,
-    WorktreeStatus,
+    ApiError, Core, DiffRequest, FileDiff, GitHubAuthStatus, GitHubRepository, HistoryCount,
+    HistoryFilter, HistoryPage, PullRequest, Tab, WorktreeStatus,
 };
 use tauri::{Emitter, Manager, State};
 
@@ -92,6 +92,55 @@ async fn refresh_tab(core: State<'_, Arc<Core>>, path: PathBuf) -> Result<Tab, A
         .map_err(ApiError::unexpected)?
 }
 
+#[tauri::command]
+async fn github_remote(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+) -> Result<Option<GitHubRepository>, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.github_remote(&path))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn github_auth_status(core: State<'_, Arc<Core>>) -> Result<GitHubAuthStatus, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.github_auth_status())
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn sign_in_to_github(
+    core: State<'_, Arc<Core>>,
+    token: String,
+) -> Result<GitHubAuthStatus, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.sign_in_to_github(&token))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn sign_out_of_github(core: State<'_, Arc<Core>>) -> Result<GitHubAuthStatus, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.sign_out_of_github())
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn pull_requests(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+) -> Result<Vec<PullRequest>, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.pull_requests(&path))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
@@ -113,7 +162,12 @@ fn main() {
             history_page,
             history_count,
             activate_tab,
-            refresh_tab
+            refresh_tab,
+            github_remote,
+            github_auth_status,
+            sign_in_to_github,
+            sign_out_of_github,
+            pull_requests
         ])
         .run(tauri::generate_context!())
         .expect("failed to run Rebasar");
