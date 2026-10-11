@@ -1,22 +1,17 @@
-import { act, fireEvent, screen, within } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import type { CoreApi, HistoryRow } from "./core/api";
-import { createStubCoreApi } from "./core/stub";
-import { commitRow, localTime, renderApp, sampleTab } from "./test-support";
+import {
+  commitRow,
+  localTime,
+  numberedCommits,
+  renderApp,
+  scrollHistory,
+  showHistory,
+} from "./test-support";
 
-const worktree = sampleTab.worktreePath;
 const rowHeight = 36;
-
-function numberedCommits(count: number): HistoryRow[] {
-  return Array.from({ length: count }, (_, index) =>
-    commitRow({
-      id: index.toString(16).padStart(40, "0"),
-      subject: `Commit ${index}`,
-      timestamp: localTime(2026, 1, 5, 12) - index,
-    }),
-  );
-}
 
 function recordingPageRequests(requested: number[]) {
   return (api: CoreApi): CoreApi => ({
@@ -25,23 +20,6 @@ function recordingPageRequests(requested: number[]) {
       requested.push(offset);
       return api.historyPage(path, offset, limit);
     },
-  });
-}
-
-async function showHistory(rows: HistoryRow[], wrap: (api: CoreApi) => CoreApi = (api) => api) {
-  const user = userEvent.setup();
-  const api = wrap(createStubCoreApi({ [worktree]: sampleTab }, {}, { [worktree]: rows }));
-  renderApp({ api, pickFolder: async () => worktree });
-  await user.click(screen.getByRole("button", { name: /open folder/i }));
-  await screen.findByRole("tab");
-  await user.click(screen.getByRole("button", { name: "History" }));
-}
-
-async function scrollTo(top: number) {
-  const scroller = screen.getByRole("list", { name: "Commit history" }).parentElement!;
-  Object.defineProperty(scroller, "scrollTop", { value: top, configurable: true });
-  await act(async () => {
-    fireEvent.scroll(scroller);
   });
 }
 
@@ -197,7 +175,7 @@ it("renders the rows that are scrolled into view", async () => {
   await showHistory(numberedCommits(100));
   await screen.findAllByRole("listitem");
 
-  await scrollTo(rowHeight * 50);
+  await scrollHistory({ top: rowHeight * 50 });
 
   expect(await screen.findByText("Commit 49")).toBeInTheDocument();
   expect(screen.queryByText("Commit 0")).not.toBeInTheDocument();
@@ -210,7 +188,7 @@ it("loads only the first page until the user scrolls towards the end", async () 
 
   expect(requested).toEqual([0]);
 
-  await scrollTo(rowHeight * 90);
+  await scrollHistory({ top: rowHeight * 90 });
 
   expect(await screen.findByText("Commit 100")).toBeInTheDocument();
   expect(requested).toEqual([0, 100]);
@@ -222,7 +200,7 @@ it("keeps loading pages until the whole history has been shown", async () => {
   await screen.findAllByRole("listitem");
 
   for (const top of [rowHeight * 90, rowHeight * 190, rowHeight * 250]) {
-    await scrollTo(top);
+    await scrollHistory({ top });
   }
 
   expect(requested).toEqual([0, 100, 200]);

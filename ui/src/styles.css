@@ -321,11 +321,58 @@ button {
   color: var(--color-accent);
 }
 
+.history-toolbar {
+  display: flex;
+  gap: var(--space-4);
+  margin-top: var(--space-4);
+}
+
+.segmented {
+  display: flex;
+  padding: 2px;
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border-raised);
+  border-radius: var(--radius-sm);
+}
+
+.segment {
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  border-radius: calc(var(--radius-sm) - 2px);
+  cursor: pointer;
+}
+
+.segment[data-selected] {
+  font-weight: 600;
+  color: var(--color-accent-text);
+  background: var(--color-accent-surface);
+}
+
+.segment:has(:focus-visible) {
+  outline: 2px solid var(--color-accent);
+}
+
+.segment input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
 .history-scroller {
   flex: 1;
   min-height: 0;
   margin: var(--space-4) calc(-1 * var(--space-5)) calc(-1 * var(--space-5));
   overflow-y: auto;
+}
+
+.history-scroller[data-orientation="horizontal"] {
+  display: flex;
+  overflow: auto hidden;
+}
+
+.history-list[data-orientation="horizontal"] {
+  flex: none;
 }
 
 .history-list {
@@ -346,6 +393,71 @@ button {
 
 .history-item.commit:hover {
   background: var(--color-hover);
+}
+
+.history-list[data-orientation="horizontal"] .history-item {
+  top: 0;
+  right: auto;
+  bottom: 0;
+  left: auto;
+  padding: 0 var(--space-3);
+}
+
+.history-list[data-orientation="horizontal"] .history-item.commit {
+  display: grid;
+  grid-template-areas:
+    "graph graph graph graph"
+    "message message message message"
+    "avatar author hash time";
+  grid-template-columns: auto 1fr auto auto;
+  grid-template-rows: auto 1fr auto;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0 var(--space-3) var(--space-3);
+  white-space: normal;
+  border-left: 1px solid var(--color-border);
+}
+
+.history-list[data-orientation="horizontal"] .history-item.day {
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+  white-space: normal;
+}
+
+.history-list[data-orientation="horizontal"] .graph {
+  grid-area: graph;
+  margin: 0 calc(-1 * var(--space-3));
+}
+
+.history-list[data-orientation="horizontal"] .commit-message {
+  grid-area: message;
+  flex-wrap: wrap;
+  align-self: start;
+}
+
+.history-list[data-orientation="horizontal"] .commit-subject {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  white-space: normal;
+}
+
+.history-list[data-orientation="horizontal"] .avatar {
+  grid-area: avatar;
+}
+
+.history-list[data-orientation="horizontal"] .commit-author {
+  grid-area: author;
+  width: auto;
+}
+
+.history-list[data-orientation="horizontal"] .commit-hash {
+  grid-area: hash;
+}
+
+.history-list[data-orientation="horizontal"] .commit-time {
+  grid-area: time;
 }
 
 .graph {

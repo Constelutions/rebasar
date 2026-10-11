@@ -1,64 +1,124 @@
 import type { Edge, HistoryRow } from "../core/api";
-import { NODE_RADIUS, ROW_HEIGHT, categoryOf, graphWidth, laneX } from "./geometry";
+import {
+  type GraphStyle,
+  NODE_RADIUS,
+  type Orientation,
+  categoryOf,
+  graphWidth,
+  itemSize,
+  laneX,
+} from "./geometry";
 
-const middle = ROW_HEIGHT / 2;
+/** Whether the line of a linear graph continues past the commit's top and bottom edge. */
+export interface Connections {
+  above: boolean;
+  below: boolean;
+}
 
-function path(edge: Edge, nodeLane: number): string {
+interface GraphProps {
+  orientation: Orientation;
+  style: GraphStyle;
+  laneCount: number;
+}
+
+/** Draws in lane (across) and run (along the history) coordinates; the orientation decides which is x. */
+function pointer(orientation: Orientation) {
+  return (across: number, along: number) =>
+    orientation === "vertical" ? `${across} ${along}` : `${along} ${across}`;
+}
+
+function path(edge: Edge, nodeLane: number, orientation: Orientation): string {
+  const at = pointer(orientation);
+  const length = itemSize(orientation);
+  const middle = length / 2;
   const lane = laneX(edge.lane);
   const node = laneX(nodeLane);
   switch (edge.kind) {
     case "through":
-      return `M ${lane} 0 V ${ROW_HEIGHT}`;
+      return `M ${at(lane, 0)} L ${at(lane, length)}`;
     case "incoming":
-      return `M ${lane} 0 C ${lane} ${middle} ${node} 0 ${node} ${middle}`;
+      return `M ${at(lane, 0)} C ${at(lane, middle)} ${at(node, 0)} ${at(node, middle)}`;
     case "outgoing":
-      return `M ${node} ${middle} C ${node} ${ROW_HEIGHT} ${lane} ${middle} ${lane} ${ROW_HEIGHT}`;
+      return `M ${at(node, middle)} C ${at(node, length)} ${at(lane, middle)} ${at(lane, length)}`;
   }
 }
 
-export function CommitGraph({ row, laneCount }: { row: HistoryRow; laneCount: number }) {
-  const isMerge = row.edges.filter((edge) => edge.kind === "outgoing").length > 1;
+function linearEdges({ above, below }: Connections): Edge[] {
+  if (above && below) return [{ kind: "through", lane: 0 }];
+  if (above) return [{ kind: "incoming", lane: 0 }];
+  if (below) return [{ kind: "outgoing", lane: 0 }];
+  return [];
+}
+
+function Canvas({
+  orientation,
+  laneCount,
+  children,
+}: Pick<GraphProps, "orientation" | "laneCount"> & { children: React.ReactNode }) {
+  const lanes = graphWidth(laneCount);
+  const run = itemSize(orientation);
   return (
     <svg
       aria-hidden="true"
       className="graph"
-      width={graphWidth(laneCount)}
-      height={ROW_HEIGHT}
+      width={orientation === "vertical" ? lanes : run}
+      height={orientation === "vertical" ? run : lanes}
     >
-      {row.edges.map((edge) => (
-        <path
-          key={`${edge.kind}-${edge.lane}`}
-          data-edge={edge.kind}
-          data-lane={edge.lane}
-          className={`graph-line category-${categoryOf(edge.lane)}`}
-          d={path(edge, row.lane)}
-        />
-      ))}
-      <circle
-        data-node
-        data-lane={row.lane}
-        data-merge={isMerge || undefined}
-        className={`graph-node category-${categoryOf(row.lane)}`}
-        cx={laneX(row.lane)}
-        cy={middle}
-        r={NODE_RADIUS}
-      />
+      {children}
     </svg>
   );
 }
 
-export function DayGraph({ lanes, laneCount }: { lanes: number[]; laneCount: number }) {
+function Line({ edge, nodeLane, orientation }: { edge: Edge; nodeLane: number; orientation: Orientation }) {
   return (
-    <svg aria-hidden="true" className="graph" width={graphWidth(laneCount)} height={ROW_HEIGHT}>
-      {lanes.map((lane) => (
-        <path
-          key={lane}
-          data-edge="through"
-          data-lane={lane}
-          className={`graph-line category-${categoryOf(lane)}`}
-          d={path({ kind: "through", lane }, lane)}
-        />
+    <path
+      data-edge={edge.kind}
+      data-lane={edge.lane}
+      className={`graph-line category-${categoryOf(edge.lane)}`}
+      d={path(edge, nodeLane, orientation)}
+    />
+  );
+}
+
+export function CommitGraph({
+  row,
+  connections,
+  orientation,
+  style,
+  laneCount,
+}: GraphProps & { row: HistoryRow; connections: Connections }) {
+  const isMerge = row.edges.filter((edge) => edge.kind === "outgoing").length > 1;
+  const linear = style === "linear";
+  const lane = linear ? 0 : row.lane;
+  const edges = linear ? linearEdges(connections) : row.edges;
+  const across = laneX(lane);
+  const along = itemSize(orientation) / 2;
+  return (
+    <Canvas orientation={orientation} laneCount={linear ? 1 : laneCount}>
+      {edges.map((edge) => (
+        <Line key={`${edge.kind}-${edge.lane}`} edge={edge} nodeLane={lane} orientation={orientation} />
       ))}
-    </svg>
+      <circle
+        data-node
+        data-lane={lane}
+        data-merge={isMerge || undefined}
+        className={`graph-node category-${categoryOf(linear ? row.authorEmail : lane)}`}
+        cx={orientation === "vertical" ? across : along}
+        cy={orientation === "vertical" ? along : across}
+        r={NODE_RADIUS}
+      />
+    </Canvas>
+  );
+}
+
+export function DayGraph({ lanes, orientation, style, laneCount }: GraphProps & { lanes: number[] }) {
+  const linear = style === "linear";
+  const shown = linear ? (lanes.length > 0 ? [0] : []) : lanes;
+  return (
+    <Canvas orientation={orientation} laneCount={linear ? 1 : laneCount}>
+      {shown.map((lane) => (
+        <Line key={lane} edge={{ kind: "through", lane }} nodeLane={lane} orientation={orientation} />
+      ))}
+    </Canvas>
   );
 }
