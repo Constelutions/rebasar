@@ -82,6 +82,7 @@
   --output-body-height: 220px;
   --palette-width: 600px;
   --palette-list-height: 380px;
+  --composer-width: 340px;
 
   color-scheme: dark;
 }

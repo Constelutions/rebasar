@@ -13,6 +13,7 @@ pub mod github;
 mod history;
 mod identity;
 mod mutation;
+mod outgoing;
 pub mod platform;
 mod poll;
 pub mod query;
@@ -36,6 +37,7 @@ use github::{GitHub, GitHubServices};
 pub use git_setup::{GitSetup, GitVersion, MINIMUM_GIT_VERSION};
 use mutation::{Mutation, MutationRunner};
 pub use mutation::{MutationId, MutationInfo, MutationOutcome, OutputStream};
+pub use outgoing::OutgoingCommit;
 pub use identity::GitIdentity;
 pub use settings::{AppearanceSettings, DiffMode, DiffSettings, Settings};
 use registry::RegistryStore;
@@ -106,6 +108,14 @@ pub enum CoreEvent {
         mutation_id: MutationId,
         outcome: MutationOutcome,
     },
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct CommitOptions {
+    /// Replaces the previous commit instead of adding a new one.
+    pub amend: bool,
+    pub sign_off: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Error, Serialize)]
@@ -261,11 +271,37 @@ impl Core {
             .run(worktree, Mutation::new(files_title("Unstage", paths), args))
     }
 
-    pub fn commit(&self, worktree: &Path, message: &str) -> Result<MutationOutcome, ApiError> {
-        self.mutations.run(
-            worktree,
-            Mutation::new("Commit", ["commit", "--message", message]),
-        )
+    /// An amend with an empty `message` keeps the previous commit's message.
+    pub fn commit(
+        &self,
+        worktree: &Path,
+        message: &str,
+        options: CommitOptions,
+    ) -> Result<MutationOutcome, ApiError> {
+        let mut args = vec!["commit"];
+        if options.amend {
+            args.push("--amend");
+        }
+        if options.sign_off {
+            args.push("--signoff");
+        }
+        if options.amend && message.trim().is_empty() {
+            args.push("--no-edit");
+        } else {
+            args.extend(["--message", message]);
+        }
+        let title = if options.amend {
+            "Amend commit"
+        } else {
+            "Commit"
+        };
+        self.mutations.run(worktree, Mutation::new(title, args))
+    }
+
+    /// The commits on the current branch that are not on its upstream yet, newest first.
+    pub fn outgoing_commits(&self, worktree: &Path) -> Result<Vec<OutgoingCommit>, ApiError> {
+        let (_, repo) = open_worktree(worktree)?;
+        outgoing::read(&repo)
     }
 
     /// Ends a queued or running mutation. Does nothing for one that has already finished.

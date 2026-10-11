@@ -185,6 +185,19 @@ export interface PullRequest {
   review: ReviewState;
 }
 
+export interface CommitOptions {
+  /** Replaces the previous commit instead of adding a new one. */
+  amend: boolean;
+  signOff: boolean;
+}
+
+/** A commit on the current branch that its upstream does not have yet. */
+export interface OutgoingCommit {
+  id: string;
+  shortId: string;
+  subject: string;
+}
+
 export type GitSetup =
   | { kind: "ready"; version: string }
   | { kind: "missing"; minimum: string }
@@ -358,7 +371,10 @@ export interface CoreApi {
   stageFiles(path: string, paths: string[]): Promise<MutationOutcome>;
   /** For a renamed file pass both its paths. */
   unstageFiles(path: string, paths: string[]): Promise<MutationOutcome>;
-  commit(path: string, message: string): Promise<MutationOutcome>;
+  /** An amend with an empty message keeps the previous commit's message. */
+  commit(path: string, message: string, options: CommitOptions): Promise<MutationOutcome>;
+  /** Newest first. */
+  outgoingCommits(path: string): Promise<OutgoingCommit[]>;
   /** Does nothing for a mutation that has already finished. */
   cancelMutation(mutationId: number): Promise<void>;
   settings(): Promise<Settings>;

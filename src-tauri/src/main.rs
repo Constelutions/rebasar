@@ -4,10 +4,10 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use rebasar_core::{
-    ApiError, CommitDetail, CommitDiffRequest, CommitHit, Core, DiffRequest, FileDiff,
-    GitHubAuthStatus, GitHubRepository, GitIdentity, GitSetup, Group, HistoryCount, HistoryFilter,
-    HistoryPage, MutationId, MutationOutcome, PullRequest, RefLabel, RepositoryList, Session,
-    Settings, Tab, WindowBounds, WorktreeStatus,
+    ApiError, CommitDetail, CommitDiffRequest, CommitHit, CommitOptions, Core, DiffRequest,
+    FileDiff, GitHubAuthStatus, GitHubRepository, GitIdentity, GitSetup, Group, HistoryCount,
+    HistoryFilter, HistoryPage, MutationId, MutationOutcome, OutgoingCommit, PullRequest,
+    RefLabel, RepositoryList, Session, Settings, Tab, WindowBounds, WorktreeStatus,
 };
 use tauri::{Emitter, Manager, PhysicalSize, State, WebviewWindow, WindowEvent};
 
@@ -180,9 +180,21 @@ async fn commit(
     core: State<'_, Arc<Core>>,
     path: PathBuf,
     message: String,
+    options: CommitOptions,
 ) -> Result<MutationOutcome, ApiError> {
     let core = Arc::clone(&core);
-    tauri::async_runtime::spawn_blocking(move || core.commit(&path, &message))
+    tauri::async_runtime::spawn_blocking(move || core.commit(&path, &message, options))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn outgoing_commits(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+) -> Result<Vec<OutgoingCommit>, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.outgoing_commits(&path))
         .await
         .map_err(ApiError::unexpected)?
 }
@@ -437,6 +449,7 @@ fn main() {
             stage_files,
             unstage_files,
             commit,
+            outgoing_commits,
             cancel_mutation,
             settings,
             update_settings,

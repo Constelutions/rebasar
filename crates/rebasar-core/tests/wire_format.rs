@@ -1,12 +1,12 @@
 use rebasar_core::{
     ApiError, AppearanceSettings, ChangeKind, ChangeList, CheckState, CommitDetail,
-    CommitDiffRequest, CommitHit, CommitParent, CoreEvent, DiffContent, DiffLine, DiffMode,
-    DiffRequest, DiffSettings, Edge, EdgeKind, FileChange, FileDiff, GitHubAuthStatus,
+    CommitDiffRequest, CommitHit, CommitOptions, CommitParent, CoreEvent, DiffContent, DiffLine,
+    DiffMode, DiffRequest, DiffSettings, Edge, EdgeKind, FileChange, FileDiff, GitHubAuthStatus,
     GitHubRepository, GitIdentity, GitSetup, Group, Head, HistoryCount, HistoryFilter,
     HistoryPage, HistoryRow, Hunk, LineKind, ModeChange, MutationId, MutationInfo,
-    MutationOutcome, OutputStream, PullRequest, RefKind, RefLabel, RepositoryEntry,
-    RepositoryList, ReviewState, Session, Settings, Tab, TokenSource, WhitespaceMode,
-    WorktreeEntry, WorktreeStatus,
+    MutationOutcome, OutgoingCommit, OutputStream, PullRequest, RefKind, RefLabel,
+    RepositoryEntry, RepositoryList, ReviewState, Session, Settings, Tab, TokenSource,
+    WhitespaceMode, WorktreeEntry, WorktreeStatus,
 };
 use serde_json::json;
 
@@ -736,5 +736,39 @@ fn the_errors_of_the_registry_serialise_to_the_shape_the_ui_expects() {
         })
         .unwrap(),
         json!({ "kind": "repositoryNotFound", "path": "/work/gone" })
+    );
+}
+
+#[test]
+fn an_outgoing_commit_serialises_to_the_shape_the_ui_expects() {
+    let commit = OutgoingCommit {
+        id: "abc1234def5678".to_owned(),
+        short_id: "abc1234".to_owned(),
+        subject: "Add notes".to_owned(),
+    };
+
+    assert_eq!(
+        serde_json::to_value(commit).unwrap(),
+        json!({ "id": "abc1234def5678", "shortId": "abc1234", "subject": "Add notes" })
+    );
+}
+
+#[test]
+fn commit_options_are_read_in_the_shape_the_ui_sends() {
+    let options: CommitOptions = serde_json::from_value(json!({ "amend": true })).unwrap();
+
+    assert_eq!(
+        options,
+        CommitOptions {
+            amend: true,
+            sign_off: false
+        }
+    );
+    assert_eq!(
+        serde_json::from_value::<CommitOptions>(json!({ "signOff": true })).unwrap(),
+        CommitOptions {
+            amend: false,
+            sign_off: true
+        }
     );
 }

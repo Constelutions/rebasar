@@ -1,6 +1,7 @@
 import {
   type CommitDetail,
   type CommitDiffRequest,
+  type CommitOptions,
   type CoreApi,
   type CoreEvent,
   type DiffRequest,
@@ -18,6 +19,7 @@ import {
   type RepositoryList,
   type Session,
   type MutationOutcome,
+  type OutgoingCommit,
   type PullRequest,
   type Tab,
   type TokenSource,
@@ -80,6 +82,11 @@ export interface StubCommits {
   commitDiffs?: Record<string, FileDiff>;
 }
 
+export interface RecordedCommit extends CommitOptions {
+  worktreePath: string;
+  message: string;
+}
+
 export interface StubCoreApi extends CoreApi {
   /** Replaces what the Worktree reports, as an edit made outside the app would. */
   changeWorktree(path: string, status: WorktreeStatus): void;
@@ -103,7 +110,9 @@ export interface StubCoreApi extends CoreApi {
   /** The view the user last switched to, as the core remembers it. */
   readonly savedView: string | null;
   readonly cancelledMutations: readonly number[];
-  readonly commits: readonly { worktreePath: string; message: string }[];
+  /** Replaces the Worktree's outgoing commits, as a push or fetch made elsewhere would. */
+  setOutgoingCommits(path: string, commits: OutgoingCommit[]): void;
+  readonly commits: readonly RecordedCommit[];
   /** Every diff the UI asked for, in order. */
   readonly diffRequests: readonly DiffRequest[];
   /** Every diff of a file in a commit the UI asked for, in order. */
@@ -139,7 +148,8 @@ export function createStubCoreApi(
   const commitDiffRequests: CommitDiffRequest[] = [];
   const commitDetailRequests: (readonly [string, number])[] = [];
   const cancelled: number[] = [];
-  const commits: { worktreePath: string; message: string }[] = [];
+  const commits: RecordedCommit[] = [];
+  const outgoing = new Map<string, OutgoingCommit[]>();
   const failures: MutationFailure[] = [];
   let nextMutationId = 1;
   const backgroundWatched: string[] = [];
@@ -413,13 +423,25 @@ export function createStubCoreApi(
         ],
       }));
     },
-    async commit(path, message) {
-      if (statusOf(path).staged.length === 0) {
+    async commit(path, message, options) {
+      if (statusOf(path).staged.length === 0 && !options.amend) {
         failures.unshift({ exitCode: 1, output: ["nothing to commit"] });
       }
-      const outcome = mutate(path, "Commit", (status) => ({ ...status, staged: [] }));
-      if (outcome.kind === "succeeded") commits.push({ worktreePath: path, message });
-      return outcome;
+      return mutate(path, options.amend ? "Amend commit" : "Commit", (status) => {
+        commits.push({ worktreePath: path, message, ...options });
+        const existing = outgoing.get(path) ?? [];
+        const replaced = options.amend ? existing.slice(0, 1) : [];
+        const subject = message.split("\n")[0] || replaced[0]?.subject || "";
+        const id = `commit${commits.length}`.padEnd(40, "0");
+        outgoing.set(path, [
+          { id, shortId: id.slice(0, 7), subject },
+          ...existing.slice(replaced.length),
+        ]);
+        return { ...status, staged: [] };
+      });
+    },
+    async outgoingCommits(path) {
+      return outgoing.get(path) ?? [];
     },
     async cancelMutation(mutationId) {
       cancelled.push(mutationId);
@@ -471,6 +493,10 @@ export function createStubCoreApi(
       };
     },
     emitEvent: emit,
+    setOutgoingCommits(path, outgoingCommits) {
+      outgoing.set(path, outgoingCommits);
+      emit({ type: "worktreeChanged", worktreePath: path });
+    },
     failNextMutation(failure) {
       failures.push(failure);
     },

@@ -22,6 +22,7 @@ import type {
   GitSetup,
   Group,
   MutationOutcome,
+  OutgoingCommit,
   Tab,
   WorktreeStatus,
 } from "./api";
@@ -52,7 +53,9 @@ export const tauriCoreApi: CoreApi = {
   checkGit: () => invoke<GitSetup>("check_git"),
   stageFiles: (path, paths) => invoke<MutationOutcome>("stage_files", { path, paths }),
   unstageFiles: (path, paths) => invoke<MutationOutcome>("unstage_files", { path, paths }),
-  commit: (path, message) => invoke<MutationOutcome>("commit", { path, message }),
+  commit: (path, message, options) =>
+    invoke<MutationOutcome>("commit", { path, message, options }),
+  outgoingCommits: (path) => invoke<OutgoingCommit[]>("outgoing_commits", { path }),
   cancelMutation: (mutationId) => invoke<void>("cancel_mutation", { mutationId }),
   settings: () => invoke<Settings>("settings"),
   updateSettings: (settings) => invoke<Settings>("update_settings", { settings }),
