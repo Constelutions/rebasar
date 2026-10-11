@@ -1,4 +1,5 @@
 import {
+  type Assessment,
   type CommitDetail,
   type CommitDiffRequest,
   type CommitOptions,
@@ -18,6 +19,7 @@ import {
   type RepositoryEntry,
   type RepositoryList,
   type Session,
+  type MutationKind,
   type MutationOutcome,
   type OutgoingCommit,
   type PullRequest,
@@ -113,6 +115,8 @@ export interface StubCoreApi extends CoreApi {
   /** Replaces the Worktree's outgoing commits, as a push or fetch made elsewhere would. */
   setOutgoingCommits(path: string, commits: OutgoingCommit[]): void;
   readonly commits: readonly RecordedCommit[];
+  readonly assessedMutations: readonly MutationKind[];
+  readonly discards: readonly { worktreePath: string; paths: string[] }[];
   /** Every diff the UI asked for, in order. */
   readonly diffRequests: readonly DiffRequest[];
   /** Every diff of a file in a commit the UI asked for, in order. */
@@ -151,6 +155,8 @@ export function createStubCoreApi(
   const commits: RecordedCommit[] = [];
   const outgoing = new Map<string, OutgoingCommit[]>();
   const failures: MutationFailure[] = [];
+  const assessed: MutationKind[] = [];
+  const discards: { worktreePath: string; paths: string[] }[] = [];
   let nextMutationId = 1;
   const backgroundWatched: string[] = [];
   const session = state.session ?? { tabs: [], active: null, view: null };
@@ -443,6 +449,24 @@ export function createStubCoreApi(
     async outgoingCommits(path) {
       return outgoing.get(path) ?? [];
     },
+    async assessMutation(path, kind) {
+      assessed.push(kind);
+      if (kind.kind !== "discardChanges") return { kind: "safe" };
+      const files = statusOf(path).unstaged.filter((file) => kind.paths.includes(file.path));
+      const assessment: Assessment =
+        files.length === 0
+          ? { kind: "safe" }
+          : { kind: "destructive", loss: { files, commits: 0, unpushedCommits: 0 } };
+      return assessment;
+    },
+    async discardChanges(path, paths) {
+      const outcome = mutate(path, titleFor("Discard", paths), (status) => ({
+        ...status,
+        unstaged: status.unstaged.filter((file) => !paths.includes(file.path)),
+      }));
+      if (outcome.kind === "succeeded") discards.push({ worktreePath: path, paths });
+      return outcome;
+    },
     async cancelMutation(mutationId) {
       cancelled.push(mutationId);
     },
@@ -507,6 +531,8 @@ export function createStubCoreApi(
     },
     cancelledMutations: cancelled,
     commits,
+    assessedMutations: assessed,
+    discards,
     diffRequests,
     commitDiffRequests,
     commitDetailRequests,

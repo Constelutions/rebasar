@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 
 import type {
+  Assessment,
   CommitDetail,
   CommitDiffRequest,
   CommitHit,
@@ -56,6 +57,8 @@ export const tauriCoreApi: CoreApi = {
   commit: (path, message, options) =>
     invoke<MutationOutcome>("commit", { path, message, options }),
   outgoingCommits: (path) => invoke<OutgoingCommit[]>("outgoing_commits", { path }),
+  assessMutation: (path, kind) => invoke<Assessment>("assess_mutation", { path, kind }),
+  discardChanges: (path, paths) => invoke<MutationOutcome>("discard_changes", { path, paths }),
   cancelMutation: (mutationId) => invoke<void>("cancel_mutation", { mutationId }),
   settings: () => invoke<Settings>("settings"),
   updateSettings: (settings) => invoke<Settings>("update_settings", { settings }),

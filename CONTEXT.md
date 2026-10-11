@@ -27,3 +27,7 @@ _Avoid_: Current action, pending operation
 **Mutation**:
 A Git command that changes a Repository, run through the system `git` by the mutation queue: one at a time per Repository (across all its Worktrees), with its output streamed to the output panel and cancellable while queued or running. Reads are not mutations.
 _Avoid_: Operation (that word means an Operation in progress), action, job
+
+**Destructive Mutation**:
+A Mutation that can lose uncommitted or unreferenced work. The core assesses it before it runs and the UI asks for a confirmation that states exactly what will be lost. Every other Mutation is safe and never asks.
+_Avoid_: Dangerous operation

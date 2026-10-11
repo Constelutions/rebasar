@@ -6,7 +6,7 @@ import { VirtualList } from "./VirtualList";
 
 export const TREE_ROW_HEIGHT = 26;
 
-const statusLetters: Record<ChangeKind, { letter: string; label: string }> = {
+export const statusLetters: Record<ChangeKind, { letter: string; label: string }> = {
   added: { letter: "A", label: "Added" },
   modified: { letter: "M", label: "Modified" },
   deleted: { letter: "D", label: "Deleted" },
@@ -16,6 +16,11 @@ const statusLetters: Record<ChangeKind, { letter: string; label: string }> = {
   conflicted: { letter: "!", label: "Conflicted" },
 };
 
+export interface GroupAction {
+  label: string;
+  run: () => void;
+}
+
 export interface FileSelection<L extends string = string> {
   list: L;
   path: string;
@@ -23,6 +28,8 @@ export interface FileSelection<L extends string = string> {
 
 export interface FileAction {
   label: string;
+  /** Marks an action that can lose work. */
+  destructive?: boolean;
   run: (change: FileChange) => void;
 }
 
@@ -31,14 +38,17 @@ interface FileTreeProps<L extends string> {
   selected: FileSelection<L> | null;
   onSelect: (list: L, change: FileChange) => void;
   /** The button that moves a file out of the given list, if the list has one. */
-  actionFor?: (list: L) => FileAction | undefined;
+  actionsFor?: (list: L) => FileAction[];
+  /** A button in the header of the list, such as 'Discard all'. */
+  groupActionFor?: (list: L) => GroupAction | undefined;
 }
 
 export function FileTree<L extends string>({
   trees,
   selected,
   onSelect,
-  actionFor,
+  actionsFor,
+  groupActionFor,
 }: FileTreeProps<L>) {
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
   const rows = useMemo(() => flattenChanges(trees, collapsed), [trees, collapsed]);
@@ -66,7 +76,8 @@ export function FileTree<L extends string>({
           selected={row.type === "file" && row.key === selectedKey}
           onToggle={toggle}
           onSelect={onSelect}
-          action={row.type === "file" ? actionFor?.(row.list) : undefined}
+          actions={row.type === "file" ? (actionsFor?.(row.list) ?? []) : []}
+          groupAction={row.type === "group" ? groupActionFor?.(row.list) : undefined}
         />
       )}
     />
@@ -78,7 +89,8 @@ interface TreeRowViewProps<L extends string> {
   selected: boolean;
   onToggle: (key: string) => void;
   onSelect: (list: L, change: FileChange) => void;
-  action: FileAction | undefined;
+  actions: FileAction[];
+  groupAction: GroupAction | undefined;
 }
 
 function TreeRowView<L extends string>({
@@ -86,7 +98,8 @@ function TreeRowView<L extends string>({
   selected,
   onToggle,
   onSelect,
-  action,
+  actions,
+  groupAction,
 }: TreeRowViewProps<L>) {
   const indent = { paddingLeft: `calc(var(--space-4) * ${"depth" in row ? row.depth : 0})` };
 
@@ -95,6 +108,15 @@ function TreeRowView<L extends string>({
       <header className="change-group-header">
         <h2>{row.name}</h2>
         <span className="change-group-count">{row.count}</span>
+        {groupAction && (
+          <button
+            type="button"
+            className="row-action danger group-action"
+            onClick={groupAction.run}
+          >
+            {groupAction.label}
+          </button>
+        )}
       </header>
     );
   }
@@ -131,21 +153,22 @@ function TreeRowView<L extends string>({
         {originalPath && <span className="renamed-from">{originalPath}</span>}
         <LineCounts added={added} removed={removed} />
       </button>
-      {action && (
+      {actions.map((action) => (
         <button
+          key={action.label}
           type="button"
           aria-label={`${action.label} ${row.file.change.path}`}
-          className="row-action"
+          className={action.destructive ? "row-action danger" : "row-action"}
           onClick={() => action.run(row.file.change)}
         >
           {action.label}
         </button>
-      )}
+      ))}
     </div>
   );
 }
 
-function LineCounts({ added, removed }: { added: number | null; removed: number | null }) {
+export function LineCounts({ added, removed }: { added: number | null; removed: number | null }) {
   if (added === null || removed === null) return null;
   return (
     <span className="line-counts">

@@ -12,6 +12,7 @@ import type {
 } from "../core/api";
 import { describeError } from "../core/describeError";
 import { useSettings } from "../settings/SettingsContext";
+import { useConfirmation } from "../useConfirmation";
 import { type ChangeGroup, type GroupTree, buildGroupTrees, firstFile } from "./changeTree";
 import { CommitComposer } from "./CommitComposer";
 import { DiffView } from "./DiffView";
@@ -28,6 +29,7 @@ export function ChangesView({ api, worktreePath, status, error }: ChangesViewPro
   const [picked, setPicked] = useState<FileSelection<ChangeList> | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const { outgoing, outgoingError } = useOutgoingCommits(api, worktreePath);
+  const { confirm, dialog } = useConfirmation(api, worktreePath);
   const { settings, ready } = useSettings();
   const [pickedMode, setPickedMode] = useState<DiffMode | null>(null);
   const mode = pickedMode ?? settings.diff.defaultMode;
@@ -63,8 +65,24 @@ export function ChangesView({ api, worktreePath, status, error }: ChangesViewPro
     label: "Unstage",
     run: (change) => void report(api.unstageFiles(worktreePath, pathsOf(change))),
   };
-  const actionFor = (list: ChangeList) =>
-    list === "unstaged" ? stage : list === "staged" ? unstage : undefined;
+  function discard(paths: string[]) {
+    void report(
+      confirm({ kind: "discardChanges", paths }, () =>
+        void report(api.discardChanges(worktreePath, paths)),
+      ),
+    );
+  }
+  const discardFile: FileAction = {
+    label: "Discard",
+    destructive: true,
+    run: (change) => discard([change.path]),
+  };
+  const actionsFor = (list: ChangeList): FileAction[] =>
+    list === "unstaged" ? [stage, discardFile] : list === "staged" ? [unstage] : [];
+  const groupActionFor = (list: ChangeList) =>
+    list === "unstaged"
+      ? { label: "Discard all", run: () => discard(status.unstaged.map((change) => change.path)) }
+      : undefined;
 
   return (
     <div className="changes-view">
@@ -83,7 +101,8 @@ export function ChangesView({ api, worktreePath, status, error }: ChangesViewPro
                 trees={trees}
                 selected={selected && { list: selected.list, path: selected.change.path }}
                 onSelect={(list, change) => setPicked({ list, path: change.path })}
-                actionFor={actionFor}
+                actionsFor={actionsFor}
+                groupActionFor={groupActionFor}
               />
             </div>
             <div className="changes-diff">
@@ -105,6 +124,7 @@ export function ChangesView({ api, worktreePath, status, error }: ChangesViewPro
           </div>
         )}
       </div>
+      {dialog}
       <CommitComposer
         hasStagedFiles={status.staged.length > 0}
         outgoing={outgoing}
