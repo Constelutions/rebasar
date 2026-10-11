@@ -30,7 +30,7 @@ export interface GroupTree<L extends string = string> {
 }
 
 export type TreeRow<L extends string = string> =
-  | { type: "group"; key: string; name: string; count: number }
+  | { type: "group"; key: string; list: L; name: string; count: number }
   | { type: "folder"; key: string; folder: FolderNode; depth: number; expanded: boolean }
   | { type: "file"; key: string; list: L; file: FileNode; depth: number };
 
@@ -78,6 +78,7 @@ export function flattenChanges<L extends string>(
     rows.push({
       type: "group",
       key: `group:${group.list}`,
+      list: group.list,
       name: group.name,
       count: group.changes.length,
     });

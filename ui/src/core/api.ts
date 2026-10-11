@@ -269,6 +269,25 @@ export interface Session {
   view: string | null;
 }
 
+/** A Mutation about to be requested; see `docs/confirmation-policy.md`. */
+export type MutationKind =
+  | { kind: "stage" }
+  | { kind: "unstage" }
+  | { kind: "commit" }
+  | { kind: "discardChanges"; paths: string[] };
+
+/** Exactly what a destructive Mutation would lose, as it stands right now. */
+export interface Loss {
+  /** Files with uncommitted work that would be overwritten or deleted. */
+  files: FileChange[];
+  /** Commits that would no longer be reachable from any branch. */
+  commits: number;
+  /** How many of those commits exist on no remote. */
+  unpushedCommits: number;
+}
+
+export type Assessment = { kind: "safe" } | { kind: "destructive"; loss: Loss };
+
 export type CoreEvent =
   | { type: "tabOpened"; tab: Tab }
   | { type: "tabClosed"; worktreePath: string }
@@ -375,6 +394,16 @@ export interface CoreApi {
   commit(path: string, message: string, options: CommitOptions): Promise<MutationOutcome>;
   /** Newest first. */
   outgoingCommits(path: string): Promise<OutgoingCommit[]>;
+  /**
+   * Asks whether the Mutation can lose work. Ask before every Mutation that might, and confirm
+   * with the user when the answer is `destructive`; see `useConfirmation`.
+   */
+  assessMutation(path: string, kind: MutationKind): Promise<Assessment>;
+  /**
+   * Throws away the unstaged changes to the files: tracked files go back to the index version,
+   * untracked files are deleted. Never call it without confirming a destructive assessment.
+   */
+  discardChanges(path: string, paths: string[]): Promise<MutationOutcome>;
   /** Does nothing for a mutation that has already finished. */
   cancelMutation(mutationId: number): Promise<void>;
   settings(): Promise<Settings>;

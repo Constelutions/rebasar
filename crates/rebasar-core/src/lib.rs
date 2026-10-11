@@ -17,6 +17,7 @@ mod outgoing;
 pub mod platform;
 mod poll;
 pub mod query;
+mod safety;
 mod registry;
 mod repositories;
 mod session;
@@ -39,6 +40,7 @@ use mutation::{Mutation, MutationRunner};
 pub use mutation::{MutationId, MutationInfo, MutationOutcome, OutputStream};
 pub use outgoing::OutgoingCommit;
 pub use identity::GitIdentity;
+pub use safety::{Assessment, Loss, MutationKind};
 pub use settings::{AppearanceSettings, DiffMode, DiffSettings, Settings};
 use registry::RegistryStore;
 pub use registry::{Group, WindowBounds};
@@ -304,6 +306,61 @@ impl Core {
         outgoing::read(&repo)
     }
 
+    /// Whether the Mutation can lose work and, if so, exactly what it would lose right now.
+    /// The UI asks this before every Mutation that might be destructive and confirms with the
+    /// user when the answer is [`Assessment::Destructive`].
+    pub fn assess_mutation(
+        &self,
+        worktree: &Path,
+        kind: &MutationKind,
+    ) -> Result<Assessment, ApiError> {
+        let (_, repo) = open_worktree(worktree)?;
+        safety::assess(&repo, kind)
+    }
+
+    /// Throws away the unstaged changes to the given files: tracked files go back to what the
+    /// index holds, untracked files are deleted. Paths that have no unstaged change, staged
+    /// changes and conflicted files are left alone. Blocks until the mutations have finished
+    /// and returns the first outcome that is not a success.
+    pub fn discard_changes(
+        &self,
+        worktree: &Path,
+        paths: &[String],
+    ) -> Result<MutationOutcome, ApiError> {
+        let (_, repo) = open_worktree(worktree)?;
+        let files = safety::discardable(&repo, paths)?;
+        drop(repo);
+
+        let mut tracked = Vec::new();
+        let mut untracked = Vec::new();
+        for change in files {
+            if change.kind == ChangeKind::Untracked {
+                untracked.push(change.path);
+            } else {
+                tracked.push(change.path);
+            }
+        }
+        let steps = [
+            (tracked, ["restore", "--worktree", "--"]),
+            (untracked, ["clean", "--force", "--"]),
+        ];
+        for (group, command) in steps {
+            for batch in batches(&group) {
+                let args = ["--literal-pathspecs"]
+                    .into_iter()
+                    .chain(command)
+                    .chain(batch.iter().map(String::as_str));
+                let outcome = self
+                    .mutations
+                    .run(worktree, Mutation::new(files_title("Discard", batch), args))?;
+                if outcome != MutationOutcome::Succeeded {
+                    return Ok(outcome);
+                }
+            }
+        }
+        Ok(MutationOutcome::Succeeded)
+    }
+
     /// Ends a queued or running mutation. Does nothing for one that has already finished.
     pub fn cancel_mutation(&self, id: MutationId) {
         self.mutations.cancel(id);
@@ -523,6 +580,29 @@ fn read_head(repo: &gix::Repository) -> Result<Head, ApiError> {
                 .to_string(),
         },
     })
+}
+
+/// Windows rejects command lines over 32,767 characters, which a discard of thousands of files
+/// would exceed in one `git` call.
+const MAX_PATHS_CHARS_PER_COMMAND: usize = 16_000;
+
+fn batches(paths: &[String]) -> Vec<&[String]> {
+    let mut batches = Vec::new();
+    let mut start = 0;
+    let mut chars = 0;
+    for (index, path) in paths.iter().enumerate() {
+        let cost = path.len() + 1;
+        if index > start && chars + cost > MAX_PATHS_CHARS_PER_COMMAND {
+            batches.push(&paths[start..index]);
+            start = index;
+            chars = 0;
+        }
+        chars += cost;
+    }
+    if start < paths.len() {
+        batches.push(&paths[start..]);
+    }
+    batches
 }
 
 fn files_title(verb: &str, paths: &[String]) -> String {

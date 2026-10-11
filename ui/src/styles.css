@@ -1725,3 +1725,109 @@ button {
   gap: var(--space-3);
   min-height: var(--row-height);
 }
+
+.change-group-header .group-action {
+  margin-left: auto;
+}
+
+.row-action.danger,
+.group-action.danger {
+  color: var(--color-danger);
+}
+
+.dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-scrim);
+}
+
+.dialog {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  width: var(--dialog-width);
+  max-width: calc(100vw - 2 * var(--space-5));
+  padding: var(--space-5);
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border-raised);
+  border-radius: var(--radius-lg);
+}
+
+.dialog h2 {
+  margin: 0;
+  font-size: var(--text-lg);
+  color: var(--color-text-strong);
+}
+
+.dialog-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  font-size: var(--text-md);
+}
+
+.dialog-body p {
+  margin: 0;
+}
+
+.dialog-recovery {
+  color: var(--color-text-muted);
+}
+
+.loss-files {
+  max-height: var(--dialog-list-height);
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+  font: var(--text-sm) var(--font-mono);
+}
+
+.loss-files li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--row-height);
+}
+
+.loss-path {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+.dialog-actions button {
+  height: var(--control-height);
+  padding: 0 var(--space-4);
+  color: var(--color-text);
+  background: transparent;
+  border: 1px solid var(--color-border-raised);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.dialog-actions button:hover {
+  background: var(--color-hover);
+}
+
+.dialog-actions .danger {
+  color: var(--color-on-danger);
+  background: var(--color-danger-strong);
+  border-color: transparent;
+}
+
+.dialog-actions .danger:hover {
+  background: var(--color-danger-strong);
+  filter: brightness(1.1);
+}

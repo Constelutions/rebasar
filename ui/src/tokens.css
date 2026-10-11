@@ -82,6 +82,8 @@
   --output-body-height: 220px;
   --palette-width: 600px;
   --palette-list-height: 380px;
+  --dialog-width: 480px;
+  --dialog-list-height: 160px;
   --composer-width: 340px;
 
   color-scheme: dark;

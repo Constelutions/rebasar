@@ -1,10 +1,10 @@
 use rebasar_core::{
-    ApiError, AppearanceSettings, ChangeKind, ChangeList, CheckState, CommitDetail,
+    ApiError, AppearanceSettings, Assessment, ChangeKind, ChangeList, CheckState, CommitDetail,
     CommitDiffRequest, CommitHit, CommitOptions, CommitParent, CoreEvent, DiffContent, DiffLine,
     DiffMode, DiffRequest, DiffSettings, Edge, EdgeKind, FileChange, FileDiff, GitHubAuthStatus,
     GitHubRepository, GitIdentity, GitSetup, Group, Head, HistoryCount, HistoryFilter,
-    HistoryPage, HistoryRow, Hunk, LineKind, ModeChange, MutationId, MutationInfo,
-    MutationOutcome, OutgoingCommit, OutputStream, PullRequest, RefKind, RefLabel,
+    HistoryPage, HistoryRow, Hunk, LineKind, Loss, ModeChange, MutationId, MutationInfo,
+    MutationKind, MutationOutcome, OutgoingCommit, OutputStream, PullRequest, RefKind, RefLabel,
     RepositoryEntry, RepositoryList, ReviewState, Session, Settings, Tab, TokenSource,
     WhitespaceMode, WorktreeEntry, WorktreeStatus,
 };
@@ -770,5 +770,60 @@ fn commit_options_are_read_in_the_shape_the_ui_sends() {
             amend: false,
             sign_off: true
         }
+    );
+}
+
+#[test]
+fn a_mutation_kind_deserialises_from_the_shape_the_ui_sends() {
+    assert_eq!(
+        serde_json::from_value::<MutationKind>(json!({ "kind": "commit" })).unwrap(),
+        MutationKind::Commit
+    );
+    assert_eq!(
+        serde_json::from_value::<MutationKind>(
+            json!({ "kind": "discardChanges", "paths": ["a.txt"] })
+        )
+        .unwrap(),
+        MutationKind::DiscardChanges {
+            paths: vec!["a.txt".to_owned()]
+        }
+    );
+}
+
+#[test]
+fn an_assessment_serialises_to_the_shape_the_ui_expects() {
+    assert_eq!(
+        serde_json::to_value(Assessment::Safe).unwrap(),
+        json!({ "kind": "safe" })
+    );
+    assert_eq!(
+        serde_json::to_value(Assessment::Destructive {
+            loss: Loss {
+                files: vec![FileChange {
+                    path: "a.txt".to_owned(),
+                    original_path: None,
+                    kind: ChangeKind::Modified,
+                    added: Some(1),
+                    removed: Some(2),
+                }],
+                commits: 3,
+                unpushed_commits: 1,
+            }
+        })
+        .unwrap(),
+        json!({
+            "kind": "destructive",
+            "loss": {
+                "files": [{
+                    "path": "a.txt",
+                    "originalPath": null,
+                    "kind": "modified",
+                    "added": 1,
+                    "removed": 2,
+                }],
+                "commits": 3,
+                "unpushedCommits": 1,
+            },
+        })
     );
 }

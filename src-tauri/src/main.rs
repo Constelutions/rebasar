@@ -4,10 +4,11 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use rebasar_core::{
-    ApiError, CommitDetail, CommitDiffRequest, CommitHit, CommitOptions, Core, DiffRequest,
-    FileDiff, GitHubAuthStatus, GitHubRepository, GitIdentity, GitSetup, Group, HistoryCount,
-    HistoryFilter, HistoryPage, MutationId, MutationOutcome, OutgoingCommit, PullRequest,
-    RefLabel, RepositoryList, Session, Settings, Tab, WindowBounds, WorktreeStatus,
+    ApiError, Assessment, CommitDetail, CommitDiffRequest, CommitHit, CommitOptions, Core,
+    DiffRequest, FileDiff, GitHubAuthStatus, GitHubRepository, GitIdentity, GitSetup, Group,
+    HistoryCount, HistoryFilter, HistoryPage, MutationId, MutationKind, MutationOutcome,
+    OutgoingCommit, PullRequest, RefLabel, RepositoryList, Session, Settings, Tab, WindowBounds,
+    WorktreeStatus,
 };
 use tauri::{Emitter, Manager, PhysicalSize, State, WebviewWindow, WindowEvent};
 
@@ -396,6 +397,30 @@ fn restore_window(window: &WebviewWindow, bounds: WindowBounds) {
     }
 }
 
+#[tauri::command]
+async fn assess_mutation(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+    kind: MutationKind,
+) -> Result<Assessment, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.assess_mutation(&path, &kind))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn discard_changes(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+    paths: Vec<String>,
+) -> Result<MutationOutcome, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.discard_changes(&path, &paths))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
@@ -449,6 +474,8 @@ fn main() {
             stage_files,
             unstage_files,
             commit,
+            assess_mutation,
+            discard_changes,
             outgoing_commits,
             cancel_mutation,
             settings,
