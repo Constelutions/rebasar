@@ -192,7 +192,6 @@ impl TempRepo {
             Vec::new()
         };
         env.extend_from_slice(extra_env);
-        self.run_git(args, &env)
         let output = self.run_git(args, &env);
         assert!(
             output.status.success(),
