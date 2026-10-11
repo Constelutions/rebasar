@@ -16,12 +16,21 @@ pub enum Verdict {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct Measurement {
+    pub name: String,
+    pub value: f64,
+    pub unit: &'static str,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ScenarioResult {
     pub scenario: String,
     pub elapsed_ms: f64,
     pub threshold: Option<&'static str>,
     pub verdict: Verdict,
+    /// Figures beyond the elapsed time, such as memory and CPU.
+    pub measurements: Vec<Measurement>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -87,6 +96,13 @@ impl fmt::Display for Report {
                 "  {:<28} {:>10.1} ms   {verdict}",
                 result.scenario, result.elapsed_ms
             )?;
+            for measurement in &result.measurements {
+                writeln!(
+                    f,
+                    "    {:<30} {:>10.1} {}",
+                    measurement.name, measurement.value, measurement.unit
+                )?;
+            }
         }
         writeln!(f)?;
         writeln!(f, "Alpha thresholds")?;

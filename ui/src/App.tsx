@@ -1,13 +1,14 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import { Sidebar } from "./components/Sidebar";
 import { TitleBar } from "./components/TitleBar";
 import { ViewPane } from "./components/ViewPane";
-import type { CoreApi, Tab } from "./core/api";
+import type { CoreApi } from "./core/api";
 import { describeError } from "./core/describeError";
 import { type Highlighter, HighlighterProvider, defaultHighlighter } from "./highlight/highlighter";
 import type { AppWindow } from "./shell/appWindow";
 import { shortcuts, useShortcut } from "./shortcuts";
+import { useOpenTabs } from "./useOpenTabs";
 import type { ViewName } from "./views";
 
 interface AppProps {
@@ -18,23 +19,8 @@ interface AppProps {
 }
 
 export function App({ api, pickFolder, appWindow, highlighter = defaultHighlighter }: AppProps) {
-  const [tabs, setTabs] = useState<Tab[]>([]);
-  const [error, setError] = useState<string | null>(null);
+  const { openTabs, activeTab, pollingPaths, error, setError, select } = useOpenTabs(api);
   const [view, setView] = useState<ViewName>("Home");
-
-  useEffect(() => {
-    const subscription = api.onEvent((event) => {
-      if (event.type === "tabOpened") {
-        setTabs((current) => withTab(current, event.tab));
-        api
-          .watchWorktree(event.tab.worktreePath)
-          .catch((failure) => setError(describeError(failure)));
-      }
-    });
-    return () => {
-      void subscription.then((unsubscribe) => unsubscribe());
-    };
-  }, [api]);
 
   async function openFolder() {
     const path = await pickFolder();
@@ -53,22 +39,30 @@ export function App({ api, pickFolder, appWindow, highlighter = defaultHighlight
   return (
     <HighlighterProvider value={highlighter}>
       <div className="app">
-        <TitleBar tabs={tabs} appWindow={appWindow} onOpenFolder={openFolder} />
+        <TitleBar
+          tabs={openTabs}
+          activePath={activeTab?.tab.worktreePath}
+          appWindow={appWindow}
+          onSelectTab={select}
+          onOpenFolder={openFolder}
+        />
         {error && (
           <p role="alert" className="error">
             {error}
           </p>
         )}
+        {pollingPaths.length > 0 && (
+          <p role="status" className="notice">
+            The operating system's file-watch limit was reached, so {pollingPaths.length}{" "}
+            {pollingPaths.length === 1 ? "Tab is" : "Tabs are"} checked periodically instead of live,
+            starting with the ones used least recently.
+          </p>
+        )}
         <div className="app-body">
           <Sidebar selected={view} onSelect={setView} />
-          <ViewPane view={view} api={api} tab={tabs.at(-1)} />
+          <ViewPane view={view} api={api} tab={activeTab} />
         </div>
       </div>
     </HighlighterProvider>
   );
-}
-
-function withTab(tabs: Tab[], opened: Tab): Tab[] {
-  const others = tabs.filter((tab) => tab.worktreePath !== opened.worktreePath);
-  return [...others, opened];
 }

@@ -144,3 +144,77 @@ fn the_first_changeset_file_is_measured_by_listing_the_changes_and_diffing_the_f
         .expect("first-changeset-file threshold");
     assert_eq!(first_file.measured_by, ["first-changeset-file"]);
 }
+
+fn tabs_result(report: &Report) -> &rebasar_bench::ScenarioResult {
+    report
+        .results
+        .iter()
+        .find(|result| result.scenario == "tabs-at-scale")
+        .expect("the tabs-at-scale scenario")
+}
+
+#[test]
+fn the_tabs_scenario_records_cpu_memory_and_tab_switch_time() {
+    let report = run_placeholders();
+
+    let names: Vec<_> = tabs_result(&report)
+        .measurements
+        .iter()
+        .map(|measurement| measurement.name.as_str())
+        .collect();
+
+    for expected in [
+        "tabs-open",
+        "memory-after-open-mb",
+        "memory-after-switching-mb",
+        "cpu-while-opening-ms",
+        "cpu-while-idle-percent",
+        "tab-switch-median-ms",
+        "tab-switch-max-ms",
+    ] {
+        assert!(
+            names.contains(&expected),
+            "{expected} missing from {names:?}"
+        );
+    }
+}
+
+#[test]
+fn the_tabs_scenario_opens_every_worktree_of_the_fixture() {
+    let report = run_placeholders();
+
+    let open = tabs_result(&report)
+        .measurements
+        .iter()
+        .find(|measurement| measurement.name == "tabs-open")
+        .expect("tabs-open");
+
+    assert_eq!(open.value, Scale::SMOKE.tab_worktrees as f64);
+}
+
+#[test]
+fn the_slowest_tab_switch_is_measured_against_the_tab_switch_threshold() {
+    let report = run_placeholders();
+
+    let tab_switch = report
+        .thresholds
+        .iter()
+        .find(|row| row.id == "tab-switch")
+        .expect("tab-switch threshold");
+    assert_eq!(tab_switch.measured_by, ["tabs-at-scale"]);
+    let result = tabs_result(&report);
+    let max = result
+        .measurements
+        .iter()
+        .find(|measurement| measurement.name == "tab-switch-max-ms")
+        .expect("tab-switch-max-ms");
+    assert_eq!(result.elapsed_ms, max.value);
+}
+
+#[test]
+fn the_text_report_lists_the_measurements_of_a_scenario() {
+    let text = run_placeholders().to_string();
+
+    assert!(text.contains("tab-switch-max-ms"), "{text}");
+    assert!(text.contains("memory-after-open-mb"), "{text}");
+}

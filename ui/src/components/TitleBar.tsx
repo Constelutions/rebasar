@@ -1,19 +1,29 @@
-import type { Tab } from "../core/api";
 import type { AppWindow } from "../shell/appWindow";
 import { shortcuts } from "../shortcuts";
+import type { OpenTab } from "../useOpenTabs";
+import { RepositorySwitcher } from "./RepositorySwitcher";
 import { TabStrip } from "./TabStrip";
 import { WindowControls } from "./WindowControls";
 
 interface TitleBarProps {
-  tabs: Tab[];
+  tabs: OpenTab[];
+  activePath: string | undefined;
   appWindow: AppWindow;
+  onSelectTab: (path: string) => void;
   onOpenFolder: () => void;
 }
 
-export function TitleBar({ tabs, appWindow, onOpenFolder }: TitleBarProps) {
+export function TitleBar({
+  tabs,
+  activePath,
+  appWindow,
+  onSelectTab,
+  onOpenFolder,
+}: TitleBarProps) {
   return (
     <header className="title-bar" data-tauri-drag-region>
-      <TabStrip tabs={tabs} />
+      <RepositorySwitcher tabs={tabs} onSelect={onSelectTab} />
+      <TabStrip tabs={tabs} activePath={activePath} onSelect={onSelectTab} />
       <button
         type="button"
         aria-label="Open folder"

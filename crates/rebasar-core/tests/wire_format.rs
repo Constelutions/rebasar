@@ -335,3 +335,14 @@ fn binary_and_collapsed_diffs_serialise_to_the_shape_the_ui_expects() {
         json!({ "kind": "collapsed", "bytes": 2000000, "lines": 30000 })
     );
 }
+
+#[test]
+fn a_polling_tabs_changed_event_serialises_to_the_shape_the_ui_expects() {
+    assert_eq!(
+        serde_json::to_value(CoreEvent::PollingTabsChanged {
+            worktree_paths: vec!["/work/sample".to_owned()]
+        })
+        .unwrap(),
+        json!({ "type": "pollingTabsChanged", "worktreePaths": ["/work/sample"] })
+    );
+}

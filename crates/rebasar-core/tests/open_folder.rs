@@ -127,3 +127,23 @@ fn a_detached_head_is_shown_as_the_short_commit() {
         }
     );
 }
+
+#[test]
+fn refreshing_a_tab_shows_a_branch_switched_outside_the_app_without_announcing_anything() {
+    let repo = TempRepo::init("sample");
+    repo.commit_file("README.md", "hello", "Initial commit");
+    let (core, events) = core_recording_events();
+    core.open_folder(repo.path()).expect("open folder");
+    repo.git(&["switch", "--create", "feature"]);
+    events.lock().unwrap().clear();
+
+    let tab = core.refresh_tab(repo.path()).expect("refresh tab");
+
+    assert_eq!(
+        tab.head,
+        Head::Branch {
+            name: "feature".to_owned()
+        }
+    );
+    assert!(events.lock().unwrap().is_empty());
+}

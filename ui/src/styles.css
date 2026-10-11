@@ -829,3 +829,113 @@ button {
 .token-attribute {
   color: var(--color-syntax-attribute);
 }
+
+.tab-strip {
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.tab {
+  flex: none;
+  max-width: var(--tab-max-width);
+  cursor: pointer;
+}
+
+.tab-name,
+.tab-head {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.status-dot {
+  flex: none;
+  width: var(--status-dot-size);
+  height: var(--status-dot-size);
+  border-radius: 50%;
+  background: var(--color-text-subtle);
+}
+
+.status-dot[data-state="clean"] {
+  background: var(--color-success);
+}
+
+.status-dot[data-state="changed"] {
+  background: var(--color-warning);
+}
+
+.status-dot[data-state="conflicted"] {
+  background: var(--color-danger);
+}
+
+.repository-switcher {
+  position: relative;
+  flex: none;
+}
+
+.switcher-button {
+  width: var(--control-height);
+  height: var(--control-height);
+  padding: 0;
+  color: var(--color-text-subtle);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+.switcher-button:hover,
+.switcher-item:hover {
+  background: var(--color-hover);
+}
+
+.switcher-popover {
+  position: absolute;
+  top: calc(100% + var(--space-1));
+  left: 0;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  box-sizing: border-box;
+  width: var(--switcher-width);
+  padding: var(--space-2);
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border-raised);
+  border-radius: var(--radius-md);
+}
+
+.switcher-filter {
+  box-sizing: border-box;
+  padding: var(--space-1) var(--space-2);
+  font: inherit;
+  color: var(--color-text);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+
+.switcher-list {
+  display: flex;
+  flex-direction: column;
+  max-height: var(--switcher-max-height);
+  overflow-y: auto;
+}
+
+.switcher-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  text-align: left;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.notice {
+  margin: 0;
+  padding: var(--space-2) var(--space-4);
+  color: var(--color-warning);
+}

@@ -1,20 +1,26 @@
 import { useEffect, useMemo, useState } from "react";
 
-import type { ChangeList, CoreApi, FileChange, FileDiff, Tab, WorktreeStatus } from "../core/api";
+import type { ChangeList, CoreApi, FileChange, FileDiff, WorktreeStatus } from "../core/api";
 import { describeError } from "../core/describeError";
 import { type ChangeGroup, type GroupTree, buildGroupTrees, firstFile } from "./changeTree";
 import { DiffView } from "./DiffView";
 import type { DiffMode } from "./diffRows";
 import { FileTree, type FileSelection } from "./FileTree";
 
-export function ChangesView({ api, tab }: { api: CoreApi; tab: Tab }) {
-  const { status, error } = useWorktreeStatus(api, tab.worktreePath);
+interface ChangesViewProps {
+  api: CoreApi;
+  worktreePath: string;
+  status: WorktreeStatus | null;
+  error: string | null;
+}
+
+export function ChangesView({ api, worktreePath, status, error }: ChangesViewProps) {
   const [picked, setPicked] = useState<FileSelection | null>(null);
   const [mode, setMode] = useState<DiffMode>("unified");
 
   const trees = useMemo(() => buildGroupTrees(status ? changeGroups(status) : []), [status]);
   const selected = useMemo(() => resolveSelection(trees, picked), [trees, picked]);
-  const diff = useFileDiff(api, tab.worktreePath, status, selected);
+  const diff = useFileDiff(api, worktreePath, status, selected);
 
   if (error) {
     return (
@@ -118,42 +124,4 @@ function useFileDiff(
     error,
     loadLarge: () => setLoadedLarge((current) => new Set(current).add(`${list}:${path}`)),
   };
-}
-
-function useWorktreeStatus(api: CoreApi, worktreePath: string) {
-  const [status, setStatus] = useState<WorktreeStatus | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let current = true;
-    let latestRequest = 0;
-    setStatus(null);
-    setError(null);
-
-    async function refresh() {
-      const request = ++latestRequest;
-      try {
-        const fresh = await api.worktreeStatus(worktreePath);
-        if (!current || request !== latestRequest) return;
-        setStatus(fresh);
-        setError(null);
-      } catch (failure) {
-        if (!current || request !== latestRequest) return;
-        setError(describeError(failure));
-      }
-    }
-
-    void refresh();
-    const subscription = api.onEvent((event) => {
-      if (event.type === "worktreeChanged" && event.worktreePath === worktreePath) {
-        void refresh();
-      }
-    });
-    return () => {
-      current = false;
-      void subscription.then((unsubscribe) => unsubscribe());
-    };
-  }, [api, worktreePath]);
-
-  return { status, error };
 }

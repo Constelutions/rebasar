@@ -73,6 +73,10 @@
   --changes-files-width: 340px;
   --sidebar-width: 208px;
   --avatar-size: 22px;
+  --status-dot-size: 8px;
+  --tab-max-width: 260px;
+  --switcher-width: 320px;
+  --switcher-max-height: 360px;
 
   color-scheme: dark;
 }

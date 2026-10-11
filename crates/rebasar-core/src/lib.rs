@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
 use serde::Serialize;
 use thiserror::Error;
@@ -8,15 +9,18 @@ use thiserror::Error;
 mod diff;
 mod history;
 pub mod platform;
+mod poll;
 pub mod query;
 mod status;
+mod tabs;
 mod watch;
 
 pub use diff::{
     ChangeList, DiffContent, DiffLine, DiffRequest, FileDiff, Hunk, LineKind, ModeChange,
 };
 pub use status::{ChangeKind, FileChange, WorktreeStatus};
-use watch::WorktreeWatch;
+pub use tabs::CacheKind;
+use tabs::Registry;
 
 pub use history::{
     Edge, EdgeKind, HistoryCount, HistoryFilter, HistoryPage, HistoryRow, RefKind, RefLabel,
@@ -44,8 +48,17 @@ pub enum Head {
     rename_all_fields = "camelCase"
 )]
 pub enum CoreEvent {
-    TabOpened { tab: Tab },
-    WorktreeChanged { worktree_path: String },
+    TabOpened {
+        tab: Tab,
+    },
+    WorktreeChanged {
+        worktree_path: String,
+    },
+    /// The Tabs that are checked periodically instead of watched live, most recently used
+    /// first. Sent whenever the list changes, including when it becomes empty again.
+    PollingTabsChanged {
+        worktree_paths: Vec<String>,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Error, Serialize)]
@@ -83,50 +96,126 @@ impl ApiError {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct CoreSettings {
+    /// How many Worktrees get a live file watcher; the least recently used Tabs beyond it are
+    /// polled instead. The default sits above any realistic number of Tabs, so in practice the
+    /// limit that applies is the one the operating system reports.
+    pub watch_limit: usize,
+    /// How many of the most recently used Tabs keep their graph and diff caches.
+    pub cached_tabs: usize,
+    pub poll_interval: Duration,
+    /// How long a background Tab's changes must settle before they are reported.
+    pub background_quiet: Duration,
+}
+
+impl Default for CoreSettings {
+    fn default() -> Self {
+        Self {
+            watch_limit: 128,
+            cached_tabs: 1,
+            poll_interval: Duration::from_secs(5),
+            background_quiet: Duration::from_secs(1),
+        }
+    }
+}
+
 pub struct Core {
     on_event: Arc<dyn Fn(CoreEvent) + Send + Sync>,
-    watches: Mutex<HashMap<PathBuf, WorktreeWatch>>,
+    tabs: Mutex<Registry>,
     histories: Mutex<HashMap<PathBuf, Arc<Mutex<history::Layout>>>>,
     totals: Mutex<HashMap<PathBuf, (u64, usize)>>,
 }
 
 impl Core {
     pub fn new(on_event: impl Fn(CoreEvent) + Send + Sync + 'static) -> Self {
+        Self::with_settings(CoreSettings::default(), on_event)
+    }
+
+    pub fn with_settings(
+        settings: CoreSettings,
+        on_event: impl Fn(CoreEvent) + Send + Sync + 'static,
+    ) -> Self {
+        let on_event: Arc<dyn Fn(CoreEvent) + Send + Sync> = Arc::new(on_event);
         Self {
-            on_event: Arc::new(on_event),
-            watches: Mutex::new(HashMap::new()),
+            tabs: Mutex::new(Registry::new(settings, Arc::clone(&on_event))),
+            on_event,
             histories: Mutex::new(HashMap::new()),
             totals: Mutex::new(HashMap::new()),
         }
     }
 
     /// Emits [`CoreEvent::WorktreeChanged`] after files change under the Worktree, whoever
-    /// changed them. Watching an already watched Worktree does nothing.
+    /// changed them. Watching an already watched Worktree does nothing; a new one becomes the
+    /// most recently used Tab.
     pub fn watch_worktree(&self, path: &Path) -> Result<(), ApiError> {
         let (worktree_path, repo) = open_worktree(path)?;
-        let mut watches = self.watches.lock().expect("watch registry lock");
-        if watches.contains_key(&worktree_path) {
-            return Ok(());
-        }
-
-        let on_event = Arc::clone(&self.on_event);
-        let reported_path = worktree_path.to_string_lossy().into_owned();
-        let watch = WorktreeWatch::start(&repo, &worktree_path, move || {
-            on_event(CoreEvent::WorktreeChanged {
-                worktree_path: reported_path.clone(),
-            });
-        })?;
-        watches.insert(worktree_path, watch);
-        Ok(())
+        self.with_tabs(|tabs| {
+            if tabs.contains(&worktree_path) {
+                return Ok(());
+            }
+            tabs.register(worktree_path, &repo)
+        })
     }
 
     pub fn unwatch_worktree(&self, path: &Path) {
         if let Ok(worktree_path) = platform::canonical(path) {
-            self.watches
-                .lock()
-                .expect("watch registry lock")
-                .remove(&worktree_path);
+            self.with_tabs(|tabs| tabs.remove(&worktree_path));
         }
+    }
+
+    /// Makes the Tab the most recently used one: it keeps its caches and a live watcher, and the
+    /// Tabs used least recently lose theirs.
+    pub fn activate_tab(&self, path: &Path) -> Result<(), ApiError> {
+        self.watch_worktree(path)?;
+        let worktree_path = platform::canonical(path).map_err(ApiError::unexpected)?;
+        self.with_tabs(|tabs| tabs.touch(&worktree_path));
+        Ok(())
+    }
+
+    /// Keeps `value` for the Tab until it is evicted. Returns `false`, keeping nothing, when the
+    /// Tab is not among the most recently used ones that may hold caches.
+    pub fn store_cache<T: std::any::Any + Send + Sync>(
+        &self,
+        path: &Path,
+        kind: CacheKind,
+        value: T,
+    ) -> bool {
+        let Ok(worktree_path) = platform::canonical(path) else {
+            return false;
+        };
+        self.with_tabs(|tabs| tabs.store_cache(&worktree_path, kind, Arc::new(value)))
+    }
+
+    pub fn cache<T: std::any::Any + Send + Sync>(
+        &self,
+        path: &Path,
+        kind: CacheKind,
+    ) -> Option<Arc<T>> {
+        let worktree_path = platform::canonical(path).ok()?;
+        let cached = self.with_tabs(|tabs| tabs.cache(&worktree_path, kind))?;
+        cached.downcast().ok()
+    }
+
+    /// Runs `action` on the Tab registry, then reports any change in which Tabs are polled once
+    /// the lock is released, so that event handlers can call back into the core.
+    fn with_tabs<T>(&self, action: impl FnOnce(&mut Registry) -> T) -> T {
+        let (result, polling_change) = {
+            let mut tabs = self.tabs.lock().expect("tab registry lock");
+            let result = action(&mut tabs);
+            (result, tabs.take_polling_change())
+        };
+        if let Some(event) = polling_change {
+            (self.on_event)(event);
+        }
+        result
+    }
+
+    /// The Tab for an already open Worktree, read afresh so that a branch switched outside the
+    /// app shows. Unlike [`Core::open_folder`] it announces nothing.
+    pub fn refresh_tab(&self, path: &Path) -> Result<Tab, ApiError> {
+        let (worktree_path, repo) = open_worktree(path)?;
+        read_tab(&repo, &worktree_path)
     }
 
     pub fn worktree_status(&self, path: &Path) -> Result<WorktreeStatus, ApiError> {
@@ -141,33 +230,36 @@ impl Core {
 
     pub fn open_folder(&self, path: &Path) -> Result<Tab, ApiError> {
         let (worktree_path, repo) = open_worktree(path)?;
-
-        let head = match repo.head_name().map_err(ApiError::unexpected)? {
-            Some(name) => Head::Branch {
-                name: name.shorten().to_string(),
-            },
-            None => Head::Detached {
-                commit: repo
-                    .head_id()
-                    .map_err(ApiError::unexpected)?
-                    .to_hex_with_len(7)
-                    .to_string(),
-            },
-        };
-        let common_dir = platform::canonical(repo.common_dir()).map_err(ApiError::unexpected)?;
-
-        let tab = Tab {
-            repository_name: common_dir
-                .parent()
-                .and_then(Path::file_name)
-                .map(|name| name.to_string_lossy().into_owned())
-                .unwrap_or_default(),
-            worktree_path: worktree_path.to_string_lossy().into_owned(),
-            head,
-        };
+        let tab = read_tab(&repo, &worktree_path)?;
         (self.on_event)(CoreEvent::TabOpened { tab: tab.clone() });
         Ok(tab)
     }
+}
+
+fn read_tab(repo: &gix::Repository, worktree_path: &Path) -> Result<Tab, ApiError> {
+    let head = match repo.head_name().map_err(ApiError::unexpected)? {
+        Some(name) => Head::Branch {
+            name: name.shorten().to_string(),
+        },
+        None => Head::Detached {
+            commit: repo
+                .head_id()
+                .map_err(ApiError::unexpected)?
+                .to_hex_with_len(7)
+                .to_string(),
+        },
+    };
+    let common_dir = platform::canonical(repo.common_dir()).map_err(ApiError::unexpected)?;
+
+    Ok(Tab {
+        repository_name: common_dir
+            .parent()
+            .and_then(Path::file_name)
+            .map(|name| name.to_string_lossy().into_owned())
+            .unwrap_or_default(),
+        worktree_path: worktree_path.to_string_lossy().into_owned(),
+        head,
+    })
 }
 
 fn open_worktree(path: &Path) -> Result<(PathBuf, gix::Repository), ApiError> {

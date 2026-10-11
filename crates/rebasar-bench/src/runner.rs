@@ -5,8 +5,9 @@ use std::time::Instant;
 use rebasar_core::{ApiError, ChangeList, Core, DiffRequest, HistoryFilter};
 
 use crate::fixtures::{FixtureCache, Scale};
-use crate::report::{Report, ScenarioResult, Verdict};
-use crate::thresholds::{Limit, Threshold, FIRST_CHANGESET_FILE, GRAPH, STATUS};
+use crate::report::{Measurement, Report, ScenarioResult, Verdict};
+use crate::tabs;
+use crate::thresholds::{Limit, Threshold, FIRST_CHANGESET_FILE, GRAPH, STATUS, TAB_SWITCH};
 
 const PAGE_ROWS: usize = 100;
 const SCROLLED_PAGES: usize = 10;
@@ -15,13 +16,27 @@ pub struct Fixtures {
     pub history: PathBuf,
     pub worktree: PathBuf,
     pub changeset: PathBuf,
+    pub tabs: PathBuf,
 }
 
 type Action = fn(&Core, &Fixtures) -> Result<(), ApiError>;
+type MeasuredAction = fn(&Core, &Fixtures) -> Result<Measured, ApiError>;
+
+/// What a scenario that times itself reports: the figure compared with the scenario's
+/// threshold, and everything else it recorded.
+pub struct Measured {
+    pub elapsed_ms: f64,
+    pub details: Vec<Measurement>,
+}
+
+enum Run {
+    Timed(Action),
+    Measured(MeasuredAction),
+}
 
 pub struct Scenario {
     name: &'static str,
-    action: Action,
+    run: Run,
     threshold: Option<&'static Threshold>,
     warm_up: bool,
 }
@@ -30,7 +45,17 @@ impl Scenario {
     pub fn new(name: &'static str, action: Action) -> Self {
         Self {
             name,
-            action,
+            run: Run::Timed(action),
+            threshold: None,
+            warm_up: false,
+        }
+    }
+
+    /// A scenario that measures itself, for figures a single wall-clock time cannot capture.
+    pub fn measuring(name: &'static str, action: MeasuredAction) -> Self {
+        Self {
+            name,
+            run: Run::Measured(action),
             threshold: None,
             warm_up: false,
         }
@@ -107,6 +132,7 @@ pub fn scenarios() -> Vec<Scenario> {
         })
         .after_warm_up()
         .against(&FIRST_CHANGESET_FILE),
+        Scenario::measuring("tabs-at-scale", tabs::tabs_at_scale).against(&TAB_SWITCH),
     ]
 }
 
@@ -117,23 +143,33 @@ pub fn run(cache: &FixtureCache, scale: &Scale, scenarios: &[Scenario]) -> io::R
         history: cache.history(scale)?,
         worktree: cache.worktree(scale)?,
         changeset: cache.changeset(scale)?,
+        tabs: cache.tabs(scale)?,
     };
     let core = Core::new(|_| {});
 
     let mut results = Vec::new();
     for scenario in scenarios {
         let fail = |error: ApiError| io::Error::other(format!("{}: {error}", scenario.name));
-        if scenario.warm_up {
-            (scenario.action)(&core, &fixtures).map_err(fail)?;
-        }
-        let started = Instant::now();
-        (scenario.action)(&core, &fixtures).map_err(fail)?;
-        let elapsed_ms = started.elapsed().as_secs_f64() * 1000.0;
+        let (elapsed_ms, measurements) = match scenario.run {
+            Run::Timed(action) => {
+                if scenario.warm_up {
+                    action(&core, &fixtures).map_err(fail)?;
+                }
+                let started = Instant::now();
+                action(&core, &fixtures).map_err(fail)?;
+                (started.elapsed().as_secs_f64() * 1000.0, Vec::new())
+            }
+            Run::Measured(action) => {
+                let measured = action(&core, &fixtures).map_err(fail)?;
+                (measured.elapsed_ms, measured.details)
+            }
+        };
         results.push(ScenarioResult {
             scenario: scenario.name.to_owned(),
             elapsed_ms,
             threshold: scenario.threshold.map(|threshold| threshold.id),
             verdict: verdict(elapsed_ms, scenario.threshold),
+            measurements,
         });
     }
     Ok(Report::new(*scale, results))

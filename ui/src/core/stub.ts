@@ -4,6 +4,7 @@ import type {
   DiffRequest,
   FileDiff,
   HistoryRow,
+  Head,
   Tab,
   WorktreeStatus,
 } from "./api";
@@ -17,9 +18,17 @@ export function diffKey({ list, path }: Pick<DiffRequest, "list" | "path">) {
 export interface StubCoreApi extends CoreApi {
   /** Replaces what the Worktree reports, as an edit made outside the app would. */
   changeWorktree(path: string, status: WorktreeStatus): void;
+  /** Switches the branch of a Worktree outside the app and reports it as a change. */
+  checkOut(path: string, head: Head): void;
+  /** Reports which Tabs the core has fallen back to polling, as when the watch limit is hit. */
+  setPolling(paths: string[]): void;
+  /** Makes status reads wait until the returned function is called. */
+  holdStatusReads(): () => void;
   readonly watchedWorktrees: ReadonlySet<string>;
   /** Every diff the UI asked for, in order. */
   readonly diffRequests: readonly DiffRequest[];
+  /** The Tab the user last activated, as the core sees it. */
+  readonly activeWorktree: string | null;
 }
 
 /**
@@ -36,21 +45,31 @@ export function createStubCoreApi(
 ): StubCoreApi {
   const handlers = new Set<(event: CoreEvent) => void>();
   const current = new Map(Object.entries(statuses));
+  const tabs = new Map(Object.entries(repositories));
   const watched = new Set<string>();
   const diffRequests: DiffRequest[] = [];
   const emit = (event: CoreEvent) => handlers.forEach((handler) => handler(event));
+  let active: string | null = null;
+  let held: Promise<void> | null = null;
+
+  function known(path: string): Tab {
+    const tab = tabs.get(path);
+    if (!tab) {
+      throw { kind: "notARepository", path };
+    }
+    return tab;
+  }
 
   return {
     async openFolder(path) {
-      const tab = repositories[path];
-      if (!tab) {
-        throw { kind: "notARepository", path };
-      }
+      const tab = known(path);
       emit({ type: "tabOpened", tab });
       return tab;
     },
     async worktreeStatus(path) {
-      return current.get(path) ?? emptyStatus;
+      const snapshot = current.get(path) ?? emptyStatus;
+      await held;
+      return snapshot;
     },
     async fileDiff(_path, request) {
       diffRequests.push(request);
@@ -78,6 +97,14 @@ export function createStubCoreApi(
       const total = (histories[worktreePath] ?? []).length;
       return { matching: total, total };
     },
+    async activateTab(path) {
+      known(path);
+      watched.add(path);
+      active = path;
+    },
+    async refreshTab(path) {
+      return known(path);
+    },
     async onEvent(handler) {
       handlers.add(handler);
       return () => handlers.delete(handler);
@@ -86,7 +113,27 @@ export function createStubCoreApi(
       current.set(path, status);
       emit({ type: "worktreeChanged", worktreePath: path });
     },
+    checkOut(path, head) {
+      tabs.set(path, { ...known(path), head });
+      emit({ type: "worktreeChanged", worktreePath: path });
+    },
+    setPolling(paths) {
+      emit({ type: "pollingTabsChanged", worktreePaths: paths });
+    },
+    holdStatusReads() {
+      let release = () => {};
+      held = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      return () => {
+        release();
+        held = null;
+      };
+    },
     watchedWorktrees: watched,
     diffRequests,
+    get activeWorktree() {
+      return active;
+    },
   };
 }
