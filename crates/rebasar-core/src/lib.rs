@@ -7,13 +7,16 @@ use thiserror::Error;
 
 mod history;
 pub mod platform;
+pub mod query;
 mod status;
 mod watch;
 
 pub use status::{ChangeKind, FileChange, WorktreeStatus};
 use watch::WorktreeWatch;
 
-pub use history::{Edge, EdgeKind, HistoryPage, HistoryRow, RefKind, RefLabel};
+pub use history::{
+    Edge, EdgeKind, HistoryCount, HistoryFilter, HistoryPage, HistoryRow, RefKind, RefLabel,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -49,7 +52,23 @@ pub enum ApiError {
     #[error("{path} is not a Git repository")]
     NotARepository { path: String },
     #[error("{message}")]
+    InvalidQuery {
+        message: String,
+        start: usize,
+        end: usize,
+    },
+    #[error("{message}")]
     Unexpected { message: String },
+}
+
+impl From<query::QueryError> for ApiError {
+    fn from(error: query::QueryError) -> Self {
+        Self::InvalidQuery {
+            message: error.message,
+            start: error.start,
+            end: error.end,
+        }
+    }
 }
 
 impl ApiError {
@@ -64,6 +83,7 @@ pub struct Core {
     on_event: Arc<dyn Fn(CoreEvent) + Send + Sync>,
     watches: Mutex<HashMap<PathBuf, WorktreeWatch>>,
     histories: Mutex<HashMap<PathBuf, Arc<Mutex<history::Layout>>>>,
+    totals: Mutex<HashMap<PathBuf, (u64, usize)>>,
 }
 
 impl Core {
@@ -72,6 +92,7 @@ impl Core {
             on_event: Arc::new(on_event),
             watches: Mutex::new(HashMap::new()),
             histories: Mutex::new(HashMap::new()),
+            totals: Mutex::new(HashMap::new()),
         }
     }
 

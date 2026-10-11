@@ -1,6 +1,6 @@
 use rebasar_core::{
-    ApiError, ChangeKind, CoreEvent, Edge, EdgeKind, FileChange, Head, HistoryPage, HistoryRow,
-    RefKind, RefLabel, Tab, WorktreeStatus,
+    ApiError, ChangeKind, CoreEvent, Edge, EdgeKind, FileChange, Head, HistoryCount, HistoryFilter,
+    HistoryPage, HistoryRow, RefKind, RefLabel, Tab, WorktreeStatus,
 };
 use serde_json::json;
 
@@ -184,5 +184,53 @@ fn a_history_page_serialises_to_the_shape_the_ui_expects() {
                 ],
             }],
         })
+    );
+}
+
+#[test]
+fn an_invalid_query_error_serialises_with_its_position() {
+    let error = ApiError::InvalidQuery {
+        message: "`author:` needs a value".to_owned(),
+        start: 4,
+        end: 11,
+    };
+
+    assert_eq!(
+        serde_json::to_value(error).unwrap(),
+        json!({ "kind": "invalidQuery", "message": "`author:` needs a value", "start": 4, "end": 11 })
+    );
+}
+
+#[test]
+fn a_history_filter_deserialises_from_the_shape_the_ui_sends() {
+    let filter: HistoryFilter = serde_json::from_value(json!({
+        "query": "author:ada",
+        "allBranches": false,
+        "mine": true,
+        "merges": false,
+    }))
+    .unwrap();
+
+    assert_eq!(
+        filter,
+        HistoryFilter {
+            query: "author:ada".to_owned(),
+            all_branches: false,
+            mine: true,
+            merges: false,
+        }
+    );
+}
+
+#[test]
+fn a_history_count_serialises_to_the_shape_the_ui_expects() {
+    let count = HistoryCount {
+        matching: 13,
+        total: 142,
+    };
+
+    assert_eq!(
+        serde_json::to_value(count).unwrap(),
+        json!({ "matching": 13, "total": 142 })
     );
 }

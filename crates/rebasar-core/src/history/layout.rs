@@ -3,37 +3,46 @@ use std::collections::{BinaryHeap, HashMap};
 
 use gix::ObjectId;
 
+use super::commit::{read_commit, CommitData};
+use super::filter::Filter;
 use super::refs::Snapshot;
 use super::{Edge, EdgeKind, HistoryPage, HistoryRow, RefLabel};
 use crate::ApiError;
 
-/// The graph of one Worktree, laid out row by row for as far as it has been asked for.
+/// The graph of one Worktree, laid out row by row for as far as it has been asked for. Only the
+/// commits the filter lets through get a row, so the lines connect the nearest ones.
 #[derive(Default)]
 pub(crate) struct Layout {
     fingerprint: Option<u64>,
+    filter: Filter,
     labels: HashMap<ObjectId, Vec<RefLabel>>,
     rows: Vec<HistoryRow>,
     walk: Walk,
 }
 
 impl Layout {
-    /// Starts over from the snapshot's tips unless it is the one this layout was built from.
-    pub fn follow(&mut self, snapshot: Snapshot) {
-        if self.fingerprint == Some(snapshot.fingerprint) {
+    /// Starts over from the filter's tips unless this layout was built from the same refs and
+    /// the same filter.
+    pub fn follow(&mut self, snapshot: Snapshot, filter: Filter) {
+        if self.fingerprint == Some(snapshot.fingerprint) && self.filter == filter {
             return;
         }
+        let walk = Walk {
+            pending_tips: filter.tips(&snapshot),
+            ..Walk::default()
+        };
         *self = Self {
             fingerprint: Some(snapshot.fingerprint),
-            walk: Walk::default(),
+            filter,
+            walk,
             rows: Vec::new(),
             labels: snapshot.labels,
         };
-        self.walk.pending_tips = self.labels.keys().copied().collect();
     }
 
     pub fn extend_to(&mut self, repo: &gix::Repository, row_count: usize) -> Result<(), ApiError> {
         while self.rows.len() < row_count {
-            let Some((id, mut row)) = self.walk.next_row(repo)? else {
+            let Some((id, mut row)) = self.walk.next_row(repo, &self.filter)? else {
                 break;
             };
             if let Some(labels) = self.labels.get(&id) {
@@ -53,15 +62,6 @@ impl Layout {
             has_more: self.rows.len() > end,
         }
     }
-}
-
-struct CommitData {
-    id: ObjectId,
-    parents: Vec<ObjectId>,
-    time: i64,
-    author_name: String,
-    author_email: String,
-    subject: String,
 }
 
 /// A commit waiting in the frontier. Newest first; among commits of the same second, the one
@@ -108,17 +108,34 @@ enum Seen {
 struct Walk {
     pending_tips: Vec<ObjectId>,
     frontier: BinaryHeap<Pending>,
+    /// The commits the filter lets through that have been found.
     seen: HashMap<ObjectId, Seen>,
+    /// For each commit the filter rejects, the nearest accepted ancestors its children link to.
+    bridged: HashMap<ObjectId, Vec<ObjectId>>,
     lanes: Vec<Option<ObjectId>>,
     next_sequence: u64,
+}
+
+/// One rejected commit whose parents are being looked through.
+struct Bridge {
+    id: ObjectId,
+    parents: Vec<ObjectId>,
+    next_parent: usize,
+    ancestors: Vec<ObjectId>,
+}
+
+enum Entered {
+    Resolved(Vec<ObjectId>),
+    Rejected(Vec<ObjectId>),
 }
 
 impl Walk {
     fn next_row(
         &mut self,
         repo: &gix::Repository,
+        filter: &Filter,
     ) -> Result<Option<(ObjectId, HistoryRow)>, ApiError> {
-        self.load_tips(repo)?;
+        self.load_tips(repo, filter)?;
         let Some(Pending { commit, .. }) = self.frontier.pop() else {
             return Ok(None);
         };
@@ -148,7 +165,7 @@ impl Walk {
         }
 
         let mut outgoing = Vec::new();
-        for parent in &commit.parents {
+        for parent in &self.shown_parents(repo, filter, &commit.parents)? {
             if let Some(existing) = self.lane_awaiting(*parent) {
                 outgoing.push(existing);
                 continue;
@@ -157,13 +174,6 @@ impl Walk {
                 // Its clock was ahead of this commit's, so it was listed before this child was
                 // known. The line would have to run upwards; leaving it out is the lesser evil.
                 continue;
-            }
-            if !self.seen.contains_key(parent) {
-                if let Some(data) = read_commit(repo, *parent)? {
-                    self.push(data);
-                } else {
-                    continue;
-                }
             }
             let target = if self.lanes[lane].is_none() {
                 lane
@@ -203,16 +213,95 @@ impl Walk {
         )))
     }
 
-    fn load_tips(&mut self, repo: &gix::Repository) -> Result<(), ApiError> {
+    fn load_tips(&mut self, repo: &gix::Repository, filter: &Filter) -> Result<(), ApiError> {
         for tip in std::mem::take(&mut self.pending_tips) {
-            if self.seen.contains_key(&tip) {
-                continue;
-            }
-            if let Some(data) = read_commit(repo, tip)? {
-                self.push(data);
-            }
+            self.nearest_shown(repo, filter, tip)?;
         }
         Ok(())
+    }
+
+    /// Where the lines to `parents` end up: each parent the filter lets through, and for each
+    /// one it rejects, the nearest ancestors that pass, as if the rejected commits were gone.
+    fn shown_parents(
+        &mut self,
+        repo: &gix::Repository,
+        filter: &Filter,
+        parents: &[ObjectId],
+    ) -> Result<Vec<ObjectId>, ApiError> {
+        let mut shown = Vec::new();
+        for parent in parents {
+            extend_unique(&mut shown, self.nearest_shown(repo, filter, *parent)?);
+        }
+        Ok(shown)
+    }
+
+    /// `id` itself when the filter lets it through, otherwise the nearest ancestors that pass.
+    /// Every commit found this way joins the frontier. Rejected commits are looked through with
+    /// an explicit stack, as a long run of them would overflow a recursive walk.
+    fn nearest_shown(
+        &mut self,
+        repo: &gix::Repository,
+        filter: &Filter,
+        id: ObjectId,
+    ) -> Result<Vec<ObjectId>, ApiError> {
+        let mut open: Vec<Bridge> = Vec::new();
+        let mut entering = Some(id);
+        let mut resolved: Option<Vec<ObjectId>> = None;
+        loop {
+            if let Some(id) = entering.take() {
+                match self.enter(repo, filter, id)? {
+                    Entered::Resolved(found) => resolved = Some(found),
+                    Entered::Rejected(parents) => open.push(Bridge {
+                        id,
+                        parents,
+                        next_parent: 0,
+                        ancestors: Vec::new(),
+                    }),
+                }
+            }
+            if let Some(found) = resolved.take() {
+                match open.last_mut() {
+                    None => return Ok(found),
+                    Some(bridge) => extend_unique(&mut bridge.ancestors, found),
+                }
+            }
+            let bridge = open
+                .last_mut()
+                .expect("a bridge stays open until it is resolved");
+            if let Some(parent) = bridge.parents.get(bridge.next_parent) {
+                entering = Some(*parent);
+                bridge.next_parent += 1;
+            } else {
+                let bridge = open.pop().expect("the bridge was just borrowed");
+                self.bridged.insert(bridge.id, bridge.ancestors.clone());
+                resolved = Some(bridge.ancestors);
+            }
+        }
+    }
+
+    fn enter(
+        &mut self,
+        repo: &gix::Repository,
+        filter: &Filter,
+        id: ObjectId,
+    ) -> Result<Entered, ApiError> {
+        if self.seen.contains_key(&id) {
+            return Ok(Entered::Resolved(vec![id]));
+        }
+        if let Some(ancestors) = self.bridged.get(&id) {
+            return Ok(Entered::Resolved(ancestors.clone()));
+        }
+        match read_commit(repo, id, filter)? {
+            None => {
+                self.bridged.insert(id, Vec::new());
+                Ok(Entered::Resolved(Vec::new()))
+            }
+            Some((data, true)) => {
+                self.push(data);
+                Ok(Entered::Resolved(vec![id]))
+            }
+            Some((data, false)) => Ok(Entered::Rejected(data.parents)),
+        }
     }
 
     fn push(&mut self, commit: CommitData) {
@@ -245,24 +334,10 @@ impl Walk {
     }
 }
 
-/// `None` for an object that is missing or is not a commit, such as a tag on a tree or the
-/// parent of a shallow clone's boundary.
-fn read_commit(repo: &gix::Repository, id: ObjectId) -> Result<Option<CommitData>, ApiError> {
-    let Some(object) = repo.try_find_object(id).map_err(ApiError::unexpected)? else {
-        return Ok(None);
-    };
-    if object.kind != gix::object::Kind::Commit {
-        return Ok(None);
+fn extend_unique(into: &mut Vec<ObjectId>, from: Vec<ObjectId>) {
+    for id in from {
+        if !into.contains(&id) {
+            into.push(id);
+        }
     }
-    let commit = object.try_to_commit_ref().map_err(ApiError::unexpected)?;
-    let author = commit.author().map_err(ApiError::unexpected)?;
-    let committer = commit.committer().map_err(ApiError::unexpected)?;
-    Ok(Some(CommitData {
-        id,
-        parents: commit.parents().collect(),
-        time: committer.seconds(),
-        author_name: author.name.to_string(),
-        author_email: author.email.to_string(),
-        subject: commit.message().summary().to_string(),
-    }))
 }

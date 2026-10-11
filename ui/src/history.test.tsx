@@ -16,9 +16,9 @@ const rowHeight = 36;
 function recordingPageRequests(requested: number[]) {
   return (api: CoreApi): CoreApi => ({
     ...api,
-    historyPage: (path, offset, limit) => {
+    historyPage: (path, offset, limit, filter) => {
       requested.push(offset);
-      return api.historyPage(path, offset, limit);
+      return api.historyPage(path, offset, limit, filter);
     },
   });
 }
