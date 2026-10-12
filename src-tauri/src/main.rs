@@ -6,7 +6,7 @@ use std::sync::Arc;
 use rebasar_core::{
     ApiError, Assessment, BranchInfo, ConflictFile, ConflictSide, CommitDetail, CommitDiffRequest, CommitHit, CommitOptions, Core,
     DiffRequest, FileChange, FileDiff, FoundRepository, GitHubAuthStatus, GitHubRepository, GitIdentity, GitSetup, Group,
-    HistoryCount, HistoryFilter, HistoryPage, LineSelection, MutationId, MergeMode, MutationKind, MutationOutcome, OperationInProgress, PullStrategy,
+    HistoryCount, HistoryFilter, HistoryPage, LineSelection, MutationId, MergeMode, MutationKind, RebasePlan, MutationOutcome, OperationInProgress, PullStrategy,
     OutgoingCommit, PullRequest, RefLabel, RepositoryList, Session, Settings, Tab, WindowBounds,
     SyncStatus, WorktreeDiffRequest, WorktreeStatus,
 };
@@ -791,6 +791,30 @@ async fn open_merge_tool(
         .map_err(ApiError::unexpected)?
 }
 
+#[tauri::command]
+async fn rebase_plan(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+    from: Option<String>,
+) -> Result<RebasePlan, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.rebase_plan(&path, from.as_deref()))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn apply_rebase_plan(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+    plan: RebasePlan,
+) -> Result<MutationOutcome, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.apply_rebase_plan(&path, &plan))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
 fn restore_window(window: &WebviewWindow, bounds: WindowBounds) {
     if let Err(error) = window.set_size(PhysicalSize::new(bounds.width, bounds.height)) {
         eprintln!("failed to restore the window size: {error}");
@@ -931,7 +955,9 @@ fn main() {
             conflict_file,
             resolve_conflict_file,
             resolve_conflict_with_side,
-            open_merge_tool
+            open_merge_tool,
+            rebase_plan,
+            apply_rebase_plan
         ])
         .run(tauri::generate_context!())
         .expect("failed to run Rebasar");

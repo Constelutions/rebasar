@@ -6,7 +6,8 @@ export type CommitAction =
   | "createTag"
   | "copyHash"
   | "reword"
-  | "compare";
+  | "compare"
+  | "rebase";
 
 const items: { action: CommitAction; label: string }[] = [
   { action: "checkout", label: "Checkout (detached)" },
@@ -15,6 +16,7 @@ const items: { action: CommitAction; label: string }[] = [
   { action: "copyHash", label: "Copy hash" },
   { action: "reword", label: "Reword…" },
   { action: "compare", label: "Compare with working tree" },
+  { action: "rebase", label: "Interactive rebase from here…" },
 ];
 
 interface CommitMenuProps {

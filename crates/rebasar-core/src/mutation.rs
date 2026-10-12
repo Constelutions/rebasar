@@ -58,6 +58,7 @@ pub(crate) struct Mutation {
     title: String,
     args: Vec<OsString>,
     stdin: Option<Vec<u8>>,
+    env: Vec<(String, String)>,
 }
 
 impl Mutation {
@@ -70,7 +71,13 @@ impl Mutation {
             title: title.into(),
             args: args.into_iter().map(Into::into).collect(),
             stdin: None,
+            env: Vec::new(),
         }
+    }
+
+    pub(crate) fn with_env(mut self, key: &str, value: impl Into<String>) -> Self {
+        self.env.push((key.to_owned(), value.into()));
+        self
     }
 
     pub(crate) fn with_stdin(mut self, input: Vec<u8>) -> Self {
@@ -205,6 +212,7 @@ impl MutationRunner {
         command
             .current_dir(worktree_path)
             .args(&mutation.args)
+            .envs(mutation.env.iter().map(|(key, value)| (key, value)))
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());
         if mutation.stdin.is_some() {

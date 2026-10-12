@@ -2141,3 +2141,45 @@ button {
   align-items: center;
   gap: var(--space-3);
 }
+
+.rebase-editor {
+  width: min(720px, calc(100vw - 2 * var(--space-5)));
+}
+
+.rebase-plan {
+  max-height: 50vh;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.rebase-commit,
+.rebase-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-1) var(--space-2);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.rebase-commit[draggable="true"] {
+  cursor: grab;
+}
+
+.rebase-commit[data-action="drop"] .commit-subject {
+  text-decoration: line-through;
+  opacity: 0.6;
+}
+
+.rebase-commit textarea {
+  flex-basis: 100%;
+  font: var(--text-sm) var(--font-mono);
+}
+
+.rebase-moves {
+  display: flex;
+  gap: var(--space-1);
+  margin-left: auto;
+}

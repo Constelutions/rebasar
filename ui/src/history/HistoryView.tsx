@@ -5,6 +5,7 @@ import type { CoreApi, HistoryRow, Tab } from "../core/api";
 import { describeError } from "../core/describeError";
 import { useDebounced } from "../useDebounced";
 import { Avatar } from "./Avatar";
+import { RebaseEditor } from "../components/RebaseEditor";
 import { CommitActionDialog, type CommitDialog } from "./CommitActionDialog";
 import { CommitDetailPane } from "./CommitDetailPane";
 import { type CommitAction, CommitMenu } from "./CommitMenu";
@@ -59,6 +60,7 @@ export function HistoryView({ api, tab, initialQuery = "" }: HistoryViewProps) {
   const [menu, setMenu] = useState<{ commitId: string; x: number; y: number } | null>(null);
   const [dialog, setDialog] = useState<{ kind: CommitDialog; commitId: string } | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [rebaseFrom, setRebaseFrom] = useState<string | null>(null);
   const closeMenu = useCallback(() => setMenu(null), []);
 
   function commitOf(commitId: string): HistoryRow | undefined {
@@ -91,6 +93,8 @@ export function HistoryView({ api, tab, initialQuery = "" }: HistoryViewProps) {
         return setDialog({ kind: "reword", commitId });
       case "copyHash":
         return navigator.clipboard.writeText(commitId).catch((failure) => setNotice(describeError(failure)));
+      case "rebase":
+        return setRebaseFrom(commitId);
       case "compare":
         setSelectedId(commitId);
         return setComparing(true);
@@ -192,6 +196,18 @@ export function HistoryView({ api, tab, initialQuery = "" }: HistoryViewProps) {
           shortId={commitOf(dialog.commitId)?.shortId ?? dialog.commitId.slice(0, 7)}
           isLatest={commitOf(dialog.commitId)?.refs.some((label) => label.kind === "head") ?? false}
           onClose={() => setDialog(null)}
+          onOpenRebaseEditor={() => {
+            setRebaseFrom(dialog.commitId);
+            setDialog(null);
+          }}
+        />
+      )}
+      {rebaseFrom && (
+        <RebaseEditor
+          api={api}
+          worktreePath={tab.worktreePath}
+          from={rebaseFrom}
+          onClose={() => setRebaseFrom(null)}
         />
       )}
     </>

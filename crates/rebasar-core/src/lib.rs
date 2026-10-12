@@ -23,6 +23,7 @@ mod outgoing;
 pub mod platform;
 mod poll;
 pub mod query;
+mod rebase_plan;
 mod safety;
 mod registry;
 mod repositories;
@@ -37,6 +38,7 @@ mod watch;
 pub use adding::FoundRepository;
 pub use branches::{BranchInfo, BranchKind, MergeMode};
 pub use commit::{CommitDetail, CommitParent};
+pub use rebase_plan::{PlanAction, RebasePlan, RebasePlanEntry};
 pub use conflicts::{ConflictFile, ConflictKind, ConflictSegment, ConflictSide};
 pub use compare::WorktreeDiffRequest;
 pub use diff::{

@@ -422,6 +422,31 @@ export interface ConflictFile {
   mergeToolConfigured: boolean;
 }
 
+export type PlanAction = "pick" | "reword" | "squash" | "fixup" | "drop" | "edit";
+
+export type RebasePlanEntry =
+  | {
+      kind: "commit";
+      /** `edit` only ever comes from a rebase in progress; it cannot be chosen. */
+      action: PlanAction;
+      commit: string;
+      shortId: string;
+      subject: string;
+      /** The commit's message; what a `reword` replaces. */
+      message: string;
+    }
+  /** An `exec`, `break` or other step, kept as it is. */
+  | { kind: "line"; text: string };
+
+export interface RebasePlan {
+  /** The commit to replay onto; `null` from a root commit and for a rebase in progress. */
+  onto: string | null;
+  /** The plan is what is left of a rebase that stopped, not a new one. */
+  inProgress: boolean;
+  /** Oldest first, the order the commits are replayed in. */
+  entries: RebasePlanEntry[];
+}
+
 export interface WorktreeDiffRequest {
   commit: string;
   path: string;
@@ -506,6 +531,13 @@ export interface CoreApi {
   discardChanges(path: string, paths: string[]): Promise<MutationOutcome>;
   /** Does nothing for a mutation that has already finished. */
   cancelMutation(mutationId: number): Promise<void>;
+  /**
+   * The commits a rebase starting at `from` would replay, all set to pick. Without `from`, what
+   * is left of the rebase in progress.
+   */
+  rebasePlan(path: string, from: string | null): Promise<RebasePlan>;
+  /** Replays the plan without an editor; a conflict leaves the Worktree for the banner. */
+  applyRebasePlan(path: string, plan: RebasePlan): Promise<MutationOutcome>;
   conflictFile(path: string, file: string): Promise<ConflictFile>;
   /** Saves the contents as the resolved file and stages it, which marks it resolved. */
   resolveConflictFile(path: string, file: string, contents: string): Promise<MutationOutcome>;

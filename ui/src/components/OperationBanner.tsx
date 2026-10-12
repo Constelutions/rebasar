@@ -2,6 +2,7 @@ import { useState } from "react";
 
 import type { CoreApi, OperationInProgress, OperationKind } from "../core/api";
 import { describeError } from "../core/describeError";
+import { RebaseEditor } from "./RebaseEditor";
 import { useConfirmation } from "../useConfirmation";
 
 const names: Record<OperationKind, string> = {
@@ -20,6 +21,7 @@ interface OperationBannerProps {
 /** Shown on every view of a Tab while Git is paused, so the state is never out of sight. */
 export function OperationBanner({ api, worktreePath, operation }: OperationBannerProps) {
   const [error, setError] = useState<string | null>(null);
+  const [editing, setEditing] = useState(false);
   const { confirm, dialog } = useConfirmation(api, worktreePath);
   const name = names[operation.kind];
 
@@ -62,6 +64,11 @@ export function OperationBanner({ api, worktreePath, operation }: OperationBanne
             Skip
           </button>
         )}
+        {operation.kind === "rebase" && (
+          <button type="button" onClick={() => setEditing(true)}>
+            Edit plan
+          </button>
+        )}
         <button
           type="button"
           className="danger"
@@ -77,6 +84,14 @@ export function OperationBanner({ api, worktreePath, operation }: OperationBanne
         </button>
       </div>
       {dialog}
+      {editing && (
+        <RebaseEditor
+          api={api}
+          worktreePath={worktreePath}
+          from={null}
+          onClose={() => setEditing(false)}
+        />
+      )}
     </section>
   );
 }

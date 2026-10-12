@@ -101,6 +101,7 @@ it("offers the safe commit actions from the context menu", async () => {
     "Copy hash",
     "Reword…",
     "Compare with working tree",
+    "Interactive rebase from here…",
   ]);
 });
 

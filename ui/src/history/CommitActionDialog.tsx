@@ -14,6 +14,8 @@ interface CommitActionDialogProps {
   /** Only the commit HEAD points at can be reworded here; older ones need the rebase editor. */
   isLatest: boolean;
   onClose: () => void;
+  /** Opens the interactive rebase editor at this commit. */
+  onOpenRebaseEditor: () => void;
 }
 
 export function CommitActionDialog({
@@ -24,6 +26,7 @@ export function CommitActionDialog({
   shortId,
   isLatest,
   onClose,
+  onOpenRebaseEditor,
 }: CommitActionDialogProps) {
   if (kind === "reword" && !isLatest) {
     return (
@@ -35,6 +38,9 @@ export function CommitActionDialog({
         <div className="dialog-actions">
           <button type="button" onClick={onClose}>
             Close
+          </button>
+          <button type="button" onClick={onOpenRebaseEditor}>
+            Open the interactive rebase editor
           </button>
         </div>
       </Frame>

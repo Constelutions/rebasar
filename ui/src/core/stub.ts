@@ -32,6 +32,7 @@ import {
   type MergeMode,
   type OperationInProgress,
   type PullStrategy,
+  type RebasePlan,
   type SyncStatus,
   type OutgoingCommit,
   type PullRequest,
@@ -133,6 +134,8 @@ export interface StubCoreApi extends CoreApi {
   emitEvent(event: CoreEvent): void;
   /** Pauses the Worktree in the middle of an operation, or ends it with `null`, as the terminal would. */
   setOperation(path: string, operation: OperationInProgress | null): void;
+  /** What the editor gets for a rebase starting at `from`; `null` is the rebase in progress. */
+  setRebasePlan(path: string, from: string | null, plan: RebasePlan): void;
   /** What the Conflicts view reads for a conflicted file. */
   setConflictFile(path: string, file: ConflictFile): void;
   /** The branches the Branches view lists; by default just `main`, checked out. */
@@ -169,6 +172,8 @@ export interface StubCoreApi extends CoreApi {
   readonly conflictActions: readonly string[];
   /** The contents each file was resolved with, by path. */
   readonly resolvedContents: ReadonlyMap<string, string>;
+  /** Every plan the UI replayed, in order. */
+  readonly appliedPlans: readonly RebasePlan[];
   readonly stagedLines: readonly { direction: "stage" | "unstage"; selection: LineSelection }[];
   /** Every diff the UI asked for, in order. */
   readonly diffRequests: readonly DiffRequest[];
@@ -224,6 +229,8 @@ export function createStubCoreApi(
   const conflictFiles = new Map<string, ConflictFile>();
   const conflictActions: string[] = [];
   const resolvedContents = new Map<string, string>();
+  const rebasePlans = new Map<string, RebasePlan>();
+  const appliedPlans: RebasePlan[] = [];
   const stagedLines: { direction: "stage" | "unstage"; selection: LineSelection }[] = [];
   let nextMutationId = 1;
   const backgroundWatched: string[] = [];
@@ -496,6 +503,15 @@ export function createStubCoreApi(
       entry.name = tab.repositoryName;
       entry.missing = false;
       entry.worktrees = [{ path: newPath, main: true, head: tab.head }];
+    },
+    async rebasePlan(path, from) {
+      const found = rebasePlans.get(`${path}\0${from ?? ""}`);
+      if (!found) throw { kind: "unexpected", message: "no plan for that commit" };
+      return found;
+    },
+    async applyRebasePlan(path, plan) {
+      appliedPlans.push(plan);
+      return mutate(path, "Interactive rebase", (status) => status);
     },
     async conflictFile(path, file) {
       const found = conflictFiles.get(`${path}\0${file}`);
@@ -842,6 +858,9 @@ export function createStubCoreApi(
       else operations.delete(path);
       emit({ type: "worktreeChanged", worktreePath: path });
     },
+    setRebasePlan(path, from, plan) {
+      rebasePlans.set(`${path}\0${from ?? ""}`, plan);
+    },
     setConflictFile(path, file) {
       conflictFiles.set(`${path}\0${file.path}`, file);
     },
@@ -894,6 +913,7 @@ export function createStubCoreApi(
     assessedMutations: assessed,
     discards,
     stagedLines,
+    appliedPlans,
     conflictActions,
     resolvedContents,
     branchActions,
