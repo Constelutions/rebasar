@@ -4,9 +4,9 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use rebasar_core::{
-    ApiError, Assessment, CommitDetail, CommitDiffRequest, CommitHit, CommitOptions, Core,
+    ApiError, Assessment, BranchInfo, CommitDetail, CommitDiffRequest, CommitHit, CommitOptions, Core,
     DiffRequest, FileChange, FileDiff, FoundRepository, GitHubAuthStatus, GitHubRepository, GitIdentity, GitSetup, Group,
-    HistoryCount, HistoryFilter, HistoryPage, LineSelection, MutationId, MutationKind, MutationOutcome, OperationInProgress, PullStrategy,
+    HistoryCount, HistoryFilter, HistoryPage, LineSelection, MutationId, MergeMode, MutationKind, MutationOutcome, OperationInProgress, PullStrategy,
     OutgoingCommit, PullRequest, RefLabel, RepositoryList, Session, Settings, Tab, WindowBounds,
     SyncStatus, WorktreeDiffRequest, WorktreeStatus,
 };
@@ -641,6 +641,106 @@ async fn push(
         .map_err(ApiError::unexpected)?
 }
 
+#[tauri::command]
+async fn list_branch_details(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+) -> Result<Vec<BranchInfo>, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.list_branch_details(&path))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn create_branch_here(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+    name: String,
+    switch: bool,
+) -> Result<MutationOutcome, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.create_branch_here(&path, &name, switch))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn checkout_branch(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+    name: String,
+    remote: bool,
+) -> Result<MutationOutcome, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.checkout_branch(&path, &name, remote))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn rename_branch(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+    name: String,
+    new_name: String,
+) -> Result<MutationOutcome, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.rename_branch(&path, &name, &new_name))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn delete_branch(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+    name: String,
+) -> Result<MutationOutcome, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.delete_branch(&path, &name))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn set_branch_upstream(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+    name: String,
+    upstream: Option<String>,
+) -> Result<MutationOutcome, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.set_branch_upstream(&path, &name, upstream.as_deref()))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn merge_branch(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+    branch: String,
+    mode: MergeMode,
+) -> Result<MutationOutcome, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.merge_branch(&path, &branch, mode))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn rebase_onto(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+    onto: String,
+) -> Result<MutationOutcome, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.rebase_onto(&path, &onto))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
 fn restore_window(window: &WebviewWindow, bounds: WindowBounds) {
     if let Err(error) = window.set_size(PhysicalSize::new(bounds.width, bounds.height)) {
         eprintln!("failed to restore the window size: {error}");
@@ -769,7 +869,15 @@ fn main() {
             fetch_remotes,
             pull_needs_strategy,
             pull,
-            push
+            push,
+            list_branch_details,
+            create_branch_here,
+            checkout_branch,
+            rename_branch,
+            delete_branch,
+            set_branch_upstream,
+            merge_branch,
+            rebase_onto
         ])
         .run(tauri::generate_context!())
         .expect("failed to run Rebasar");

@@ -7,6 +7,7 @@ import {
   type CoreEvent,
   type DiffLine,
   type DiffRequest,
+  type BranchInfo,
   type FileChange,
   type FileDiff,
   type FoundRepository,
@@ -26,6 +27,7 @@ import {
   type Session,
   type MutationKind,
   type MutationOutcome,
+  type MergeMode,
   type OperationInProgress,
   type PullStrategy,
   type SyncStatus,
@@ -129,6 +131,8 @@ export interface StubCoreApi extends CoreApi {
   emitEvent(event: CoreEvent): void;
   /** Pauses the Worktree in the middle of an operation, or ends it with `null`, as the terminal would. */
   setOperation(path: string, operation: OperationInProgress | null): void;
+  /** The branches the Branches view lists; by default just `main`, checked out. */
+  setBranchDetails(path: string, branches: BranchInfo[]): void;
   /** What the Worktree reports as ahead and behind, as a fetch from outside the app would. */
   setSyncStatus(path: string, status: Partial<SyncStatus>): void;
   /** What a scan of `folder` finds. */
@@ -155,6 +159,8 @@ export interface StubCoreApi extends CoreApi {
   readonly operationActions: readonly ("continue" | "skip" | "abort")[];
   /** Every fetch, pull and push the UI ran, in order. */
   readonly syncActions: readonly string[];
+  /** Every branch action the UI ran, such as `merge:topic:noFastForward`, in order. */
+  readonly branchActions: readonly string[];
   readonly stagedLines: readonly { direction: "stage" | "unstage"; selection: LineSelection }[];
   /** Every diff the UI asked for, in order. */
   readonly diffRequests: readonly DiffRequest[];
@@ -205,6 +211,8 @@ export function createStubCoreApi(
   const syncStatuses = new Map<string, SyncStatus>();
   const rememberedPulls = new Set<string>();
   const syncActions: string[] = [];
+  const branchDetails = new Map<string, BranchInfo[]>();
+  const branchActions: string[] = [];
   const stagedLines: { direction: "stage" | "unstage"; selection: LineSelection }[] = [];
   let nextMutationId = 1;
   const backgroundWatched: string[] = [];
@@ -280,6 +288,21 @@ export function createStubCoreApi(
     const title = `${action[0]?.toUpperCase()}${action.slice(1)} ${operation?.kind ?? "operation"}`;
     return mutate(path, title, (status) => {
       operations.delete(path);
+      return status;
+    });
+  }
+
+  function branchesOf(path: string): BranchInfo[] {
+    return branchDetails.get(path) ?? [{ ...localBranch("main"), current: true }];
+  }
+
+  function changeBranches(
+    path: string,
+    title: string,
+    change: (list: BranchInfo[]) => BranchInfo[],
+  ): MutationOutcome {
+    return mutate(path, title, (status) => {
+      branchDetails.set(path, change(branchesOf(path)));
       return status;
     });
   }
@@ -451,6 +474,58 @@ export function createStubCoreApi(
       entry.name = tab.repositoryName;
       entry.missing = false;
       entry.worktrees = [{ path: newPath, main: true, head: tab.head }];
+    },
+    async listBranchDetails(path) {
+      return branchesOf(path).map((branch) => ({ ...branch }));
+    },
+    async createBranchHere(path, name, switchTo) {
+      branchActions.push(`create:${name}${switchTo ? ":switch" : ""}`);
+      return changeBranches(path, `Create branch ${name}`, (list) => [
+        ...list.map((branch) => (switchTo ? { ...branch, current: false } : branch)),
+        { ...localBranch(name), current: switchTo },
+      ]);
+    },
+    async checkoutBranch(path, name, remote) {
+      branchActions.push(`checkout:${name}`);
+      const local = remote ? name.slice(name.indexOf("/") + 1) : name;
+      return changeBranches(path, `Check out ${name}`, (list) => {
+        const exists = list.some((branch) => branch.kind === "local" && branch.name === local);
+        const withLocal = exists ? list : [...list, { ...localBranch(local), upstream: name }];
+        return withLocal.map((branch) => ({
+          ...branch,
+          current: branch.kind === "local" && branch.name === local,
+        }));
+      });
+    },
+    async renameBranch(path, name, newName) {
+      branchActions.push(`rename:${name}:${newName}`);
+      return changeBranches(path, `Rename branch ${name}`, (list) =>
+        list.map((branch) =>
+          branch.kind === "local" && branch.name === name ? { ...branch, name: newName } : branch,
+        ),
+      );
+    },
+    async deleteBranch(path, name) {
+      branchActions.push(`delete:${name}`);
+      return changeBranches(path, `Delete branch ${name}`, (list) =>
+        list.filter((branch) => !(branch.kind === "local" && branch.name === name)),
+      );
+    },
+    async setBranchUpstream(path, name, upstream) {
+      branchActions.push(`upstream:${name}:${upstream ?? ""}`);
+      return changeBranches(path, `Track ${upstream ?? "nothing"} from ${name}`, (list) =>
+        list.map((branch) =>
+          branch.kind === "local" && branch.name === name ? { ...branch, upstream } : branch,
+        ),
+      );
+    },
+    async mergeBranch(path, branch, mode: MergeMode) {
+      branchActions.push(`merge:${branch}:${mode}`);
+      return mutate(path, `Merge ${branch}`, (status) => status);
+    },
+    async rebaseOnto(path, onto) {
+      branchActions.push(`rebase:${onto}`);
+      return mutate(path, `Rebase onto ${onto}`, (status) => status);
     },
     async syncStatus(path) {
       return syncOf(path);
@@ -658,6 +733,12 @@ export function createStubCoreApi(
     },
     async assessMutation(path, kind) {
       assessed.push(kind);
+      if (kind.kind === "deleteBranch") {
+        const branch = branchesOf(path).find((candidate) => candidate.name === kind.name);
+        return branch && !branch.merged && branch.upstream === null
+          ? { kind: "destructive", loss: { files: [], commits: 2, unpushedCommits: 2 } }
+          : { kind: "safe" };
+      }
       if (kind.kind === "forcePush") {
         const { behind } = syncOf(path);
         return behind === 0
@@ -721,6 +802,10 @@ export function createStubCoreApi(
       else operations.delete(path);
       emit({ type: "worktreeChanged", worktreePath: path });
     },
+    setBranchDetails(path, list) {
+      branchDetails.set(path, list);
+      emit({ type: "worktreeChanged", worktreePath: path });
+    },
     setSyncStatus(path, status) {
       syncStatuses.set(path, { ...syncOf(path), ...status });
       emit({ type: "worktreeChanged", worktreePath: path });
@@ -766,6 +851,7 @@ export function createStubCoreApi(
     assessedMutations: assessed,
     discards,
     stagedLines,
+    branchActions,
     syncActions,
     operationActions,
     commitActions,
@@ -781,6 +867,19 @@ export function createStubCoreApi(
 
 function lastSegment(path: string): string {
   return path.split(/[/\\:]/).pop() ?? path;
+}
+
+function localBranch(name: string): BranchInfo {
+  return {
+    name,
+    kind: "local",
+    current: false,
+    upstream: null,
+    ahead: 0,
+    behind: 0,
+    merged: true,
+    shortId: "abc1234",
+  };
 }
 
 function titleFor(verb: string, paths: string[]): string {

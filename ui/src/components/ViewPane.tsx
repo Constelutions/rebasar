@@ -3,6 +3,7 @@ import { HistoryView } from "../history/HistoryView";
 import type { ViewName } from "../views";
 import type { OpenTab } from "../useOpenTabs";
 import type { AddKind } from "./AddRepositoryDialog";
+import { BranchesView } from "./BranchesView";
 import { ChangesView } from "./ChangesView";
 import { PullRequestsView } from "./PullRequestsView";
 import { RepositoriesView } from "./RepositoriesView";
@@ -76,6 +77,10 @@ function ViewContent({
         initialQuery={commitSearch.query}
       />
     );
+  }
+  if (view === "Branches") {
+    if (!tab) return <p className="placeholder">Open a folder to see its branches.</p>;
+    return <BranchesView key={tab.tab.worktreePath} api={api} tab={tab.tab} />;
   }
   if (view === "Pull requests" && tab) return <PullRequestsView api={api} tab={tab.tab} />;
   return <p className="placeholder">Nothing here yet.</p>;

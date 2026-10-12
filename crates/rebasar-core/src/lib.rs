@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 mod adding;
+mod branches;
 mod commit;
 mod commit_actions;
 mod compare;
@@ -33,6 +34,7 @@ mod tabs;
 mod watch;
 
 pub use adding::FoundRepository;
+pub use branches::{BranchInfo, BranchKind, MergeMode};
 pub use commit::{CommitDetail, CommitParent};
 pub use compare::WorktreeDiffRequest;
 pub use diff::{

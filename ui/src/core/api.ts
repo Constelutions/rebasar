@@ -296,7 +296,8 @@ export type MutationKind =
   | { kind: "commit" }
   | { kind: "discardChanges"; paths: string[] }
   | { kind: "abortOperation" }
-  | { kind: "forcePush" };
+  | { kind: "forcePush" }
+  | { kind: "deleteBranch"; name: string };
 
 /** Exactly what a destructive Mutation would lose, as it stands right now. */
 export interface Loss {
@@ -380,6 +381,23 @@ export interface SyncStatus {
 }
 
 export type PullStrategy = "merge" | "rebase";
+
+export interface BranchInfo {
+  /** `main` for a local branch, `origin/main` for a remote one. */
+  name: string;
+  kind: "local" | "remote";
+  /** The branch HEAD is on. */
+  current: boolean;
+  /** Only local branches track one. */
+  upstream: string | null;
+  ahead: number;
+  behind: number;
+  /** Everything on the branch is already part of the current branch. */
+  merged: boolean;
+  shortId: string;
+}
+
+export type MergeMode = "default" | "noFastForward" | "squash";
 
 export interface WorktreeDiffRequest {
   commit: string;
@@ -465,6 +483,20 @@ export interface CoreApi {
   discardChanges(path: string, paths: string[]): Promise<MutationOutcome>;
   /** Does nothing for a mutation that has already finished. */
   cancelMutation(mutationId: number): Promise<void>;
+  /** Local branches first, then remote ones, each by name. */
+  listBranchDetails(path: string): Promise<BranchInfo[]>;
+  /** At the current commit; the Worktree switches to it only when `switchTo` is set. */
+  createBranchHere(path: string, name: string, switchTo: boolean): Promise<MutationOutcome>;
+  /** A remote branch gets a local branch of the same name that tracks it. */
+  checkoutBranch(path: string, name: string, remote: boolean): Promise<MutationOutcome>;
+  renameBranch(path: string, name: string, newName: string): Promise<MutationOutcome>;
+  /** Confirm with `{ kind: "deleteBranch", name }` first. */
+  deleteBranch(path: string, name: string): Promise<MutationOutcome>;
+  /** `null` stops the branch tracking anything. */
+  setBranchUpstream(path: string, name: string, upstream: string | null): Promise<MutationOutcome>;
+  /** A merge or rebase that stops on a conflict leaves the Worktree for the banner to show. */
+  mergeBranch(path: string, branch: string, mode: MergeMode): Promise<MutationOutcome>;
+  rebaseOnto(path: string, onto: string): Promise<MutationOutcome>;
   /** As of the last fetch; fetching is what brings it up to date. */
   syncStatus(path: string): Promise<SyncStatus>;
   /** Never prompts for credentials. Rejects with an error that has next steps when they fail. */

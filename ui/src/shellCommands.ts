@@ -4,7 +4,7 @@ import type { CoreApi, RefLabel } from "./core/api";
 import type { AddKind } from "./components/AddRepositoryDialog";
 import { describeHead } from "./components/TabStrip";
 import { usePalette, usePaletteCommands } from "./palette/PaletteProvider";
-import type { PaletteCommand } from "./palette/registry";
+import type { PaletteCommand, PaletteContext } from "./palette/registry";
 import type { AppWindow } from "./shell/appWindow";
 import { shortcuts } from "./shortcuts";
 import type { OpenTab } from "./useOpenTabs";
@@ -145,14 +145,35 @@ export function useShellCommands({
   const branches = useBranches(api, activeTab?.tab.worktreePath);
   const branchCommands = useMemo<PaletteCommand[]>(
     () =>
-      branches.map(({ name }) => ({
-        id: `branch.${name}`,
-        title: `Show branch ${name}`,
-        group: "Branches",
-        keywords: ["history", "checkout"],
-        run: () => showCommits(`branch:${name}`),
-      })),
-    [branches, showCommits],
+      branches.flatMap(({ name, kind }) => [
+        {
+          id: `branch.${name}`,
+          title: `Show branch ${name}`,
+          group: "Branches",
+          keywords: ["history", "checkout"],
+          run: () => showCommits(`branch:${name}`),
+        },
+        ...(kind === "localBranch" || kind === "remoteBranch"
+          ? [
+              {
+                id: `branch.checkout.${name}`,
+                title: `Check out branch ${name}`,
+                group: "Branches",
+                keywords: ["switch", "checkout"],
+                run: ({ activeTab }: PaletteContext) => {
+                  if (activeTab) {
+                    void api.checkoutBranch(
+                      activeTab.tab.worktreePath,
+                      name,
+                      kind === "remoteBranch",
+                    );
+                  }
+                },
+              },
+            ]
+          : []),
+      ]),
+    [api, branches, showCommits],
   );
 
   usePaletteCommands(windowCommands);

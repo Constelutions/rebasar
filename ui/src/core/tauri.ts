@@ -4,6 +4,7 @@ import { listen } from "@tauri-apps/api/event";
 import type {
   Assessment,
   CommitDetail,
+  BranchInfo,
   CommitDiffRequest,
   CommitHit,
   CoreApi,
@@ -25,6 +26,7 @@ import type {
   GitSetup,
   FoundRepository,
   Group,
+  MergeMode,
   MutationOutcome,
   OperationInProgress,
   SyncStatus,
@@ -70,6 +72,19 @@ export const tauriCoreApi: CoreApi = {
   assessMutation: (path, kind) => invoke<Assessment>("assess_mutation", { path, kind }),
   discardChanges: (path, paths) => invoke<MutationOutcome>("discard_changes", { path, paths }),
   cancelMutation: (mutationId) => invoke<void>("cancel_mutation", { mutationId }),
+  listBranchDetails: (path) => invoke<BranchInfo[]>("list_branch_details", { path }),
+  createBranchHere: (path, name, switchTo) =>
+    invoke<MutationOutcome>("create_branch_here", { path, name, switch: switchTo }),
+  checkoutBranch: (path, name, remote) =>
+    invoke<MutationOutcome>("checkout_branch", { path, name, remote }),
+  renameBranch: (path, name, newName) =>
+    invoke<MutationOutcome>("rename_branch", { path, name, newName }),
+  deleteBranch: (path, name) => invoke<MutationOutcome>("delete_branch", { path, name }),
+  setBranchUpstream: (path, name, upstream) =>
+    invoke<MutationOutcome>("set_branch_upstream", { path, name, upstream }),
+  mergeBranch: (path, branch, mode: MergeMode) =>
+    invoke<MutationOutcome>("merge_branch", { path, branch, mode }),
+  rebaseOnto: (path, onto) => invoke<MutationOutcome>("rebase_onto", { path, onto }),
   syncStatus: (path) => invoke<SyncStatus>("sync_status", { path }),
   fetchRemotes: (path) => invoke<MutationOutcome>("fetch_remotes", { path }),
   pullNeedsStrategy: (path) => invoke<boolean>("pull_needs_strategy", { path }),

@@ -27,6 +27,10 @@ pub enum MutationKind {
     AbortOperation,
     /// Replaces the remote branch with the local one, dropping commits only the remote has.
     ForcePush,
+    /// Deletes a local branch, with the commits only it holds.
+    DeleteBranch {
+        name: String,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -62,6 +66,7 @@ pub(crate) fn assess(repo: &gix::Repository, kind: &MutationKind) -> Result<Asse
     let loss = match kind {
         MutationKind::AbortOperation => crate::operation::abort_loss(repo)?,
         MutationKind::ForcePush => crate::sync::force_push_loss(repo)?,
+        MutationKind::DeleteBranch { name } => crate::branches::delete_loss(repo, name)?,
         MutationKind::Stage | MutationKind::Unstage | MutationKind::Commit => {
             return Ok(Assessment::Safe);
         }

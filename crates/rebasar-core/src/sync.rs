@@ -145,7 +145,7 @@ fn read_status(repo: &gix::Repository) -> Result<SyncStatus, ApiError> {
     let tip = tip.detach();
 
     let Some((upstream, upstream_tip)) = upstream_of(repo, &head) else {
-        let ahead = count(repo, tip, outgoing::remote_tips(repo)?)?;
+        let ahead = count_unreached(repo, tip, outgoing::remote_tips(repo)?)?;
         return Ok(SyncStatus {
             branch,
             upstream: None,
@@ -156,8 +156,8 @@ fn read_status(repo: &gix::Repository) -> Result<SyncStatus, ApiError> {
     Ok(SyncStatus {
         branch,
         upstream: Some(upstream),
-        ahead: count(repo, tip, vec![upstream_tip])?,
-        behind: count(repo, upstream_tip, vec![tip])?,
+        ahead: count_unreached(repo, tip, vec![upstream_tip])?,
+        behind: count_unreached(repo, upstream_tip, vec![tip])?,
     })
 }
 
@@ -171,7 +171,7 @@ fn upstream_of(repo: &gix::Repository, head: &gix::Head<'_>) -> Option<(String, 
     Some((tracking.shorten().to_string(), tip))
 }
 
-fn count(
+pub(crate) fn count_unreached(
     repo: &gix::Repository,
     tip: gix::ObjectId,
     hidden: Vec<gix::ObjectId>,

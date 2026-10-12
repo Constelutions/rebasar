@@ -13,6 +13,7 @@ const confirmationTexts: Partial<Record<MutationKind["kind"], ConfirmationText>>
   discardChanges: { title: "Discard changes", confirmLabel: "Discard" },
   abortOperation: { title: "Abort the operation", confirmLabel: "Abort" },
   forcePush: { title: "Force push", confirmLabel: "Force push" },
+  deleteBranch: { title: "Delete branch", confirmLabel: "Delete" },
 };
 
 const fallbackText: ConfirmationText = { title: "Are you sure?", confirmLabel: "Continue" };

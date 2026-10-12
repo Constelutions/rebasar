@@ -2008,3 +2008,59 @@ button {
   font: var(--text-xs) var(--font-mono);
   color: var(--color-warning);
 }
+
+.branches {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.new-branch {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.branch-section h2 {
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-md);
+  color: var(--color-text-muted);
+}
+
+.branch-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.branch-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.branch-row[aria-current] {
+  background: var(--color-hover);
+}
+
+.branch-name {
+  font: var(--text-md) var(--font-mono);
+  color: var(--color-text-strong);
+}
+
+.branch-badge,
+.branch-upstream,
+.branch-counts {
+  font: var(--text-xs) var(--font-mono);
+  color: var(--color-text-subtle);
+}
+
+.branch-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-left: auto;
+}
