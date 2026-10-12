@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { type AddKind, AddRepositoryDialog } from "./components/AddRepositoryDialog";
+import { OperationBanner } from "./components/OperationBanner";
 import { OutputPanel } from "./components/OutputPanel";
 import { SetupScreen } from "./components/SetupScreen";
 import { Sidebar } from "./components/Sidebar";
@@ -200,6 +201,14 @@ function Shell({
         <SetupScreen setup={gitSetup} />
       ) : (
         <>
+          {activeTab?.operation && (
+            <OperationBanner
+              key={activeTab.tab.worktreePath}
+              api={api}
+              worktreePath={activeTab.tab.worktreePath}
+              operation={activeTab.operation}
+            />
+          )}
           <div className="app-body">
             <Sidebar selected={view} onSelect={showView} />
             <ViewPane

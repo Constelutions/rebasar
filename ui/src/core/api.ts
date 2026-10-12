@@ -292,7 +292,8 @@ export type MutationKind =
   | { kind: "stage" }
   | { kind: "unstage" }
   | { kind: "commit" }
-  | { kind: "discardChanges"; paths: string[] };
+  | { kind: "discardChanges"; paths: string[] }
+  | { kind: "abortOperation" };
 
 /** Exactly what a destructive Mutation would lose, as it stands right now. */
 export interface Loss {
@@ -351,6 +352,19 @@ export interface CommitDiffRequest {
   originalPath: string | null;
   /** Computes the diff of a file that would otherwise come back collapsed. */
   loadLarge?: boolean;
+}
+
+export type OperationKind = "merge" | "rebase" | "cherryPick" | "revert";
+
+/** Git is paused in the middle of this operation, however it was started. */
+export interface OperationInProgress {
+  kind: OperationKind;
+  /** Known for a rebase. */
+  step: { current: number; total: number } | null;
+  /** Files still waiting for a resolution. */
+  conflicts: number;
+  /** A merge has a single step, so there is nothing to skip. */
+  canSkip: boolean;
 }
 
 export interface WorktreeDiffRequest {
@@ -437,6 +451,14 @@ export interface CoreApi {
   discardChanges(path: string, paths: string[]): Promise<MutationOutcome>;
   /** Does nothing for a mutation that has already finished. */
   cancelMutation(mutationId: number): Promise<void>;
+  /** `null` when the Worktree is not paused in the middle of an operation. */
+  operationInProgress(path: string): Promise<OperationInProgress | null>;
+  /** Finishes the operation; `failed` while conflicts are left. */
+  continueOperation(path: string): Promise<MutationOutcome>;
+  /** Drops the commit the operation is stopped on. Rejects for a merge. */
+  skipOperation(path: string): Promise<MutationOutcome>;
+  /** Confirm with `{ kind: "abortOperation" }` first. */
+  abortOperation(path: string): Promise<MutationOutcome>;
   /** Detaches HEAD at the commit; `failed` if that would overwrite local changes. */
   checkoutCommit(path: string, commit: string): Promise<MutationOutcome>;
   /** Does not switch to the new branch. `failed` if Git rejects the name. */

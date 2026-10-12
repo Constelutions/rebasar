@@ -23,6 +23,8 @@ pub enum MutationKind {
     DiscardChanges {
         paths: Vec<String>,
     },
+    /// Gives up the merge, rebase, cherry-pick or revert Git is paused in.
+    AbortOperation,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -56,6 +58,7 @@ impl Loss {
 
 pub(crate) fn assess(repo: &gix::Repository, kind: &MutationKind) -> Result<Assessment, ApiError> {
     let loss = match kind {
+        MutationKind::AbortOperation => crate::operation::abort_loss(repo)?,
         MutationKind::Stage | MutationKind::Unstage | MutationKind::Commit => {
             return Ok(Assessment::Safe);
         }

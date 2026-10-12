@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import type { CoreApi, Tab, WorktreeStatus } from "./core/api";
+import type { CoreApi, OperationInProgress, Tab, WorktreeStatus } from "./core/api";
 import { describeError } from "./core/describeError";
 
 export interface OpenTab {
   tab: Tab;
   /** What the Tab last reported; kept while a refresh is under way so a switch shows it at once. */
   status: WorktreeStatus | null;
+  /** Git is paused in the middle of this; shown on every view of the Tab. */
+  operation: OperationInProgress | null;
   error: string | null;
 }
 
@@ -22,9 +24,10 @@ export function useOpenTabs(api: CoreApi) {
     async (path: string) => {
       const request = (latestRequests.current.get(path) ?? 0) + 1;
       latestRequests.current.set(path, request);
-      const [tab, status] = await Promise.allSettled([
+      const [tab, status, operation] = await Promise.allSettled([
         api.refreshTab(path),
         api.worktreeStatus(path),
+        api.operationInProgress(path),
       ]);
       if (latestRequests.current.get(path) !== request) return;
 
@@ -34,6 +37,7 @@ export function useOpenTabs(api: CoreApi) {
             ? {
                 tab: tab.status === "fulfilled" ? tab.value : open.tab,
                 status: status.status === "fulfilled" ? status.value : open.status,
+                operation: operation.status === "fulfilled" ? operation.value : open.operation,
                 error: status.status === "rejected" ? describeError(status.reason) : null,
               }
             : open,
@@ -128,7 +132,7 @@ function withTab(tabs: OpenTab[], opened: Tab): OpenTab[] {
       open.tab.worktreePath === opened.worktreePath ? { ...open, tab: opened } : open,
     );
   }
-  return [...tabs, { tab: opened, status: null, error: null }];
+  return [...tabs, { tab: opened, status: null, operation: null, error: null }];
 }
 
 function nextTask(): Promise<void> {

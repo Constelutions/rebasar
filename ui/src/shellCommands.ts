@@ -91,6 +91,32 @@ export function useShellCommands({
     [appWindow, openFolder, addRepository],
   );
 
+  const operationCommands = useMemo<PaletteCommand[]>(
+    () => [
+      {
+        id: "operation.continue",
+        title: "Continue the operation in progress",
+        group: "Operation",
+        keywords: ["merge", "rebase", "cherry-pick", "revert"],
+        when: (context) => context.activeTab?.operation?.conflicts === 0,
+        run: ({ activeTab }) => {
+          if (activeTab) void api.continueOperation(activeTab.tab.worktreePath);
+        },
+      },
+      {
+        id: "operation.skip",
+        title: "Skip the current commit of the operation in progress",
+        group: "Operation",
+        keywords: ["rebase", "cherry-pick", "revert"],
+        when: (context) => context.activeTab?.operation?.canSkip === true,
+        run: ({ activeTab }) => {
+          if (activeTab) void api.skipOperation(activeTab.tab.worktreePath);
+        },
+      },
+    ],
+    [api],
+  );
+
   const viewCommands = useMemo<PaletteCommand[]>(
     () =>
       viewGroups.flat().map((name) => ({
@@ -130,6 +156,7 @@ export function useShellCommands({
   );
 
   usePaletteCommands(windowCommands);
+  usePaletteCommands(operationCommands);
   usePaletteCommands(viewCommands);
   usePaletteCommands(tabCommands);
   usePaletteCommands(branchCommands);

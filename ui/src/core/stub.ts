@@ -26,6 +26,7 @@ import {
   type Session,
   type MutationKind,
   type MutationOutcome,
+  type OperationInProgress,
   type OutgoingCommit,
   type PullRequest,
   type Tab,
@@ -124,6 +125,8 @@ export interface StubCoreApi extends CoreApi {
   holdStatusReads(): () => void;
   /** Delivers an event as if the core had emitted it, to drive streaming and progress. */
   emitEvent(event: CoreEvent): void;
+  /** Pauses the Worktree in the middle of an operation, or ends it with `null`, as the terminal would. */
+  setOperation(path: string, operation: OperationInProgress | null): void;
   /** What a scan of `folder` finds. */
   setScanResults(folder: string, found: FoundRepository[]): void;
   /** Makes the next stage, unstage or commit fail the way `git` would. */
@@ -144,6 +147,8 @@ export interface StubCoreApi extends CoreApi {
   readonly added: readonly { how: "clone" | "init" | "import"; source: string; groupId: string | null }[];
   /** Every commit action the UI ran, in order. */
   readonly commitActions: readonly CommitActionCall[];
+  /** Every continue, skip or abort the UI ran, in order. */
+  readonly operationActions: readonly ("continue" | "skip" | "abort")[];
   readonly stagedLines: readonly { direction: "stage" | "unstage"; selection: LineSelection }[];
   /** Every diff the UI asked for, in order. */
   readonly diffRequests: readonly DiffRequest[];
@@ -189,6 +194,8 @@ export function createStubCoreApi(
   const added: { how: "clone" | "init" | "import"; source: string; groupId: string | null }[] = [];
   const scanResults = new Map<string, FoundRepository[]>();
   const commitActions: CommitActionCall[] = [];
+  const operations = new Map<string, OperationInProgress>();
+  const operationActions: ("continue" | "skip" | "abort")[] = [];
   const stagedLines: { direction: "stage" | "unstage"; selection: LineSelection }[] = [];
   let nextMutationId = 1;
   const backgroundWatched: string[] = [];
@@ -256,6 +263,16 @@ export function createStubCoreApi(
         emit({ type: "tabClosed", worktreePath: worktree.path });
       }
     }
+  }
+
+  function finishOperation(path: string, action: "continue" | "skip" | "abort"): MutationOutcome {
+    operationActions.push(action);
+    const operation = operations.get(path);
+    const title = `${action[0]?.toUpperCase()}${action.slice(1)} ${operation?.kind ?? "operation"}`;
+    return mutate(path, title, (status) => {
+      operations.delete(path);
+      return status;
+    });
   }
 
   function addRepository(path: string, name: string, groupId: string | null): Tab {
@@ -419,6 +436,18 @@ export function createStubCoreApi(
       entry.name = tab.repositoryName;
       entry.missing = false;
       entry.worktrees = [{ path: newPath, main: true, head: tab.head }];
+    },
+    async operationInProgress(path) {
+      return operations.get(path) ?? null;
+    },
+    async continueOperation(path) {
+      return finishOperation(path, "continue");
+    },
+    async skipOperation(path) {
+      return finishOperation(path, "skip");
+    },
+    async abortOperation(path) {
+      return finishOperation(path, "abort");
     },
     async checkoutCommit(path, commit) {
       commitActions.push({ kind: "checkout", commit });
@@ -591,6 +620,13 @@ export function createStubCoreApi(
     },
     async assessMutation(path, kind) {
       assessed.push(kind);
+      if (kind.kind === "abortOperation") {
+        const status = statusOf(path);
+        const files = [...status.conflicts, ...status.staged, ...status.unstaged];
+        return files.length === 0
+          ? { kind: "safe" }
+          : { kind: "destructive", loss: { files, commits: 0, unpushedCommits: 0 } };
+      }
       if (kind.kind !== "discardChanges") return { kind: "safe" };
       const files = statusOf(path).unstaged.filter((file) => kind.paths.includes(file.path));
       const assessment: Assessment =
@@ -636,6 +672,11 @@ export function createStubCoreApi(
       tabs.set(path, { ...known(path), head });
       emit({ type: "worktreeChanged", worktreePath: path });
     },
+    setOperation(path, operation) {
+      if (operation) operations.set(path, operation);
+      else operations.delete(path);
+      emit({ type: "worktreeChanged", worktreePath: path });
+    },
     setScanResults(folder, found) {
       scanResults.set(folder, found);
     },
@@ -677,6 +718,7 @@ export function createStubCoreApi(
     assessedMutations: assessed,
     discards,
     stagedLines,
+    operationActions,
     commitActions,
     added,
     diffRequests,

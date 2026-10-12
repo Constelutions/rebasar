@@ -846,3 +846,31 @@ fn a_worktree_diff_request_deserialises_from_the_shape_the_ui_sends() {
         }
     );
 }
+
+#[test]
+fn an_operation_in_progress_serialises_to_the_shape_the_ui_expects() {
+    let operation = rebasar_core::OperationInProgress {
+        kind: rebasar_core::OperationKind::CherryPick,
+        step: Some(rebasar_core::OperationStep { current: 2, total: 5 }),
+        conflicts: 3,
+        can_skip: true,
+    };
+
+    assert_eq!(
+        serde_json::to_value(operation).unwrap(),
+        serde_json::json!({
+            "kind": "cherryPick",
+            "step": { "current": 2, "total": 5 },
+            "conflicts": 3,
+            "canSkip": true,
+        })
+    );
+}
+
+#[test]
+fn aborting_an_operation_deserialises_as_a_mutation_kind() {
+    let kind: rebasar_core::MutationKind =
+        serde_json::from_value(serde_json::json!({ "kind": "abortOperation" })).unwrap();
+
+    assert_eq!(kind, rebasar_core::MutationKind::AbortOperation);
+}

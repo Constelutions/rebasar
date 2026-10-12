@@ -6,7 +6,7 @@ use std::sync::Arc;
 use rebasar_core::{
     ApiError, Assessment, CommitDetail, CommitDiffRequest, CommitHit, CommitOptions, Core,
     DiffRequest, FileChange, FileDiff, FoundRepository, GitHubAuthStatus, GitHubRepository, GitIdentity, GitSetup, Group,
-    HistoryCount, HistoryFilter, HistoryPage, LineSelection, MutationId, MutationKind, MutationOutcome,
+    HistoryCount, HistoryFilter, HistoryPage, LineSelection, MutationId, MutationKind, MutationOutcome, OperationInProgress,
     OutgoingCommit, PullRequest, RefLabel, RepositoryList, Session, Settings, Tab, WindowBounds,
     WorktreeDiffRequest, WorktreeStatus,
 };
@@ -539,6 +539,50 @@ async fn compare_file_diff(
         .map_err(ApiError::unexpected)?
 }
 
+#[tauri::command]
+async fn operation_in_progress(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+) -> Result<Option<OperationInProgress>, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.operation_in_progress(&path))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn continue_operation(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+) -> Result<MutationOutcome, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.continue_operation(&path))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn skip_operation(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+) -> Result<MutationOutcome, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.skip_operation(&path))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn abort_operation(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+) -> Result<MutationOutcome, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.abort_operation(&path))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
 fn restore_window(window: &WebviewWindow, bounds: WindowBounds) {
     if let Err(error) = window.set_size(PhysicalSize::new(bounds.width, bounds.height)) {
         eprintln!("failed to restore the window size: {error}");
@@ -658,7 +702,11 @@ fn main() {
             create_tag,
             reword_latest_commit,
             compare_with_worktree,
-            compare_file_diff
+            compare_file_diff,
+            operation_in_progress,
+            continue_operation,
+            skip_operation,
+            abort_operation
         ])
         .run(tauri::generate_context!())
         .expect("failed to run Rebasar");

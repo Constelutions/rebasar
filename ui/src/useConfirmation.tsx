@@ -11,6 +11,7 @@ interface ConfirmationText {
 /** What the dialog says for each destructive Mutation; a new one adds its entry here. */
 const confirmationTexts: Partial<Record<MutationKind["kind"], ConfirmationText>> = {
   discardChanges: { title: "Discard changes", confirmLabel: "Discard" },
+  abortOperation: { title: "Abort the operation", confirmLabel: "Abort" },
 };
 
 const fallbackText: ConfirmationText = { title: "Are you sure?", confirmLabel: "Continue" };

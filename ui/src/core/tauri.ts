@@ -26,6 +26,7 @@ import type {
   FoundRepository,
   Group,
   MutationOutcome,
+  OperationInProgress,
   OutgoingCommit,
   Tab,
   WorktreeDiffRequest,
@@ -68,6 +69,11 @@ export const tauriCoreApi: CoreApi = {
   assessMutation: (path, kind) => invoke<Assessment>("assess_mutation", { path, kind }),
   discardChanges: (path, paths) => invoke<MutationOutcome>("discard_changes", { path, paths }),
   cancelMutation: (mutationId) => invoke<void>("cancel_mutation", { mutationId }),
+  operationInProgress: (path) =>
+    invoke<OperationInProgress | null>("operation_in_progress", { path }),
+  continueOperation: (path) => invoke<MutationOutcome>("continue_operation", { path }),
+  skipOperation: (path) => invoke<MutationOutcome>("skip_operation", { path }),
+  abortOperation: (path) => invoke<MutationOutcome>("abort_operation", { path }),
   checkoutCommit: (path, commit) => invoke<MutationOutcome>("checkout_commit", { path, commit }),
   createBranch: (path, name, commit) =>
     invoke<MutationOutcome>("create_branch", { path, name, commit }),
