@@ -7,7 +7,12 @@ export type CommitAction =
   | "copyHash"
   | "reword"
   | "compare"
-  | "rebase";
+  | "rebase"
+  | "cherryPick"
+  | "revert"
+  | "resetSoft"
+  | "resetMixed"
+  | "resetHard";
 
 const items: { action: CommitAction; label: string }[] = [
   { action: "checkout", label: "Checkout (detached)" },
@@ -17,6 +22,11 @@ const items: { action: CommitAction; label: string }[] = [
   { action: "reword", label: "Reword…" },
   { action: "compare", label: "Compare with working tree" },
   { action: "rebase", label: "Interactive rebase from here…" },
+  { action: "cherryPick", label: "Cherry-pick" },
+  { action: "revert", label: "Revert" },
+  { action: "resetSoft", label: "Reset soft to here" },
+  { action: "resetMixed", label: "Reset mixed to here" },
+  { action: "resetHard", label: "Reset hard to here" },
 ];
 
 interface CommitMenuProps {

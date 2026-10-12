@@ -5,6 +5,7 @@ import type { CoreApi, HistoryRow, Tab } from "../core/api";
 import { describeError } from "../core/describeError";
 import { useDebounced } from "../useDebounced";
 import { Avatar } from "./Avatar";
+import { useConfirmation } from "../useConfirmation";
 import { RebaseEditor } from "../components/RebaseEditor";
 import { CommitActionDialog, type CommitDialog } from "./CommitActionDialog";
 import { CommitDetailPane } from "./CommitDetailPane";
@@ -61,6 +62,7 @@ export function HistoryView({ api, tab, initialQuery = "" }: HistoryViewProps) {
   const [dialog, setDialog] = useState<{ kind: CommitDialog; commitId: string } | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [rebaseFrom, setRebaseFrom] = useState<string | null>(null);
+  const { confirm, dialog: confirmation } = useConfirmation(api, tab.worktreePath);
   const closeMenu = useCallback(() => setMenu(null), []);
 
   function commitOf(commitId: string): HistoryRow | undefined {
@@ -95,6 +97,35 @@ export function HistoryView({ api, tab, initialQuery = "" }: HistoryViewProps) {
         return navigator.clipboard.writeText(commitId).catch((failure) => setNotice(describeError(failure)));
       case "rebase":
         return setRebaseFrom(commitId);
+      case "cherryPick":
+      case "revert": {
+        const verb = action === "cherryPick" ? "Cherry-pick" : "Revert";
+        const outcome = await (
+          action === "cherryPick"
+            ? api.cherryPickCommit(tab.worktreePath, commitId)
+            : api.revertCommit(tab.worktreePath, commitId)
+        ).catch((failure) => {
+          setNotice(describeError(failure));
+          return null;
+        });
+        if (outcome?.kind === "failed") {
+          setNotice(`${verb} ${shortId} failed. If it stopped on a conflict, resolve it from the banner.`);
+        }
+        return;
+      }
+      case "resetSoft":
+      case "resetMixed":
+      case "resetHard": {
+        const mode = action === "resetSoft" ? "soft" : action === "resetMixed" ? "mixed" : "hard";
+        return confirm({ kind: "reset", commit: commitId, mode }, () => {
+          api.resetToCommit(tab.worktreePath, commitId, mode).then(
+            (outcome) => {
+              if (outcome.kind === "failed") setNotice(`Reset to ${shortId} failed. Details are in the output panel.`);
+            },
+            (failure) => setNotice(describeError(failure)),
+          );
+        }).catch((failure) => setNotice(describeError(failure)));
+      }
       case "compare":
         setSelectedId(commitId);
         return setComparing(true);
@@ -202,6 +233,7 @@ export function HistoryView({ api, tab, initialQuery = "" }: HistoryViewProps) {
           }}
         />
       )}
+      {confirmation}
       {rebaseFrom && (
         <RebaseEditor
           api={api}

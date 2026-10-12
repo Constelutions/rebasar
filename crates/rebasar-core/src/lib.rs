@@ -40,6 +40,7 @@ pub use branches::{BranchInfo, BranchKind, MergeMode};
 pub use commit::{CommitDetail, CommitParent};
 pub use rebase_plan::{PlanAction, RebasePlan, RebasePlanEntry};
 pub use conflicts::{ConflictFile, ConflictKind, ConflictSegment, ConflictSide};
+pub use commit_actions::ResetMode;
 pub use compare::WorktreeDiffRequest;
 pub use diff::{
     ChangeList, CommitDiffRequest, DiffContent, DiffLine, DiffRequest, FileDiff, Hunk, LineKind,

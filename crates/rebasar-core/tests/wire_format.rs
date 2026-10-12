@@ -874,3 +874,21 @@ fn aborting_an_operation_deserialises_as_a_mutation_kind() {
 
     assert_eq!(kind, rebasar_core::MutationKind::AbortOperation);
 }
+
+#[test]
+fn a_reset_deserialises_as_a_mutation_kind() {
+    let kind: rebasar_core::MutationKind = serde_json::from_value(serde_json::json!({
+        "kind": "reset",
+        "commit": "abc1234def",
+        "mode": "hard",
+    }))
+    .unwrap();
+
+    assert_eq!(
+        kind,
+        rebasar_core::MutationKind::Reset {
+            commit: "abc1234def".to_owned(),
+            mode: rebasar_core::ResetMode::Hard,
+        }
+    );
+}

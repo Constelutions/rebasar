@@ -297,7 +297,8 @@ export type MutationKind =
   | { kind: "discardChanges"; paths: string[] }
   | { kind: "abortOperation" }
   | { kind: "forcePush" }
-  | { kind: "deleteBranch"; name: string };
+  | { kind: "deleteBranch"; name: string }
+  | { kind: "reset"; commit: string; mode: ResetMode };
 
 /** Exactly what a destructive Mutation would lose, as it stands right now. */
 export interface Loss {
@@ -422,6 +423,9 @@ export interface ConflictFile {
   mergeToolConfigured: boolean;
 }
 
+/** Keeps the changes staged, keeps them unstaged, or throws them away with everything uncommitted. */
+export type ResetMode = "soft" | "mixed" | "hard";
+
 export type PlanAction = "pick" | "reword" | "squash" | "fixup" | "drop" | "edit";
 
 export type RebasePlanEntry =
@@ -531,6 +535,11 @@ export interface CoreApi {
   discardChanges(path: string, paths: string[]): Promise<MutationOutcome>;
   /** Does nothing for a mutation that has already finished. */
   cancelMutation(mutationId: number): Promise<void>;
+  /** A conflict leaves the Worktree paused for the banner and the Conflicts view. */
+  cherryPickCommit(path: string, commit: string): Promise<MutationOutcome>;
+  revertCommit(path: string, commit: string): Promise<MutationOutcome>;
+  /** Confirm with `{ kind: "reset", commit, mode }` first. */
+  resetToCommit(path: string, commit: string, mode: ResetMode): Promise<MutationOutcome>;
   /**
    * The commits a rebase starting at `from` would replay, all set to pick. Without `from`, what
    * is left of the rebase in progress.

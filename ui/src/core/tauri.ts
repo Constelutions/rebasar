@@ -32,6 +32,7 @@ import type {
   MutationOutcome,
   OperationInProgress,
   RebasePlan,
+  ResetMode,
   SyncStatus,
   OutgoingCommit,
   Tab,
@@ -75,6 +76,11 @@ export const tauriCoreApi: CoreApi = {
   assessMutation: (path, kind) => invoke<Assessment>("assess_mutation", { path, kind }),
   discardChanges: (path, paths) => invoke<MutationOutcome>("discard_changes", { path, paths }),
   cancelMutation: (mutationId) => invoke<void>("cancel_mutation", { mutationId }),
+  cherryPickCommit: (path, commit) =>
+    invoke<MutationOutcome>("cherry_pick_commit", { path, commit }),
+  revertCommit: (path, commit) => invoke<MutationOutcome>("revert_commit", { path, commit }),
+  resetToCommit: (path, commit, mode: ResetMode) =>
+    invoke<MutationOutcome>("reset_to_commit", { path, commit, mode }),
   rebasePlan: (path, from) => invoke<RebasePlan>("rebase_plan", { path, from }),
   applyRebasePlan: (path, plan) => invoke<MutationOutcome>("apply_rebase_plan", { path, plan }),
   conflictFile: (path, file) => invoke<ConflictFile>("conflict_file", { path, file }),

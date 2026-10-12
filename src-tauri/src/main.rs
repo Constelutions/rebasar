@@ -6,7 +6,7 @@ use std::sync::Arc;
 use rebasar_core::{
     ApiError, Assessment, BranchInfo, ConflictFile, ConflictSide, CommitDetail, CommitDiffRequest, CommitHit, CommitOptions, Core,
     DiffRequest, FileChange, FileDiff, FoundRepository, GitHubAuthStatus, GitHubRepository, GitIdentity, GitSetup, Group,
-    HistoryCount, HistoryFilter, HistoryPage, LineSelection, MutationId, MergeMode, MutationKind, RebasePlan, MutationOutcome, OperationInProgress, PullStrategy,
+    HistoryCount, HistoryFilter, HistoryPage, LineSelection, MutationId, MergeMode, MutationKind, ResetMode, RebasePlan, MutationOutcome, OperationInProgress, PullStrategy,
     OutgoingCommit, PullRequest, RefLabel, RepositoryList, Session, Settings, Tab, WindowBounds,
     SyncStatus, WorktreeDiffRequest, WorktreeStatus,
 };
@@ -815,6 +815,43 @@ async fn apply_rebase_plan(
         .map_err(ApiError::unexpected)?
 }
 
+#[tauri::command]
+async fn cherry_pick_commit(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+    commit: String,
+) -> Result<MutationOutcome, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.cherry_pick_commit(&path, &commit))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn revert_commit(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+    commit: String,
+) -> Result<MutationOutcome, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.revert_commit(&path, &commit))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn reset_to_commit(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+    commit: String,
+    mode: ResetMode,
+) -> Result<MutationOutcome, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.reset_to_commit(&path, &commit, mode))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
 fn restore_window(window: &WebviewWindow, bounds: WindowBounds) {
     if let Err(error) = window.set_size(PhysicalSize::new(bounds.width, bounds.height)) {
         eprintln!("failed to restore the window size: {error}");
@@ -957,7 +994,10 @@ fn main() {
             resolve_conflict_with_side,
             open_merge_tool,
             rebase_plan,
-            apply_rebase_plan
+            apply_rebase_plan,
+            cherry_pick_commit,
+            revert_commit,
+            reset_to_commit
         ])
         .run(tauri::generate_context!())
         .expect("failed to run Rebasar");

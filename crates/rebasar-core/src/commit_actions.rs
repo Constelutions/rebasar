@@ -2,8 +2,26 @@
 
 use std::path::Path;
 
+use gix::bstr::ByteSlice;
+use gix::refs::Category;
+use serde::{Deserialize, Serialize};
+
 use crate::mutation::Mutation;
-use crate::{open_worktree, ApiError, Core, MutationOutcome};
+use crate::safety::Loss;
+use crate::sync::count_unreached;
+use crate::{commit, open_worktree, status, ApiError, Core, MutationOutcome};
+
+/// What a reset does with the changes between where HEAD was and where it goes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum ResetMode {
+    /// Keeps them staged.
+    Soft,
+    /// Keeps them as unstaged changes.
+    Mixed,
+    /// Throws them away, along with every other uncommitted change.
+    Hard,
+}
 
 const SHORT_ID_LENGTH: usize = 7;
 
@@ -58,6 +76,72 @@ impl Core {
         )
     }
 
+    /// Applies the commit's changes on top of HEAD. A conflict leaves the Worktree paused for the
+    /// Operation in progress banner.
+    pub fn cherry_pick_commit(
+        &self,
+        worktree: &Path,
+        commit: &str,
+    ) -> Result<MutationOutcome, ApiError> {
+        self.run_replay(worktree, commit, "Cherry-pick", "cherry-pick")
+    }
+
+    /// Adds a commit that undoes the given one. A conflict leaves the Worktree paused.
+    pub fn revert_commit(&self, worktree: &Path, commit: &str) -> Result<MutationOutcome, ApiError> {
+        self.run_replay(worktree, commit, "Revert", "revert")
+    }
+
+    fn run_replay(
+        &self,
+        worktree: &Path,
+        commit_id: &str,
+        verb: &str,
+        command: &str,
+    ) -> Result<MutationOutcome, ApiError> {
+        require_commit_id(commit_id)?;
+        let (_, repo) = open_worktree(worktree)?;
+        let is_merge = commit::find(&repo, commit_id)?.parent_ids().count() > 1;
+        drop(repo);
+
+        let mut args = vec![command];
+        if command == "revert" {
+            args.push("--no-edit");
+        }
+        if is_merge {
+            // A merge has no single parent to diff against; the first one is the branch it
+            // was merged into.
+            args.extend(["--mainline", "1"]);
+        }
+        args.push(commit_id);
+        self.mutations.run(
+            worktree,
+            Mutation::new(format!("{verb} {}", short(commit_id)), args),
+        )
+    }
+
+    /// Moves the current branch to the commit. Confirm through `MutationKind::Reset` first:
+    /// every mode can drop commits, and a hard reset also drops uncommitted work.
+    pub fn reset_to_commit(
+        &self,
+        worktree: &Path,
+        commit_id: &str,
+        mode: ResetMode,
+    ) -> Result<MutationOutcome, ApiError> {
+        require_commit_id(commit_id)?;
+        let flag = match mode {
+            ResetMode::Soft => "--soft",
+            ResetMode::Mixed => "--mixed",
+            ResetMode::Hard => "--hard",
+        };
+        self.mutations.run(
+            worktree,
+            Mutation::new(
+                format!("Reset {} to {}", flag.trim_start_matches("--"), short(commit_id)),
+                ["reset", flag, commit_id],
+            ),
+        )
+    }
+
     /// Replaces the message of the commit HEAD points at, leaving anything staged out of it.
     /// `commit` is the commit the caller saw as the latest; if HEAD has moved since, nothing is
     /// rewritten, so a stale view can never reword a different commit.
@@ -100,4 +184,64 @@ fn require_commit_id(commit: &str) -> Result<(), ApiError> {
 
 fn short(commit: &str) -> &str {
     &commit[..SHORT_ID_LENGTH.min(commit.len())]
+}
+
+/// What resetting to `commit_id` would lose: the commits of the current branch that nothing
+/// else reaches afterwards (none of them can be on a remote, since a remote branch is a branch
+/// too), and for a hard reset the uncommitted work.
+pub(crate) fn reset_loss(
+    repo: &gix::Repository,
+    commit_id: &str,
+    mode: ResetMode,
+) -> Result<Loss, ApiError> {
+    require_commit_id(commit_id)?;
+    let target = commit::find(repo, commit_id)?.id;
+    let head = repo.head().map_err(ApiError::unexpected)?;
+    let Some(tip) = head.id().map(|id| id.detach()) else {
+        return Ok(Loss::default());
+    };
+    let current: Option<Vec<u8>> = head.referent_name().map(|name| name.as_bstr().to_vec());
+
+    let mut kept = vec![target];
+    for reference in repo
+        .references()
+        .map_err(ApiError::unexpected)?
+        .all()
+        .map_err(ApiError::unexpected)?
+    {
+        let mut reference = reference.map_err(ApiError::unexpected)?;
+        if current.as_deref() == Some(reference.name().as_bstr().as_bytes()) {
+            continue;
+        }
+        let Some((category, _)) = reference.name().category_and_short_name() else {
+            continue;
+        };
+        if matches!(
+            category,
+            Category::LocalBranch | Category::RemoteBranch | Category::Tag
+        ) {
+            if let Ok(id) = reference.peel_to_id() {
+                kept.push(id.detach());
+            }
+        }
+    }
+    let dropped = count_unreached(repo, tip, kept)?;
+
+    let files = if mode == ResetMode::Hard {
+        let status = status::read(repo)?;
+        status
+            .conflicts
+            .into_iter()
+            .chain(status.staged)
+            .chain(status.unstaged)
+            .filter(|file| file.kind != status::ChangeKind::Untracked)
+            .collect()
+    } else {
+        Vec::new()
+    };
+    Ok(Loss {
+        files,
+        commits: dropped,
+        unpushed_commits: dropped,
+    })
 }

@@ -33,6 +33,7 @@ import {
   type OperationInProgress,
   type PullStrategy,
   type RebasePlan,
+  type ResetMode,
   type SyncStatus,
   type OutgoingCommit,
   type PullRequest,
@@ -71,7 +72,10 @@ export type CommitActionCall =
   | { kind: "checkout"; commit: string }
   | { kind: "createBranch"; name: string; commit: string }
   | { kind: "createTag"; name: string; commit: string }
-  | { kind: "reword"; commit: string; message: string };
+  | { kind: "reword"; commit: string; message: string }
+  | { kind: "cherryPick"; commit: string }
+  | { kind: "revert"; commit: string }
+  | { kind: "reset"; commit: string; mode: ResetMode };
 
 export interface MutationFailure {
   exitCode: number;
@@ -134,6 +138,8 @@ export interface StubCoreApi extends CoreApi {
   emitEvent(event: CoreEvent): void;
   /** Pauses the Worktree in the middle of an operation, or ends it with `null`, as the terminal would. */
   setOperation(path: string, operation: OperationInProgress | null): void;
+  /** How many commits a reset to `commit` would drop, for the confirmation to name. */
+  setCommitsDroppedByReset(commit: string, count: number): void;
   /** What the editor gets for a rebase starting at `from`; `null` is the rebase in progress. */
   setRebasePlan(path: string, from: string | null, plan: RebasePlan): void;
   /** What the Conflicts view reads for a conflicted file. */
@@ -231,6 +237,7 @@ export function createStubCoreApi(
   const resolvedContents = new Map<string, string>();
   const rebasePlans = new Map<string, RebasePlan>();
   const appliedPlans: RebasePlan[] = [];
+  const resetDrops = new Map<string, number>();
   const stagedLines: { direction: "stage" | "unstage"; selection: LineSelection }[] = [];
   let nextMutationId = 1;
   const backgroundWatched: string[] = [];
@@ -503,6 +510,18 @@ export function createStubCoreApi(
       entry.name = tab.repositoryName;
       entry.missing = false;
       entry.worktrees = [{ path: newPath, main: true, head: tab.head }];
+    },
+    async cherryPickCommit(path, commit) {
+      commitActions.push({ kind: "cherryPick", commit });
+      return mutate(path, `Cherry-pick ${commit.slice(0, 7)}`, (status) => status);
+    },
+    async revertCommit(path, commit) {
+      commitActions.push({ kind: "revert", commit });
+      return mutate(path, `Revert ${commit.slice(0, 7)}`, (status) => status);
+    },
+    async resetToCommit(path, commit, mode) {
+      commitActions.push({ kind: "reset", commit, mode });
+      return mutate(path, `Reset ${mode} to ${commit.slice(0, 7)}`, (status) => status);
     },
     async rebasePlan(path, from) {
       const found = rebasePlans.get(`${path}\0${from ?? ""}`);
@@ -789,6 +808,14 @@ export function createStubCoreApi(
     },
     async assessMutation(path, kind) {
       assessed.push(kind);
+      if (kind.kind === "reset") {
+        const status = statusOf(path);
+        const files = kind.mode === "hard" ? [...status.staged, ...status.unstaged] : [];
+        const commits = resetDrops.get(kind.commit) ?? 0;
+        return files.length === 0 && commits === 0
+          ? { kind: "safe" }
+          : { kind: "destructive", loss: { files, commits, unpushedCommits: commits } };
+      }
       if (kind.kind === "deleteBranch") {
         const branch = branchesOf(path).find((candidate) => candidate.name === kind.name);
         return branch && !branch.merged && branch.upstream === null
@@ -857,6 +884,9 @@ export function createStubCoreApi(
       if (operation) operations.set(path, operation);
       else operations.delete(path);
       emit({ type: "worktreeChanged", worktreePath: path });
+    },
+    setCommitsDroppedByReset(commit, count) {
+      resetDrops.set(commit, count);
     },
     setRebasePlan(path, from, plan) {
       rebasePlans.set(`${path}\0${from ?? ""}`, plan);

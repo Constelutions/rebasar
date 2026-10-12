@@ -102,6 +102,11 @@ it("offers the safe commit actions from the context menu", async () => {
     "Reword…",
     "Compare with working tree",
     "Interactive rebase from here…",
+    "Cherry-pick",
+    "Revert",
+    "Reset soft to here",
+    "Reset mixed to here",
+    "Reset hard to here",
   ]);
 });
 

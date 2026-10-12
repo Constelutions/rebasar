@@ -31,6 +31,11 @@ pub enum MutationKind {
     DeleteBranch {
         name: String,
     },
+    /// Moves the current branch to a commit; may drop commits and, when hard, uncommitted work.
+    Reset {
+        commit: String,
+        mode: crate::commit_actions::ResetMode,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -67,6 +72,9 @@ pub(crate) fn assess(repo: &gix::Repository, kind: &MutationKind) -> Result<Asse
         MutationKind::AbortOperation => crate::operation::abort_loss(repo)?,
         MutationKind::ForcePush => crate::sync::force_push_loss(repo)?,
         MutationKind::DeleteBranch { name } => crate::branches::delete_loss(repo, name)?,
+        MutationKind::Reset { commit, mode } => {
+            crate::commit_actions::reset_loss(repo, commit, *mode)?
+        }
         MutationKind::Stage | MutationKind::Unstage | MutationKind::Commit => {
             return Ok(Assessment::Safe);
         }
