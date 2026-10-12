@@ -36,6 +36,10 @@ pub enum MutationKind {
     DropStash {
         stash: String,
     },
+    /// Removes a linked Worktree with whatever is uncommitted in it.
+    RemoveWorktree {
+        path: String,
+    },
     Reset {
         commit: String,
         mode: crate::commit_actions::ResetMode,
@@ -76,6 +80,7 @@ pub(crate) fn assess(repo: &gix::Repository, kind: &MutationKind) -> Result<Asse
         MutationKind::AbortOperation => crate::operation::abort_loss(repo)?,
         MutationKind::ForcePush => crate::sync::force_push_loss(repo)?,
         MutationKind::DeleteBranch { name } => crate::branches::delete_loss(repo, name)?,
+        MutationKind::RemoveWorktree { path } => crate::worktrees::remove_loss(path)?,
         MutationKind::DropStash { stash } => crate::stash::drop_loss(repo, stash)?,
         MutationKind::Reset { commit, mode } => {
             crate::commit_actions::reset_loss(repo, commit, *mode)?

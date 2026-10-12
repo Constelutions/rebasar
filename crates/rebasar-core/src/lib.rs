@@ -35,6 +35,7 @@ mod status;
 mod sync;
 mod tabs;
 mod watch;
+mod worktrees;
 
 pub use adding::FoundRepository;
 pub use branches::{BranchInfo, BranchKind, MergeMode};
@@ -67,6 +68,7 @@ pub use repositories::{RepositoryEntry, RepositoryList, WorktreeEntry};
 pub use session::Session;
 pub use status::{ChangeKind, FileChange, WorktreeStatus};
 pub use stash::{StashInfo, StashPreview};
+pub use worktrees::{WorktreeDetail, WorktreeStart};
 pub use sync::{PullStrategy, SyncStatus};
 pub use tabs::CacheKind;
 use tabs::Registry;

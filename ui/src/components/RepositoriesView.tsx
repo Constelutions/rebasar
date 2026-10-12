@@ -27,6 +27,18 @@ export function RepositoriesView({ api, pickFolder, onAdd, version }: Repositori
     reload().catch((failure) => setError(describeError(failure)));
   }, [reload, version]);
 
+  // Worktrees created or removed from the Worktrees view, or in a terminal, show up here too.
+  useEffect(() => {
+    const subscription = api.onEvent((event) => {
+      if (event.type === "worktreeChanged") {
+        reload().catch((failure) => setError(describeError(failure)));
+      }
+    });
+    return () => {
+      void subscription.then((unsubscribe) => unsubscribe());
+    };
+  }, [api, reload]);
+
   async function run(action: () => Promise<unknown>): Promise<boolean> {
     setError(null);
     try {

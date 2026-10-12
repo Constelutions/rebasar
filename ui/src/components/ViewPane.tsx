@@ -8,6 +8,7 @@ import { ConflictsView } from "./ConflictsView";
 import { ChangesView } from "./ChangesView";
 import { PullRequestsView } from "./PullRequestsView";
 import { RepositoriesView } from "./RepositoriesView";
+import { WorktreesView } from "./WorktreesView";
 import { StashesView } from "./StashesView";
 import { SettingsView } from "./SettingsView";
 
@@ -83,6 +84,10 @@ function ViewContent({
   if (view === "Conflicts") {
     if (!tab) return <p className="placeholder">Open a folder to see its conflicts.</p>;
     return <ConflictsView api={api} worktreePath={tab.tab.worktreePath} status={tab.status} />;
+  }
+  if (view === "Worktrees") {
+    if (!tab) return <p className="placeholder">Open a folder to see its worktrees.</p>;
+    return <WorktreesView key={tab.tab.worktreePath} api={api} tab={tab.tab} pickFolder={pickFolder} />;
   }
   if (view === "Stashes") {
     if (!tab) return <p className="placeholder">Open a folder to see its stashes.</p>;

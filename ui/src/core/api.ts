@@ -299,7 +299,8 @@ export type MutationKind =
   | { kind: "forcePush" }
   | { kind: "deleteBranch"; name: string }
   | { kind: "reset"; commit: string; mode: ResetMode }
-  | { kind: "dropStash"; stash: string };
+  | { kind: "dropStash"; stash: string }
+  | { kind: "removeWorktree"; path: string };
 
 /** Exactly what a destructive Mutation would lose, as it stands right now. */
 export interface Loss {
@@ -446,6 +447,20 @@ export interface StashPreview {
   untracked: string[];
 }
 
+export interface WorktreeDetail {
+  path: string;
+  /** The Worktree that holds the Repository itself; it cannot be removed. */
+  main: boolean;
+  head: Head;
+  /** It has changes that are not committed, untracked files included. */
+  dirty: boolean;
+  /** The Worktree the question was asked from. */
+  current: boolean;
+}
+
+/** What a new Worktree starts from. */
+export type WorktreeStart = { kind: "branch"; name: string } | { kind: "commit"; id: string };
+
 export type PlanAction = "pick" | "reword" | "squash" | "fixup" | "drop" | "edit";
 
 export type RebasePlanEntry =
@@ -555,6 +570,19 @@ export interface CoreApi {
   discardChanges(path: string, paths: string[]): Promise<MutationOutcome>;
   /** Does nothing for a mutation that has already finished. */
   cancelMutation(mutationId: number): Promise<void>;
+  /** The Worktrees of the Repository the Tab belongs to, the main one first. */
+  listWorktreeDetails(path: string): Promise<WorktreeDetail[]>;
+  /** A branch start checks it out; with `newBranch` that branch is created; a bare commit detaches. */
+  createWorktree(
+    path: string,
+    target: string,
+    from: WorktreeStart,
+    newBranch: string | null,
+  ): Promise<MutationOutcome>;
+  /** Closes the Worktree's Tab. Confirm with `{ kind: "removeWorktree", path }` first, then force. */
+  removeWorktree(path: string, target: string, force: boolean): Promise<MutationOutcome>;
+  /** Forgets Worktrees whose folder is gone. */
+  pruneWorktrees(path: string): Promise<MutationOutcome>;
   /** Newest first. */
   listStashes(path: string): Promise<StashInfo[]>;
   stashPreview(path: string, stash: string): Promise<StashPreview>;

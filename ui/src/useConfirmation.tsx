@@ -16,6 +16,7 @@ const confirmationTexts: Partial<Record<MutationKind["kind"], ConfirmationText>>
   deleteBranch: { title: "Delete branch", confirmLabel: "Delete" },
   reset: { title: "Reset", confirmLabel: "Reset" },
   dropStash: { title: "Drop stash", confirmLabel: "Drop" },
+  removeWorktree: { title: "Remove worktree", confirmLabel: "Remove" },
 };
 
 const fallbackText: ConfirmationText = { title: "Are you sure?", confirmLabel: "Continue" };

@@ -36,6 +36,7 @@ import {
   type ResetMode,
   type StashInfo,
   type StashPreview,
+  type WorktreeDetail,
   type SyncStatus,
   type OutgoingCommit,
   type PullRequest,
@@ -140,6 +141,8 @@ export interface StubCoreApi extends CoreApi {
   emitEvent(event: CoreEvent): void;
   /** Pauses the Worktree in the middle of an operation, or ends it with `null`, as the terminal would. */
   setOperation(path: string, operation: OperationInProgress | null): void;
+  /** The Worktrees the Worktrees view lists. */
+  setWorktreeDetails(path: string, worktrees: WorktreeDetail[]): void;
   /** The stashes the Stashes view lists, newest first, with what each one holds. */
   setStashes(path: string, stashes: { info: StashInfo; preview: StashPreview }[]): void;
   /** How many commits a reset to `commit` would drop, for the confirmation to name. */
@@ -186,6 +189,8 @@ export interface StubCoreApi extends CoreApi {
   readonly appliedPlans: readonly RebasePlan[];
   /** Every stash action the UI ran, such as `pop:abc`, `create:message:untracked`, in order. */
   readonly stashActions: readonly string[];
+  /** Every Worktree action the UI ran, such as `create:/path:branch:topic`, in order. */
+  readonly worktreeActions: readonly string[];
   readonly stagedLines: readonly { direction: "stage" | "unstage"; selection: LineSelection }[];
   /** Every diff the UI asked for, in order. */
   readonly diffRequests: readonly DiffRequest[];
@@ -246,6 +251,8 @@ export function createStubCoreApi(
   const resetDrops = new Map<string, number>();
   const stashLists = new Map<string, { info: StashInfo; preview: StashPreview }[]>();
   const stashActions: string[] = [];
+  const worktreeLists = new Map<string, WorktreeDetail[]>();
+  const worktreeActions: string[] = [];
   const stagedLines: { direction: "stage" | "unstage"; selection: LineSelection }[] = [];
   let nextMutationId = 1;
   const backgroundWatched: string[] = [];
@@ -518,6 +525,38 @@ export function createStubCoreApi(
       entry.name = tab.repositoryName;
       entry.missing = false;
       entry.worktrees = [{ path: newPath, main: true, head: tab.head }];
+    },
+    async listWorktreeDetails(path) {
+      return (
+        worktreeLists.get(path) ?? [
+          { path, main: true, head: { kind: "branch", name: "main" }, dirty: false, current: true },
+        ]
+      );
+    },
+    async createWorktree(path, target, from, newBranch) {
+      const start = from.kind === "branch" ? `branch:${from.name}` : `commit:${from.id}`;
+      worktreeActions.push(`create:${target}:${start}${newBranch ? `:new:${newBranch}` : ""}`);
+      return mutate(path, `Add worktree ${target}`, (status) => {
+        const list = worktreeLists.get(path) ?? [];
+        const head: WorktreeDetail["head"] = newBranch
+          ? { kind: "branch", name: newBranch }
+          : from.kind === "branch"
+            ? { kind: "branch", name: from.name }
+            : { kind: "detached", commit: from.id.slice(0, 7) };
+        worktreeLists.set(path, [...list, { path: target, main: false, head, dirty: false, current: false }]);
+        return status;
+      });
+    },
+    async removeWorktree(path, target, force) {
+      worktreeActions.push(`remove:${target}${force ? ":force" : ""}`);
+      return mutate(path, `Remove worktree ${target}`, (status) => {
+        worktreeLists.set(path, (worktreeLists.get(path) ?? []).filter((entry) => entry.path !== target));
+        return status;
+      });
+    },
+    async pruneWorktrees(path) {
+      worktreeActions.push("prune");
+      return mutate(path, "Prune worktrees", (status) => status);
     },
     async listStashes(path) {
       return (stashLists.get(path) ?? []).map(({ info }) => info);
@@ -859,6 +898,19 @@ export function createStubCoreApi(
     },
     async assessMutation(path, kind) {
       assessed.push(kind);
+      if (kind.kind === "removeWorktree") {
+        const found = (worktreeLists.get(path) ?? []).find((entry) => entry.path === kind.path);
+        return found?.dirty
+          ? {
+              kind: "destructive",
+              loss: {
+                files: [{ path: "unsaved.ts", originalPath: null, kind: "modified", added: 1, removed: 0 }],
+                commits: 0,
+                unpushedCommits: 0,
+              },
+            }
+          : { kind: "safe" };
+      }
       if (kind.kind === "dropStash") {
         const found = (stashLists.get(path) ?? []).find(({ info }) => info.id === kind.stash);
         return found
@@ -942,6 +994,10 @@ export function createStubCoreApi(
       else operations.delete(path);
       emit({ type: "worktreeChanged", worktreePath: path });
     },
+    setWorktreeDetails(path, worktrees) {
+      worktreeLists.set(path, worktrees);
+      emit({ type: "worktreeChanged", worktreePath: path });
+    },
     setStashes(path, stashes) {
       stashLists.set(path, stashes);
       emit({ type: "worktreeChanged", worktreePath: path });
@@ -1004,6 +1060,7 @@ export function createStubCoreApi(
     assessedMutations: assessed,
     discards,
     stagedLines,
+    worktreeActions,
     stashActions,
     appliedPlans,
     conflictActions,

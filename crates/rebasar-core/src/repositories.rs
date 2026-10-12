@@ -161,7 +161,7 @@ fn list(record: &RepositoryRecord) -> RepositoryEntry {
 
 /// Linked Worktrees whose folder was deleted are left out: they cannot be opened and Git will
 /// prune them.
-fn read_worktrees(folder: &Path) -> Result<Vec<WorktreeEntry>, ApiError> {
+pub(crate) fn read_worktrees(folder: &Path) -> Result<Vec<WorktreeEntry>, ApiError> {
     let (main_path, main) = open_worktree(folder)?;
     let mut worktrees = vec![WorktreeEntry {
         path: main_path.to_string_lossy().into_owned(),

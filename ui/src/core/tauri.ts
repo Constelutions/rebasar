@@ -35,6 +35,8 @@ import type {
   ResetMode,
   StashInfo,
   StashPreview,
+  WorktreeDetail,
+  WorktreeStart,
   SyncStatus,
   OutgoingCommit,
   Tab,
@@ -78,6 +80,12 @@ export const tauriCoreApi: CoreApi = {
   assessMutation: (path, kind) => invoke<Assessment>("assess_mutation", { path, kind }),
   discardChanges: (path, paths) => invoke<MutationOutcome>("discard_changes", { path, paths }),
   cancelMutation: (mutationId) => invoke<void>("cancel_mutation", { mutationId }),
+  listWorktreeDetails: (path) => invoke<WorktreeDetail[]>("list_worktree_details", { path }),
+  createWorktree: (path, target, from: WorktreeStart, newBranch) =>
+    invoke<MutationOutcome>("create_worktree", { path, target, from, newBranch }),
+  removeWorktree: (path, target, force) =>
+    invoke<MutationOutcome>("remove_worktree", { path, target, force }),
+  pruneWorktrees: (path) => invoke<MutationOutcome>("prune_worktrees", { path }),
   listStashes: (path) => invoke<StashInfo[]>("list_stashes", { path }),
   stashPreview: (path, stash) => invoke<StashPreview>("stash_preview", { path, stash }),
   stashChanges: (path, message, includeUntracked) =>

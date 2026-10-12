@@ -2236,3 +2236,41 @@ button {
   display: flex;
   gap: var(--space-2);
 }
+
+.worktrees {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.new-worktree {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.worktree-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.worktree-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.worktree-head {
+  font: var(--text-md) var(--font-mono);
+  color: var(--color-text-strong);
+}
+
+.worktree-path {
+  font: var(--text-xs) var(--font-mono);
+  color: var(--color-text-subtle);
+}

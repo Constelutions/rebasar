@@ -6,7 +6,7 @@ use std::sync::Arc;
 use rebasar_core::{
     ApiError, Assessment, BranchInfo, ConflictFile, ConflictSide, CommitDetail, CommitDiffRequest, CommitHit, CommitOptions, Core,
     DiffRequest, FileChange, FileDiff, FoundRepository, GitHubAuthStatus, GitHubRepository, GitIdentity, GitSetup, Group,
-    HistoryCount, HistoryFilter, HistoryPage, LineSelection, MutationId, MergeMode, MutationKind, ResetMode, StashInfo, StashPreview, RebasePlan, MutationOutcome, OperationInProgress, PullStrategy,
+    HistoryCount, HistoryFilter, HistoryPage, LineSelection, MutationId, MergeMode, MutationKind, ResetMode, StashInfo, StashPreview, WorktreeDetail, WorktreeStart, RebasePlan, MutationOutcome, OperationInProgress, PullStrategy,
     OutgoingCommit, PullRequest, RefLabel, RepositoryList, Session, Settings, Tab, WindowBounds,
     SyncStatus, WorktreeDiffRequest, WorktreeStatus,
 };
@@ -924,6 +924,55 @@ async fn drop_stash(
         .map_err(ApiError::unexpected)?
 }
 
+#[tauri::command]
+async fn list_worktree_details(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+) -> Result<Vec<WorktreeDetail>, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.list_worktree_details(&path))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn create_worktree(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+    target: PathBuf,
+    from: WorktreeStart,
+    new_branch: Option<String>,
+) -> Result<MutationOutcome, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.create_worktree(&path, &target, &from, new_branch.as_deref()))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn remove_worktree(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+    target: PathBuf,
+    force: bool,
+) -> Result<MutationOutcome, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.remove_worktree(&path, &target, force))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn prune_worktrees(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+) -> Result<MutationOutcome, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.prune_worktrees(&path))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
 fn restore_window(window: &WebviewWindow, bounds: WindowBounds) {
     if let Err(error) = window.set_size(PhysicalSize::new(bounds.width, bounds.height)) {
         eprintln!("failed to restore the window size: {error}");
@@ -1075,7 +1124,11 @@ fn main() {
             stash_changes,
             apply_stash,
             pop_stash,
-            drop_stash
+            drop_stash,
+            list_worktree_details,
+            create_worktree,
+            remove_worktree,
+            prune_worktrees
         ])
         .run(tauri::generate_context!())
         .expect("failed to run Rebasar");
