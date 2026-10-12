@@ -399,6 +399,29 @@ export interface BranchInfo {
 
 export type MergeMode = "default" | "noFastForward" | "squash";
 
+export type ConflictKind = "text" | "binary" | "deleteModify" | "unsupported";
+
+export type ConflictSide = "ours" | "theirs";
+
+/** A stretch of a conflicted file with its conflict markers read back out of it. */
+export type ConflictSegment =
+  | { kind: "text"; text: string }
+  | { kind: "conflict"; ours: string; theirs: string };
+
+export interface ConflictFile {
+  path: string;
+  kind: ConflictKind;
+  /** The file as the current branch has it; empty where it deleted it, and for a binary file. */
+  ours: string;
+  theirs: string;
+  /** The file on disk cut at its conflict markers; only for a text conflict. */
+  segments: ConflictSegment[];
+  /** Which side deleted the file in a delete/modify conflict. */
+  deletedBy: ConflictSide | null;
+  /** Whether `merge.tool` is set, so an unsupported conflict can be handed to it. */
+  mergeToolConfigured: boolean;
+}
+
 export interface WorktreeDiffRequest {
   commit: string;
   path: string;
@@ -483,6 +506,13 @@ export interface CoreApi {
   discardChanges(path: string, paths: string[]): Promise<MutationOutcome>;
   /** Does nothing for a mutation that has already finished. */
   cancelMutation(mutationId: number): Promise<void>;
+  conflictFile(path: string, file: string): Promise<ConflictFile>;
+  /** Saves the contents as the resolved file and stages it, which marks it resolved. */
+  resolveConflictFile(path: string, file: string, contents: string): Promise<MutationOutcome>;
+  /** Keeps one side's version whole; deletes the file when that side deleted it. */
+  resolveConflictWithSide(path: string, file: string, side: ConflictSide): Promise<MutationOutcome>;
+  /** Opens the file in the user's configured merge tool. */
+  openMergeTool(path: string, file: string): Promise<MutationOutcome>;
   /** Local branches first, then remote ones, each by name. */
   listBranchDetails(path: string): Promise<BranchInfo[]>;
   /** At the current commit; the Worktree switches to it only when `switchTo` is set. */

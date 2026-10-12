@@ -4,6 +4,7 @@ import type { ViewName } from "../views";
 import type { OpenTab } from "../useOpenTabs";
 import type { AddKind } from "./AddRepositoryDialog";
 import { BranchesView } from "./BranchesView";
+import { ConflictsView } from "./ConflictsView";
 import { ChangesView } from "./ChangesView";
 import { PullRequestsView } from "./PullRequestsView";
 import { RepositoriesView } from "./RepositoriesView";
@@ -77,6 +78,10 @@ function ViewContent({
         initialQuery={commitSearch.query}
       />
     );
+  }
+  if (view === "Conflicts") {
+    if (!tab) return <p className="placeholder">Open a folder to see its conflicts.</p>;
+    return <ConflictsView api={api} worktreePath={tab.tab.worktreePath} status={tab.status} />;
   }
   if (view === "Branches") {
     if (!tab) return <p className="placeholder">Open a folder to see its branches.</p>;

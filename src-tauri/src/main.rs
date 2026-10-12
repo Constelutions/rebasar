@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use rebasar_core::{
-    ApiError, Assessment, BranchInfo, CommitDetail, CommitDiffRequest, CommitHit, CommitOptions, Core,
+    ApiError, Assessment, BranchInfo, ConflictFile, ConflictSide, CommitDetail, CommitDiffRequest, CommitHit, CommitOptions, Core,
     DiffRequest, FileChange, FileDiff, FoundRepository, GitHubAuthStatus, GitHubRepository, GitIdentity, GitSetup, Group,
     HistoryCount, HistoryFilter, HistoryPage, LineSelection, MutationId, MergeMode, MutationKind, MutationOutcome, OperationInProgress, PullStrategy,
     OutgoingCommit, PullRequest, RefLabel, RepositoryList, Session, Settings, Tab, WindowBounds,
@@ -741,6 +741,56 @@ async fn rebase_onto(
         .map_err(ApiError::unexpected)?
 }
 
+#[tauri::command]
+async fn conflict_file(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+    file: String,
+) -> Result<ConflictFile, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.conflict_file(&path, &file))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn resolve_conflict_file(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+    file: String,
+    contents: String,
+) -> Result<MutationOutcome, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.resolve_conflict_file(&path, &file, &contents))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn resolve_conflict_with_side(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+    file: String,
+    side: ConflictSide,
+) -> Result<MutationOutcome, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.resolve_conflict_with_side(&path, &file, side))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn open_merge_tool(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+    file: String,
+) -> Result<MutationOutcome, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.open_merge_tool(&path, &file))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
 fn restore_window(window: &WebviewWindow, bounds: WindowBounds) {
     if let Err(error) = window.set_size(PhysicalSize::new(bounds.width, bounds.height)) {
         eprintln!("failed to restore the window size: {error}");
@@ -877,7 +927,11 @@ fn main() {
             delete_branch,
             set_branch_upstream,
             merge_branch,
-            rebase_onto
+            rebase_onto,
+            conflict_file,
+            resolve_conflict_file,
+            resolve_conflict_with_side,
+            open_merge_tool
         ])
         .run(tauri::generate_context!())
         .expect("failed to run Rebasar");

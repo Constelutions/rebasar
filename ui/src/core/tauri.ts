@@ -5,6 +5,8 @@ import type {
   Assessment,
   CommitDetail,
   BranchInfo,
+  ConflictFile,
+  ConflictSide,
   CommitDiffRequest,
   CommitHit,
   CoreApi,
@@ -72,6 +74,12 @@ export const tauriCoreApi: CoreApi = {
   assessMutation: (path, kind) => invoke<Assessment>("assess_mutation", { path, kind }),
   discardChanges: (path, paths) => invoke<MutationOutcome>("discard_changes", { path, paths }),
   cancelMutation: (mutationId) => invoke<void>("cancel_mutation", { mutationId }),
+  conflictFile: (path, file) => invoke<ConflictFile>("conflict_file", { path, file }),
+  resolveConflictFile: (path, file, contents) =>
+    invoke<MutationOutcome>("resolve_conflict_file", { path, file, contents }),
+  resolveConflictWithSide: (path, file, side: ConflictSide) =>
+    invoke<MutationOutcome>("resolve_conflict_with_side", { path, file, side }),
+  openMergeTool: (path, file) => invoke<MutationOutcome>("open_merge_tool", { path, file }),
   listBranchDetails: (path) => invoke<BranchInfo[]>("list_branch_details", { path }),
   createBranchHere: (path, name, switchTo) =>
     invoke<MutationOutcome>("create_branch_here", { path, name, switch: switchTo }),

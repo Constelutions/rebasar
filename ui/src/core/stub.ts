@@ -8,6 +8,8 @@ import {
   type DiffLine,
   type DiffRequest,
   type BranchInfo,
+  type ConflictFile,
+  type ConflictSide,
   type FileChange,
   type FileDiff,
   type FoundRepository,
@@ -131,6 +133,8 @@ export interface StubCoreApi extends CoreApi {
   emitEvent(event: CoreEvent): void;
   /** Pauses the Worktree in the middle of an operation, or ends it with `null`, as the terminal would. */
   setOperation(path: string, operation: OperationInProgress | null): void;
+  /** What the Conflicts view reads for a conflicted file. */
+  setConflictFile(path: string, file: ConflictFile): void;
   /** The branches the Branches view lists; by default just `main`, checked out. */
   setBranchDetails(path: string, branches: BranchInfo[]): void;
   /** What the Worktree reports as ahead and behind, as a fetch from outside the app would. */
@@ -161,6 +165,10 @@ export interface StubCoreApi extends CoreApi {
   readonly syncActions: readonly string[];
   /** Every branch action the UI ran, such as `merge:topic:noFastForward`, in order. */
   readonly branchActions: readonly string[];
+  /** What the UI did to conflicted files, such as `resolve:a.txt`, `side:a.txt:ours`, in order. */
+  readonly conflictActions: readonly string[];
+  /** The contents each file was resolved with, by path. */
+  readonly resolvedContents: ReadonlyMap<string, string>;
   readonly stagedLines: readonly { direction: "stage" | "unstage"; selection: LineSelection }[];
   /** Every diff the UI asked for, in order. */
   readonly diffRequests: readonly DiffRequest[];
@@ -213,6 +221,9 @@ export function createStubCoreApi(
   const syncActions: string[] = [];
   const branchDetails = new Map<string, BranchInfo[]>();
   const branchActions: string[] = [];
+  const conflictFiles = new Map<string, ConflictFile>();
+  const conflictActions: string[] = [];
+  const resolvedContents = new Map<string, string>();
   const stagedLines: { direction: "stage" | "unstage"; selection: LineSelection }[] = [];
   let nextMutationId = 1;
   const backgroundWatched: string[] = [];
@@ -289,6 +300,17 @@ export function createStubCoreApi(
     return mutate(path, title, (status) => {
       operations.delete(path);
       return status;
+    });
+  }
+
+  function resolveConflict(path: string, file: string): MutationOutcome {
+    return mutate(path, `Mark ${file} resolved`, (status) => {
+      const resolved = status.conflicts.find((change) => change.path === file);
+      return {
+        ...status,
+        conflicts: status.conflicts.filter((change) => change.path !== file),
+        staged: resolved ? [...status.staged, { ...resolved, kind: "modified" }] : status.staged,
+      };
     });
   }
 
@@ -474,6 +496,24 @@ export function createStubCoreApi(
       entry.name = tab.repositoryName;
       entry.missing = false;
       entry.worktrees = [{ path: newPath, main: true, head: tab.head }];
+    },
+    async conflictFile(path, file) {
+      const found = conflictFiles.get(`${path}\0${file}`);
+      if (!found) throw { kind: "unexpected", message: `${file} is not in conflict` };
+      return found;
+    },
+    async resolveConflictFile(path, file, contents) {
+      conflictActions.push(`resolve:${file}`);
+      resolvedContents.set(file, contents);
+      return resolveConflict(path, file);
+    },
+    async resolveConflictWithSide(path, file, side: ConflictSide) {
+      conflictActions.push(`side:${file}:${side}`);
+      return resolveConflict(path, file);
+    },
+    async openMergeTool(path, file) {
+      conflictActions.push(`tool:${file}`);
+      return mutate(path, `Merge tool for ${file}`, (status) => status);
     },
     async listBranchDetails(path) {
       return branchesOf(path).map((branch) => ({ ...branch }));
@@ -802,6 +842,9 @@ export function createStubCoreApi(
       else operations.delete(path);
       emit({ type: "worktreeChanged", worktreePath: path });
     },
+    setConflictFile(path, file) {
+      conflictFiles.set(`${path}\0${file.path}`, file);
+    },
     setBranchDetails(path, list) {
       branchDetails.set(path, list);
       emit({ type: "worktreeChanged", worktreePath: path });
@@ -851,6 +894,8 @@ export function createStubCoreApi(
     assessedMutations: assessed,
     discards,
     stagedLines,
+    conflictActions,
+    resolvedContents,
     branchActions,
     syncActions,
     operationActions,

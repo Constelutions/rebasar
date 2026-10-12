@@ -2064,3 +2064,80 @@ button {
   gap: var(--space-2);
   margin-left: auto;
 }
+
+.conflicts {
+  display: flex;
+  gap: var(--space-4);
+  min-height: 0;
+}
+
+.conflict-files {
+  flex: none;
+  min-width: 180px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.conflict-files button[aria-pressed="true"] {
+  background: var(--color-hover);
+}
+
+.conflict-detail {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.conflict-panes {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-3);
+}
+
+.conflict-pane h2 {
+  margin: 0 0 var(--space-1);
+  font-size: var(--text-md);
+  color: var(--color-text-muted);
+}
+
+.conflict-pane pre,
+.conflict-pane textarea {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 280px;
+  margin: 0;
+  padding: var(--space-2);
+  overflow: auto;
+  font: var(--text-sm) var(--font-mono);
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+
+.conflict-hunks {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.conflict-hunks li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) 0;
+}
+
+.conflict-hunks button[aria-pressed="true"] {
+  background: var(--color-hover);
+}
+
+.conflict-actions,
+.conflict-sides {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
