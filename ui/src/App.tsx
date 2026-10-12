@@ -229,6 +229,7 @@ function Shell({
               commitSearch={commitSearch}
               pickFolder={pickFolder}
               onAddRepository={onAdd}
+              onNavigate={showView}
               repositoriesVersion={repositoriesVersion}
             />
           </div>

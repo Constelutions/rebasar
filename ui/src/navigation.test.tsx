@@ -17,7 +17,7 @@ const viewNames = [
 ];
 
 const emptyViewNames = viewNames.filter(
-  (name) => !["Settings", "History", "Repositories", "Branches", "Conflicts", "Stashes", "Worktrees"].includes(name),
+  (name) => !["Settings", "History", "Repositories", "Branches", "Conflicts", "Stashes", "Worktrees", "Home"].includes(name),
 );
 
 function renderSidebar() {
