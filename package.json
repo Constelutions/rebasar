@@ -7,6 +7,7 @@
     "test:ui": "pnpm -r test",
     "test:core": "cargo test --workspace",
     "test": "pnpm test:core && pnpm test:ui",
+    "e2e": "node e2e/smoke.mjs",
     "bench:fixtures": "cargo run --release -p rebasar-bench -- generate",
     "bench": "cargo run --release -p rebasar-bench -- run"
   },

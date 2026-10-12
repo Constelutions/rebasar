@@ -1194,6 +1194,15 @@ async fn discard_changes(
         .map_err(ApiError::unexpected)?
 }
 
+/// `REBASAR_CONFIG_DIR` keeps a test run, such as the smoke run, away from the user's own
+/// registry and settings.
+fn config_dir_of(app: &tauri::App) -> tauri::Result<PathBuf> {
+    match std::env::var_os("REBASAR_CONFIG_DIR") {
+        Some(folder) => Ok(PathBuf::from(folder)),
+        None => app.path().app_config_dir(),
+    }
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
@@ -1204,13 +1213,13 @@ fn main() {
                     eprintln!("failed to emit core event: {error}");
                 }
             })
-            .with_registry_file(app.path().app_config_dir()?.join("registry.json"));
+            .with_registry_file(config_dir_of(app)?.join("registry.json"));
             if let (Some(window), Some(bounds)) =
                 (app.get_webview_window("main"), core.window_bounds())
             {
                 restore_window(&window, bounds);
             }
-            let config_dir = app.path().app_config_dir()?;
+            let config_dir = config_dir_of(app)?;
             app.manage(Arc::new(core.with_config_dir(config_dir)));
             Ok(())
         })
