@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import type { CoreApi, RefLabel } from "./core/api";
+import type { AddKind } from "./components/AddRepositoryDialog";
 import { describeHead } from "./components/TabStrip";
 import { usePalette, usePaletteCommands } from "./palette/PaletteProvider";
 import type { PaletteCommand } from "./palette/registry";
@@ -20,6 +21,7 @@ interface ShellCommandHandlers {
   showView: (view: ViewName) => void;
   /** Shows History narrowed by the filter `query`. */
   showCommits: (query: string) => void;
+  addRepository: (kind: AddKind) => void;
 }
 
 /** Registers what the title bar, the sidebar and the Tab strip let the user do. */
@@ -33,6 +35,7 @@ export function useShellCommands({
   selectTab,
   showView,
   showCommits,
+  addRepository,
 }: ShellCommandHandlers) {
   const windowCommands = useMemo<PaletteCommand[]>(
     () => [
@@ -43,6 +46,27 @@ export function useShellCommands({
         keywords: ["add", "repository", "worktree"],
         shortcut: shortcuts.openFolder.label,
         run: openFolder,
+      },
+      {
+        id: "shell.clone-repository",
+        title: "Clone repository…",
+        group: "Repository",
+        keywords: ["add", "url", "git clone"],
+        run: () => addRepository("clone"),
+      },
+      {
+        id: "shell.init-repository",
+        title: "Initialise repository…",
+        group: "Repository",
+        keywords: ["add", "new", "git init"],
+        run: () => addRepository("init"),
+      },
+      {
+        id: "shell.scan-folder",
+        title: "Scan folder for repositories…",
+        group: "Repository",
+        keywords: ["add", "import", "find"],
+        run: () => addRepository("scan"),
       },
       {
         id: "window.minimize",
@@ -64,7 +88,7 @@ export function useShellCommands({
         run: () => appWindow.close(),
       },
     ],
-    [appWindow, openFolder],
+    [appWindow, openFolder, addRepository],
   );
 
   const viewCommands = useMemo<PaletteCommand[]>(

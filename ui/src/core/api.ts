@@ -14,6 +14,9 @@ export type ApiError =
   | { kind: "groupNotFound"; id: string }
   | { kind: "repositoryNotFound"; path: string }
   | { kind: "invalidGroupName" }
+  | { kind: "alreadyARepository"; path: string }
+  | { kind: "invalidRepositoryUrl"; url: string }
+  | { kind: "gitFailed"; message: string }
   /** `start..end` are character offsets into the query text. */
   | { kind: "invalidQuery"; message: string; start: number; end: number }
   | { kind: "notGithub"; path: string }
@@ -251,6 +254,14 @@ export interface WorktreeEntry {
   head: Head;
 }
 
+/** A Repository a scan came across. */
+export interface FoundRepository {
+  path: string;
+  name: string;
+  /** Importing it would change nothing. */
+  alreadyAdded: boolean;
+}
+
 export interface RepositoryEntry {
   path: string;
   name: string;
@@ -440,6 +451,17 @@ export interface CoreApi {
   locateRepository(path: string, newPath: string): Promise<void>;
   /** Forgets the Repository and closes its Tabs; its folder is left alone. */
   removeRepository(path: string): Promise<void>;
+  /**
+   * Clones into a new folder named after the Repository inside `parent` and opens it as a Tab.
+   * Progress streams as a mutation; resolves to `null` when cancelled.
+   */
+  cloneRepository(url: string, parent: string, groupId: string | null): Promise<Tab | null>;
+  /** Resolves to `null` when cancelled. */
+  initRepository(folder: string, groupId: string | null): Promise<Tab | null>;
+  /** A one-time look below `parent`; nothing is remembered. */
+  scanFolder(parent: string): Promise<FoundRepository[]>;
+  /** Adds the Repositories without opening Tabs. */
+  importRepositories(paths: string[], groupId: string | null): Promise<void>;
   /** Resolves to a function that stops the subscription. */
   onEvent(handler: (event: CoreEvent) => void): Promise<() => void>;
 }

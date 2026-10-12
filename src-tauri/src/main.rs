@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use rebasar_core::{
     ApiError, Assessment, CommitDetail, CommitDiffRequest, CommitHit, CommitOptions, Core,
-    DiffRequest, FileDiff, GitHubAuthStatus, GitHubRepository, GitIdentity, GitSetup, Group,
+    DiffRequest, FileDiff, FoundRepository, GitHubAuthStatus, GitHubRepository, GitIdentity, GitSetup, Group,
     HistoryCount, HistoryFilter, HistoryPage, LineSelection, MutationId, MutationKind, MutationOutcome,
     OutgoingCommit, PullRequest, RefLabel, RepositoryList, Session, Settings, Tab, WindowBounds,
     WorktreeStatus,
@@ -410,6 +410,58 @@ async fn remove_repository(core: State<'_, Arc<Core>>, path: PathBuf) -> Result<
         .map_err(ApiError::unexpected)?
 }
 
+#[tauri::command]
+async fn clone_repository(
+    core: State<'_, Arc<Core>>,
+    url: String,
+    parent: PathBuf,
+    group_id: Option<String>,
+) -> Result<Option<Tab>, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || {
+        core.clone_repository(&url, &parent, group_id.as_deref())
+    })
+    .await
+    .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn init_repository(
+    core: State<'_, Arc<Core>>,
+    folder: PathBuf,
+    group_id: Option<String>,
+) -> Result<Option<Tab>, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.init_repository(&folder, group_id.as_deref()))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn scan_folder(
+    core: State<'_, Arc<Core>>,
+    parent: PathBuf,
+) -> Result<Vec<FoundRepository>, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.scan_folder(&parent))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn import_repositories(
+    core: State<'_, Arc<Core>>,
+    paths: Vec<PathBuf>,
+    group_id: Option<String>,
+) -> Result<(), ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || {
+        core.import_repositories(&paths, group_id.as_deref())
+    })
+    .await
+    .map_err(ApiError::unexpected)?
+}
+
 fn restore_window(window: &WebviewWindow, bounds: WindowBounds) {
     if let Err(error) = window.set_size(PhysicalSize::new(bounds.width, bounds.height)) {
         eprintln!("failed to restore the window size: {error}");
@@ -519,7 +571,11 @@ fn main() {
             move_group,
             move_repository,
             locate_repository,
-            remove_repository
+            remove_repository,
+            clone_repository,
+            init_repository,
+            scan_folder,
+            import_repositories
         ])
         .run(tauri::generate_context!())
         .expect("failed to run Rebasar");

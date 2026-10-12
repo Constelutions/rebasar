@@ -4,7 +4,7 @@ use serde::Serialize;
 
 use crate::registry::RepositoryRecord;
 use crate::{
-    is_repository_folder, open_worktree, platform, read_head, repository_folder, ApiError, Core,
+    folder_name, is_repository_folder, open_worktree, platform, read_head, repository_folder, ApiError, Core,
     Group, Head,
 };
 
@@ -107,10 +107,7 @@ impl Core {
         let (_, repo) = open_worktree(new_path)?;
         let folder = repository_folder(&repo)?;
         let new = folder.to_string_lossy().into_owned();
-        let name = folder
-            .file_name()
-            .map(|name| name.to_string_lossy().into_owned())
-            .unwrap_or_default();
+        let name = folder_name(&folder);
 
         self.registry.update(|data| {
             let position = data.repository_position(&old)?;

@@ -6,6 +6,7 @@ use std::time::Duration;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+mod adding;
 mod commit;
 mod diff;
 mod git_setup;
@@ -27,6 +28,7 @@ mod status;
 mod tabs;
 mod watch;
 
+pub use adding::FoundRepository;
 pub use commit::{CommitDetail, CommitParent};
 pub use diff::{
     ChangeList, CommitDiffRequest, DiffContent, DiffLine, DiffRequest, FileDiff, Hunk, LineKind,
@@ -150,6 +152,12 @@ pub enum ApiError {
     RepositoryNotFound { path: String },
     #[error("a Group needs a name")]
     InvalidGroupName,
+    #[error("{path} is already a Git repository")]
+    AlreadyARepository { path: String },
+    #[error("cannot tell the name of a Repository from {url:?}")]
+    InvalidRepositoryUrl { url: String },
+    #[error("{message}")]
+    GitFailed { message: String },
     #[error("{message}")]
     Unexpected { message: String },
 }
@@ -596,7 +604,7 @@ impl Core {
         let tab = read_tab(&repo, &worktree_path)?;
         let repository = repository_folder(&repo)?.to_string_lossy().into_owned();
         self.registry.remember(|data| {
-            data.register_repository(&repository, &tab.repository_name);
+            data.register_repository(&repository, &tab.repository_name, None);
             data.remember_tab(&tab, &repository);
         });
         (self.on_event)(CoreEvent::TabOpened { tab: tab.clone() });
@@ -606,10 +614,7 @@ impl Core {
 
 fn read_tab(repo: &gix::Repository, worktree_path: &Path) -> Result<Tab, ApiError> {
     Ok(Tab {
-        repository_name: repository_folder(repo)?
-            .file_name()
-            .map(|name| name.to_string_lossy().into_owned())
-            .unwrap_or_default(),
+        repository_name: folder_name(&repository_folder(repo)?),
         worktree_path: worktree_path.to_string_lossy().into_owned(),
         head: read_head(repo)?,
     })
@@ -676,6 +681,13 @@ fn repository_folder(repo: &gix::Repository) -> Result<PathBuf, ApiError> {
         .ok_or_else(|| ApiError::NotARepository {
             path: common_dir.to_string_lossy().into_owned(),
         })
+}
+
+fn folder_name(folder: &Path) -> String {
+    folder
+        .file_name()
+        .map(|name| name.to_string_lossy().into_owned())
+        .unwrap_or_default()
 }
 
 fn is_repository_folder(path: &Path) -> bool {

@@ -2,6 +2,7 @@ import type { CoreApi } from "../core/api";
 import { HistoryView } from "../history/HistoryView";
 import type { ViewName } from "../views";
 import type { OpenTab } from "../useOpenTabs";
+import type { AddKind } from "./AddRepositoryDialog";
 import { ChangesView } from "./ChangesView";
 import { PullRequestsView } from "./PullRequestsView";
 import { RepositoriesView } from "./RepositoriesView";
@@ -20,19 +21,40 @@ interface ViewPaneProps {
   /** The query History starts with; a new search replaces whatever was typed there. */
   commitSearch: CommitSearch;
   pickFolder: () => Promise<string | null>;
+  onAddRepository: (kind: AddKind) => void;
+  /** Changes whenever Repositories were added, so the Repositories view reads them again. */
+  repositoriesVersion: number;
 }
 
-export function ViewPane({ view, api, tab, commitSearch, pickFolder }: ViewPaneProps) {
+export function ViewPane(props: ViewPaneProps) {
+  const { view } = props;
   return (
     <main className="view-pane">
       <h1>{view}</h1>
-      <ViewContent view={view} api={api} tab={tab} commitSearch={commitSearch} pickFolder={pickFolder} />
+      <ViewContent {...props} />
     </main>
   );
 }
 
-function ViewContent({ view, api, tab, commitSearch, pickFolder }: ViewPaneProps) {
-  if (view === "Repositories") return <RepositoriesView api={api} pickFolder={pickFolder} />;
+function ViewContent({
+  view,
+  api,
+  tab,
+  commitSearch,
+  pickFolder,
+  onAddRepository,
+  repositoriesVersion,
+}: ViewPaneProps) {
+  if (view === "Repositories") {
+    return (
+      <RepositoriesView
+        api={api}
+        pickFolder={pickFolder}
+        onAdd={onAddRepository}
+        version={repositoriesVersion}
+      />
+    );
+  }
   if (view === "Settings") return <SettingsView api={api} />;
   if (view === "Changes" && tab) {
     return (

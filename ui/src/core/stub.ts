@@ -9,6 +9,7 @@ import {
   type DiffRequest,
   type FileChange,
   type FileDiff,
+  type FoundRepository,
   type GitHubAuthStatus,
   type GitHubRepository,
   type GitSetup,
@@ -108,6 +109,8 @@ export interface StubCoreApi extends CoreApi {
   holdStatusReads(): () => void;
   /** Delivers an event as if the core had emitted it, to drive streaming and progress. */
   emitEvent(event: CoreEvent): void;
+  /** What a scan of `folder` finds. */
+  setScanResults(folder: string, found: FoundRepository[]): void;
   /** Makes the next stage, unstage or commit fail the way `git` would. */
   failNextMutation(failure: MutationFailure): void;
   readonly watchedWorktrees: ReadonlySet<string>;
@@ -122,6 +125,8 @@ export interface StubCoreApi extends CoreApi {
   readonly assessedMutations: readonly MutationKind[];
   readonly discards: readonly { worktreePath: string; paths: string[] }[];
   /** The lines the UI staged or unstaged, in order. */
+  /** The Repositories the UI cloned, initialised or imported, in order. */
+  readonly added: readonly { how: "clone" | "init" | "import"; source: string; groupId: string | null }[];
   readonly stagedLines: readonly { direction: "stage" | "unstage"; selection: LineSelection }[];
   /** Every diff the UI asked for, in order. */
   readonly diffRequests: readonly DiffRequest[];
@@ -164,6 +169,8 @@ export function createStubCoreApi(
   const failures: MutationFailure[] = [];
   const assessed: MutationKind[] = [];
   const discards: { worktreePath: string; paths: string[] }[] = [];
+  const added: { how: "clone" | "init" | "import"; source: string; groupId: string | null }[] = [];
+  const scanResults = new Map<string, FoundRepository[]>();
   const stagedLines: { direction: "stage" | "unstage"; selection: LineSelection }[] = [];
   let nextMutationId = 1;
   const backgroundWatched: string[] = [];
@@ -231,6 +238,22 @@ export function createStubCoreApi(
         emit({ type: "tabClosed", worktreePath: worktree.path });
       }
     }
+  }
+
+  function addRepository(path: string, name: string, groupId: string | null): Tab {
+    if (groupId !== null) groupIndex(groupId);
+    const tab: Tab = { repositoryName: name, worktreePath: path, head: { kind: "branch", name: "main" } };
+    tabs.set(path, tab);
+    openTabs.set(path, tab);
+    registry.push({
+      path,
+      name,
+      groupId,
+      missing: false,
+      worktrees: [{ path, main: true, head: tab.head }],
+    });
+    emit({ type: "tabOpened", tab });
+    return tab;
   }
 
   function validName(name: string): string {
@@ -378,6 +401,36 @@ export function createStubCoreApi(
       entry.name = tab.repositoryName;
       entry.missing = false;
       entry.worktrees = [{ path: newPath, main: true, head: tab.head }];
+    },
+    async cloneRepository(url, parent, groupId) {
+      if (url.includes("unreachable")) {
+        throw { kind: "gitFailed", message: "Could not reach the server. Check the URL and your network connection." };
+      }
+      added.push({ how: "clone", source: url, groupId });
+      const name = lastSegment(url.replace(/\/+$/, "").replace(/\.git$/, ""));
+      return addRepository(`${parent}/${name}`, name, groupId);
+    },
+    async initRepository(folder, groupId) {
+      if (registry.some((entry) => entry.path === folder)) {
+        throw { kind: "alreadyARepository", path: folder };
+      }
+      added.push({ how: "init", source: folder, groupId });
+      return addRepository(folder, lastSegment(folder), groupId);
+    },
+    async scanFolder(parent) {
+      return scanResults.get(parent) ?? [];
+    },
+    async importRepositories(paths, groupId) {
+      for (const path of paths) {
+        added.push({ how: "import", source: path, groupId });
+        registry.push({
+          path,
+          name: lastSegment(path),
+          groupId,
+          missing: false,
+          worktrees: [],
+        });
+      }
     },
     async removeRepository(path) {
       const entry = repositoryAt(path);
@@ -536,6 +589,9 @@ export function createStubCoreApi(
       tabs.set(path, { ...known(path), head });
       emit({ type: "worktreeChanged", worktreePath: path });
     },
+    setScanResults(folder, found) {
+      scanResults.set(folder, found);
+    },
     setBranches(path, labels) {
       branches.set(path, labels);
     },
@@ -574,6 +630,7 @@ export function createStubCoreApi(
     assessedMutations: assessed,
     discards,
     stagedLines,
+    added,
     diffRequests,
     commitDiffRequests,
     commitDetailRequests,
@@ -581,6 +638,10 @@ export function createStubCoreApi(
       return active;
     },
   };
+}
+
+function lastSegment(path: string): string {
+  return path.split(/[/\\:]/).pop() ?? path;
 }
 
 function titleFor(verb: string, paths: string[]): string {

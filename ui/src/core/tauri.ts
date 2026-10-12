@@ -22,6 +22,7 @@ import type {
   Session,
   Settings,
   GitSetup,
+  FoundRepository,
   Group,
   MutationOutcome,
   OutgoingCommit,
@@ -79,5 +80,10 @@ export const tauriCoreApi: CoreApi = {
   moveRepository: (path, groupId) => invoke<void>("move_repository", { path, groupId }),
   locateRepository: (path, newPath) => invoke<void>("locate_repository", { path, newPath }),
   removeRepository: (path) => invoke<void>("remove_repository", { path }),
+  cloneRepository: (url, parent, groupId) =>
+    invoke<Tab | null>("clone_repository", { url, parent, groupId }),
+  initRepository: (folder, groupId) => invoke<Tab | null>("init_repository", { folder, groupId }),
+  scanFolder: (parent) => invoke<FoundRepository[]>("scan_folder", { parent }),
+  importRepositories: (paths, groupId) => invoke<void>("import_repositories", { paths, groupId }),
   onEvent: (handler) => listen<CoreEvent>("core-event", ({ payload }) => handler(payload)),
 };

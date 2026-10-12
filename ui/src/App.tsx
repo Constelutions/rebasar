@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import { type AddKind, AddRepositoryDialog } from "./components/AddRepositoryDialog";
 import { OutputPanel } from "./components/OutputPanel";
 import { SetupScreen } from "./components/SetupScreen";
 import { Sidebar } from "./components/Sidebar";
@@ -31,6 +32,8 @@ export function App({ api, pickFolder, appWindow, highlighter = defaultHighlight
   const [view, setView] = useState<ViewName>("Home");
   const [commitSearch, setCommitSearch] = useState<CommitSearch>({ query: "", id: 0 });
   const [gitSetup, setGitSetup] = useState<GitSetup | null>(null);
+  const [adding, setAdding] = useState<AddKind | null>(null);
+  const [repositoriesVersion, setRepositoriesVersion] = useState(0);
   const runs = useMutations(api);
   const storedSettings = useStoredSettings(api);
 
@@ -70,6 +73,8 @@ export function App({ api, pickFolder, appWindow, highlighter = defaultHighlight
     setView("History");
   }, []);
 
+  const repositoriesChanged = useCallback(() => setRepositoriesVersion((version) => version + 1), []);
+
   const paletteContext = useMemo<PaletteContext>(() => ({ activeTab, view }), [activeTab, view]);
 
   useShortcut(shortcuts.openFolder, openFolder);
@@ -100,6 +105,11 @@ export function App({ api, pickFolder, appWindow, highlighter = defaultHighlight
             showView={changeView}
             pickFolder={pickFolder}
             showCommits={showCommits}
+            adding={adding}
+            onAdd={setAdding}
+            repositoriesVersion={repositoriesVersion}
+            onRepositoriesChanged={repositoriesChanged}
+            onError={setError}
           />
         </PaletteProvider>
       </HighlighterProvider>
@@ -123,6 +133,11 @@ interface ShellProps {
   showView: (view: ViewName) => void;
   pickFolder: () => Promise<string | null>;
   showCommits: (query: string) => void;
+  adding: AddKind | null;
+  onAdd: (kind: AddKind | null) => void;
+  repositoriesVersion: number;
+  onRepositoriesChanged: () => void;
+  onError: (message: string) => void;
 }
 
 function Shell({
@@ -141,6 +156,11 @@ function Shell({
   showView,
   pickFolder,
   showCommits,
+  adding,
+  onAdd,
+  repositoriesVersion,
+  onRepositoriesChanged,
+  onError,
 }: ShellProps) {
   useShellCommands({
     api,
@@ -152,6 +172,7 @@ function Shell({
     selectTab,
     showView,
     showCommits,
+    addRepository: onAdd,
   });
 
   return (
@@ -187,10 +208,22 @@ function Shell({
               tab={activeTab}
               commitSearch={commitSearch}
               pickFolder={pickFolder}
+              onAddRepository={onAdd}
+              repositoriesVersion={repositoriesVersion}
             />
           </div>
           <OutputPanel runs={runs} onCancel={(run) => void api.cancelMutation(run.id)} />
         </>
+      )}
+      {adding && (
+        <AddRepositoryDialog
+          api={api}
+          kind={adding}
+          pickFolder={pickFolder}
+          onClose={() => onAdd(null)}
+          onAdded={onRepositoriesChanged}
+          onFailure={onError}
+        />
       )}
     </div>
   );

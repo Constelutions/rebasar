@@ -48,6 +48,12 @@ pub enum MutationOutcome {
     Cancelled,
 }
 
+pub(crate) struct Run {
+    pub outcome: MutationOutcome,
+    /// The last lines `git` wrote to stderr, which say why a command failed.
+    pub error_output: Vec<String>,
+}
+
 pub(crate) struct Mutation {
     title: String,
     args: Vec<OsString>,
@@ -103,10 +109,29 @@ impl MutationRunner {
         let common_dir = platform::canonical(repo.common_dir()).map_err(ApiError::unexpected)?;
         drop(repo);
 
+        Ok(self
+            .run_queued(&worktree_path, common_dir, mutation, true)
+            .outcome)
+    }
+
+    /// For commands that create a Repository, which does not exist yet to be opened. They run
+    /// in `folder` and queue behind `queue_key`, the folder the Repository will occupy. No
+    /// Worktree changed, so none is reported.
+    pub(crate) fn run_creating(&self, folder: &Path, queue_key: PathBuf, mutation: Mutation) -> Run {
+        self.run_queued(folder, queue_key, mutation, false)
+    }
+
+    fn run_queued(
+        &self,
+        worktree_path: &Path,
+        queue_key: PathBuf,
+        mutation: Mutation,
+        reports_worktree_change: bool,
+    ) -> Run {
         let id = MutationId(self.next_id.fetch_add(1, Ordering::Relaxed));
         let queue = Arc::clone(
             lock(&self.queues)
-                .entry(common_dir)
+                .entry(queue_key)
                 .or_insert_with(|| Arc::new(RepositoryQueue::default())),
         );
         let control = Arc::new(Control::new(Arc::clone(&queue)));
@@ -124,7 +149,7 @@ impl MutationRunner {
         let outcome = match queue.enter(id, &control) {
             Some(turn) => {
                 self.emit(CoreEvent::MutationStarted { mutation_id: id });
-                let outcome = self.execute(id, &worktree_path, &mutation, &control);
+                let outcome = self.execute(id, worktree_path, &mutation, &control);
                 lock(&self.controls).remove(&id);
                 // Everything is reported before the turn is released so that the next
                 // mutation's events can never overtake this one's.
@@ -134,9 +159,11 @@ impl MutationRunner {
                 });
                 // Also reported by the file watcher, but only after its quiet period; this
                 // makes the view current the moment the mutation ends.
-                self.emit(CoreEvent::WorktreeChanged {
-                    worktree_path: reported_path,
-                });
+                if reports_worktree_change {
+                    self.emit(CoreEvent::WorktreeChanged {
+                        worktree_path: reported_path,
+                    });
+                }
                 drop(turn);
                 outcome
             }
@@ -149,7 +176,10 @@ impl MutationRunner {
                 MutationOutcome::Cancelled
             }
         };
-        Ok(outcome)
+        Run {
+            outcome,
+            error_output: control.take_error_output(),
+        }
     }
 
     /// Does nothing for a mutation that has already finished.
@@ -180,12 +210,9 @@ impl MutationRunner {
         let mut child = match spawned {
             Ok(child) => child,
             Err(error) => {
-                self.emit_output(
-                    id,
-                    OutputStream::Stderr,
-                    format!("could not start git: {error}"),
-                    false,
-                );
+                let message = format!("could not start git: {error}");
+                control.record_error_output(&message);
+                self.emit_output(id, OutputStream::Stderr, message, false);
                 return MutationOutcome::Failed { exit_code: None };
             }
         };
@@ -209,8 +236,8 @@ impl MutationRunner {
                 // git; a failed write surfaces as git's own exit status.
                 scope.spawn(move || stdin.write_all(input));
             }
-            scope.spawn(|| self.stream_output(id, OutputStream::Stdout, stdout));
-            scope.spawn(|| self.stream_output(id, OutputStream::Stderr, stderr));
+            scope.spawn(|| self.stream_output(id, OutputStream::Stdout, stdout, control));
+            scope.spawn(|| self.stream_output(id, OutputStream::Stderr, stderr, control));
             child.wait()
         });
         lock(&control.tree).take();
@@ -225,18 +252,28 @@ impl MutationRunner {
         }
     }
 
-    fn stream_output(&self, id: MutationId, stream: OutputStream, mut source: impl Read) {
+    fn stream_output(
+        &self,
+        id: MutationId,
+        stream: OutputStream,
+        mut source: impl Read,
+        control: &Control,
+    ) {
         let mut lines = LineSplitter::default();
         let mut buffer = [0u8; 8192];
+        let mut report = |text: String, transient: bool| {
+            if stream == OutputStream::Stderr && !transient {
+                control.record_error_output(&text);
+            }
+            self.emit_output(id, stream, text, transient);
+        };
         loop {
             match source.read(&mut buffer) {
                 Ok(0) | Err(_) => break,
-                Ok(read) => lines.push(&buffer[..read], &mut |text, transient| {
-                    self.emit_output(id, stream, text, transient);
-                }),
+                Ok(read) => lines.push(&buffer[..read], &mut report),
             }
         }
-        lines.finish(&mut |text, transient| self.emit_output(id, stream, text, transient));
+        lines.finish(&mut report);
     }
 
     fn emit_output(&self, id: MutationId, stream: OutputStream, text: String, transient: bool) {
@@ -299,10 +336,13 @@ impl RepositoryQueue {
     }
 }
 
+const ERROR_OUTPUT_LINES: usize = 20;
+
 struct Control {
     cancelled: AtomicBool,
     tree: Mutex<Option<platform::ProcessTree>>,
     queue: Arc<RepositoryQueue>,
+    error_output: Mutex<VecDeque<String>>,
 }
 
 impl Control {
@@ -311,7 +351,20 @@ impl Control {
             cancelled: AtomicBool::new(false),
             tree: Mutex::new(None),
             queue,
+            error_output: Mutex::new(VecDeque::new()),
         }
+    }
+
+    fn record_error_output(&self, line: &str) {
+        let mut lines = lock(&self.error_output);
+        if lines.len() == ERROR_OUTPUT_LINES {
+            lines.pop_front();
+        }
+        lines.push_back(line.to_owned());
+    }
+
+    fn take_error_output(&self) -> Vec<String> {
+        lock(&self.error_output).drain(..).collect()
     }
 
     fn is_cancelled(&self) -> bool {

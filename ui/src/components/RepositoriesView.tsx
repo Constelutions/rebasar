@@ -2,15 +2,19 @@ import { useCallback, useEffect, useState } from "react";
 
 import type { CoreApi, RepositoryEntry, RepositoryList } from "../core/api";
 import { describeError } from "../core/describeError";
+import type { AddKind } from "./AddRepositoryDialog";
 import { GroupHeader, GroupNameForm } from "./GroupHeader";
 import { RepositoryRow } from "./RepositoryRow";
 
 interface RepositoriesViewProps {
   api: CoreApi;
   pickFolder: () => Promise<string | null>;
+  onAdd: (kind: AddKind) => void;
+  /** Reading starts again whenever it changes. */
+  version: number;
 }
 
-export function RepositoriesView({ api, pickFolder }: RepositoriesViewProps) {
+export function RepositoriesView({ api, pickFolder, onAdd, version }: RepositoriesViewProps) {
   const [list, setList] = useState<RepositoryList | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
@@ -21,7 +25,7 @@ export function RepositoriesView({ api, pickFolder }: RepositoriesViewProps) {
 
   useEffect(() => {
     reload().catch((failure) => setError(describeError(failure)));
-  }, [reload]);
+  }, [reload, version]);
 
   async function run(action: () => Promise<unknown>): Promise<boolean> {
     setError(null);
@@ -60,6 +64,15 @@ export function RepositoriesView({ api, pickFolder }: RepositoriesViewProps) {
   return (
     <div className="repositories">
       <div className="repositories-toolbar">
+        <button type="button" className="text-button" onClick={() => onAdd("clone")}>
+          Clone…
+        </button>
+        <button type="button" className="text-button" onClick={() => onAdd("init")}>
+          Initialise…
+        </button>
+        <button type="button" className="text-button" onClick={() => onAdd("scan")}>
+          Scan folder…
+        </button>
         {creating ? (
           <GroupNameForm
             initialName=""
