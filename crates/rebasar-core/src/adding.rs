@@ -8,6 +8,7 @@ use std::path::{Path, PathBuf};
 use serde::Serialize;
 
 use crate::mutation::{Mutation, MutationOutcome};
+use crate::sync::authentication_hint;
 use crate::{
     folder_name, is_repository_folder, open_worktree, platform, repository_folder, ApiError, Core,
     Tab,
@@ -232,16 +233,8 @@ fn explain_clone_failure(target: &Path, error_output: &[String]) -> String {
         )
     } else if mentions(&["could not resolve host", "failed to connect", "timed out"]) {
         "Could not reach the server. Check the URL and your network connection.".to_owned()
-    } else if mentions(&[
-        "authentication failed",
-        "permission denied",
-        "could not read username",
-        "could not read password",
-        "access denied",
-    ]) {
-        "Git was not allowed access to that Repository. Check that you have access to it and \
-         that your credentials are set up for Git."
-            .to_owned()
+    } else if let Some(hint) = authentication_hint(error_output) {
+        hint
     } else if mentions(&["not found", "does not exist", "does not appear to be a git repository"])
     {
         "No Repository was found at that URL.".to_owned()

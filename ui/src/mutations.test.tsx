@@ -194,12 +194,12 @@ describe("output panel", () => {
       api.emitEvent({ type: "mutationOutput", mutationId: 60, stream: "stderr", text, transient });
 
     act(() => {
-      api.emitEvent({ type: "mutationQueued", mutation: { id: 60, worktreePath, title: "Fetch" } });
+      api.emitEvent({ type: "mutationQueued", mutation: { id: 60, worktreePath, title: "Clone" } });
       output("Receiving objects: 10%", true);
       output("Receiving objects: 60%", true);
     });
 
-    const run = screen.getByRole("article", { name: "Fetch" });
+    const run = screen.getByRole("article", { name: "Clone" });
     expect(run).toHaveTextContent("Receiving objects: 60%");
     expect(run).not.toHaveTextContent("10%");
 

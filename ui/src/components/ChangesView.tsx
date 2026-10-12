@@ -151,6 +151,7 @@ export function ChangesView({ api, worktreePath, status, error }: ChangesViewPro
         outgoing={outgoing}
         outgoingError={outgoingError}
         onCommit={(message, options) => api.commit(worktreePath, message, options)}
+        onPush={() => api.push(worktreePath, false)}
         onFailure={(failure) => setActionError(describeError(failure))}
       />
     </div>

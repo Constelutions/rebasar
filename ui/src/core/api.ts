@@ -230,6 +230,7 @@ export type OutputStream = "stdout" | "stderr";
 export interface Settings {
   diff: { whitespace: WhitespaceMode; defaultMode: DiffMode };
   appearance: { codeFontSize: number };
+  sync: { autoFetch: boolean; fetchIntervalMinutes: number };
 }
 
 /** `null` is a value that is not set in the Git configuration. */
@@ -241,6 +242,7 @@ export interface GitIdentity {
 export const defaultSettings: Settings = {
   diff: { whitespace: "show", defaultMode: "unified" },
   appearance: { codeFontSize: 12 },
+  sync: { autoFetch: true, fetchIntervalMinutes: 5 },
 };
 
 export interface Group {
@@ -293,7 +295,8 @@ export type MutationKind =
   | { kind: "unstage" }
   | { kind: "commit" }
   | { kind: "discardChanges"; paths: string[] }
-  | { kind: "abortOperation" };
+  | { kind: "abortOperation" }
+  | { kind: "forcePush" };
 
 /** Exactly what a destructive Mutation would lose, as it stands right now. */
 export interface Loss {
@@ -366,6 +369,17 @@ export interface OperationInProgress {
   /** A merge has a single step, so there is nothing to skip. */
   canSkip: boolean;
 }
+
+export interface SyncStatus {
+  /** `null` while HEAD is detached. */
+  branch: string | null;
+  /** `null` for a branch that was never pushed, whose commits all count as ahead. */
+  upstream: string | null;
+  ahead: number;
+  behind: number;
+}
+
+export type PullStrategy = "merge" | "rebase";
 
 export interface WorktreeDiffRequest {
   commit: string;
@@ -451,6 +465,16 @@ export interface CoreApi {
   discardChanges(path: string, paths: string[]): Promise<MutationOutcome>;
   /** Does nothing for a mutation that has already finished. */
   cancelMutation(mutationId: number): Promise<void>;
+  /** As of the last fetch; fetching is what brings it up to date. */
+  syncStatus(path: string): Promise<SyncStatus>;
+  /** Never prompts for credentials. Rejects with an error that has next steps when they fail. */
+  fetchRemotes(path: string): Promise<MutationOutcome>;
+  /** True when the branch has diverged and neither `pull.rebase` nor `pull.ff` says what to do. */
+  pullNeedsStrategy(path: string): Promise<boolean>;
+  /** Follows the user's Git configuration unless `strategy` is given; `remember` saves it. */
+  pull(path: string, strategy: PullStrategy | null, remember: boolean): Promise<MutationOutcome>;
+  /** A forced push always uses `--force-with-lease`; confirm with `{ kind: "forcePush" }` first. */
+  push(path: string, force: boolean): Promise<MutationOutcome>;
   /** `null` when the Worktree is not paused in the middle of an operation. */
   operationInProgress(path: string): Promise<OperationInProgress | null>;
   /** Finishes the operation; `failed` while conflicts are left. */

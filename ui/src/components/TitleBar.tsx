@@ -1,3 +1,5 @@
+import type { ReactNode } from "react";
+
 import { usePalette } from "../palette/PaletteProvider";
 import type { AppWindow } from "../shell/appWindow";
 import { shortcuts } from "../shortcuts";
@@ -12,6 +14,8 @@ interface TitleBarProps {
   appWindow: AppWindow;
   onSelectTab: (path: string) => void;
   onOpenFolder: () => void;
+  /** Shown beside the search box, for what belongs to the Tab in front. */
+  actions?: ReactNode;
 }
 
 export function TitleBar({
@@ -20,6 +24,7 @@ export function TitleBar({
   appWindow,
   onSelectTab,
   onOpenFolder,
+  actions,
 }: TitleBarProps) {
   const palette = usePalette();
 
@@ -37,6 +42,7 @@ export function TitleBar({
         +
       </button>
       <div className="title-bar-spacer" data-tauri-drag-region />
+      {actions}
       <button type="button" className="palette-trigger" onClick={palette.open}>
         Search or run…
         <kbd>{shortcuts.commandPalette.label}</kbd>

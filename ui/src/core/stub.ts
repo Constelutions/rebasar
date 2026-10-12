@@ -27,6 +27,8 @@ import {
   type MutationKind,
   type MutationOutcome,
   type OperationInProgress,
+  type PullStrategy,
+  type SyncStatus,
   type OutgoingCommit,
   type PullRequest,
   type Tab,
@@ -127,6 +129,8 @@ export interface StubCoreApi extends CoreApi {
   emitEvent(event: CoreEvent): void;
   /** Pauses the Worktree in the middle of an operation, or ends it with `null`, as the terminal would. */
   setOperation(path: string, operation: OperationInProgress | null): void;
+  /** What the Worktree reports as ahead and behind, as a fetch from outside the app would. */
+  setSyncStatus(path: string, status: Partial<SyncStatus>): void;
   /** What a scan of `folder` finds. */
   setScanResults(folder: string, found: FoundRepository[]): void;
   /** Makes the next stage, unstage or commit fail the way `git` would. */
@@ -149,6 +153,8 @@ export interface StubCoreApi extends CoreApi {
   readonly commitActions: readonly CommitActionCall[];
   /** Every continue, skip or abort the UI ran, in order. */
   readonly operationActions: readonly ("continue" | "skip" | "abort")[];
+  /** Every fetch, pull and push the UI ran, in order. */
+  readonly syncActions: readonly string[];
   readonly stagedLines: readonly { direction: "stage" | "unstage"; selection: LineSelection }[];
   /** Every diff the UI asked for, in order. */
   readonly diffRequests: readonly DiffRequest[];
@@ -196,6 +202,9 @@ export function createStubCoreApi(
   const commitActions: CommitActionCall[] = [];
   const operations = new Map<string, OperationInProgress>();
   const operationActions: ("continue" | "skip" | "abort")[] = [];
+  const syncStatuses = new Map<string, SyncStatus>();
+  const rememberedPulls = new Set<string>();
+  const syncActions: string[] = [];
   const stagedLines: { direction: "stage" | "unstage"; selection: LineSelection }[] = [];
   let nextMutationId = 1;
   const backgroundWatched: string[] = [];
@@ -273,6 +282,12 @@ export function createStubCoreApi(
       operations.delete(path);
       return status;
     });
+  }
+
+  function syncOf(path: string): SyncStatus {
+    return (
+      syncStatuses.get(path) ?? { branch: "main", upstream: "origin/main", ahead: 0, behind: 0 }
+    );
   }
 
   function addRepository(path: string, name: string, groupId: string | null): Tab {
@@ -436,6 +451,29 @@ export function createStubCoreApi(
       entry.name = tab.repositoryName;
       entry.missing = false;
       entry.worktrees = [{ path: newPath, main: true, head: tab.head }];
+    },
+    async syncStatus(path) {
+      return syncOf(path);
+    },
+    async fetchRemotes(path) {
+      syncActions.push("fetch");
+      return mutate(path, "Fetch", (status) => status);
+    },
+    async pullNeedsStrategy(path) {
+      const sync = syncOf(path);
+      return sync.ahead > 0 && sync.behind > 0 && !rememberedPulls.has(path);
+    },
+    async pull(path, strategy, remember) {
+      syncActions.push(`pull${strategy ? `:${strategy}` : ""}${remember ? ":remember" : ""}`);
+      if (remember) rememberedPulls.add(path);
+      return mutate(path, "Pull", (status) => status);
+    },
+    async push(path, force) {
+      syncActions.push(force ? "forcePush" : "push");
+      return mutate(path, force ? "Force push" : "Push", (status) => {
+        syncStatuses.set(path, { ...syncOf(path), ahead: 0 });
+        return status;
+      });
     },
     async operationInProgress(path) {
       return operations.get(path) ?? null;
@@ -620,6 +658,12 @@ export function createStubCoreApi(
     },
     async assessMutation(path, kind) {
       assessed.push(kind);
+      if (kind.kind === "forcePush") {
+        const { behind } = syncOf(path);
+        return behind === 0
+          ? { kind: "safe" }
+          : { kind: "destructive", loss: { files: [], commits: behind, unpushedCommits: 0 } };
+      }
       if (kind.kind === "abortOperation") {
         const status = statusOf(path);
         const files = [...status.conflicts, ...status.staged, ...status.unstaged];
@@ -677,6 +721,10 @@ export function createStubCoreApi(
       else operations.delete(path);
       emit({ type: "worktreeChanged", worktreePath: path });
     },
+    setSyncStatus(path, status) {
+      syncStatuses.set(path, { ...syncOf(path), ...status });
+      emit({ type: "worktreeChanged", worktreePath: path });
+    },
     setScanResults(folder, found) {
       scanResults.set(folder, found);
     },
@@ -718,6 +766,7 @@ export function createStubCoreApi(
     assessedMutations: assessed,
     discards,
     stagedLines,
+    syncActions,
     operationActions,
     commitActions,
     added,

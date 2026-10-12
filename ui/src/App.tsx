@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { type AddKind, AddRepositoryDialog } from "./components/AddRepositoryDialog";
 import { OperationBanner } from "./components/OperationBanner";
+import { SyncControls } from "./components/SyncControls";
 import { OutputPanel } from "./components/OutputPanel";
 import { SetupScreen } from "./components/SetupScreen";
 import { Sidebar } from "./components/Sidebar";
@@ -184,6 +185,16 @@ function Shell({
         appWindow={appWindow}
         onSelectTab={selectTab}
         onOpenFolder={openFolder}
+        actions={
+          activeTab && (
+            <SyncControls
+              key={activeTab.tab.worktreePath}
+              api={api}
+              worktreePath={activeTab.tab.worktreePath}
+              onError={onError}
+            />
+          )
+        }
       />
       {error && (
         <p role="alert" className="error">

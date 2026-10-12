@@ -105,13 +105,17 @@ impl MutationRunner {
         worktree: &Path,
         mutation: Mutation,
     ) -> Result<MutationOutcome, ApiError> {
+        Ok(self.run_detailed(worktree, mutation)?.outcome)
+    }
+
+    /// Like [`Self::run`], and also hands back what `git` wrote to stderr, for callers that
+    /// explain a failure.
+    pub(crate) fn run_detailed(&self, worktree: &Path, mutation: Mutation) -> Result<Run, ApiError> {
         let (worktree_path, repo) = open_worktree(worktree)?;
         let common_dir = platform::canonical(repo.common_dir()).map_err(ApiError::unexpected)?;
         drop(repo);
 
-        Ok(self
-            .run_queued(&worktree_path, common_dir, mutation, true)
-            .outcome)
+        Ok(self.run_queued(&worktree_path, common_dir, mutation, true))
     }
 
     /// For commands that create a Repository, which does not exist yet to be opened. They run

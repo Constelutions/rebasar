@@ -12,6 +12,7 @@ interface ConfirmationText {
 const confirmationTexts: Partial<Record<MutationKind["kind"], ConfirmationText>> = {
   discardChanges: { title: "Discard changes", confirmLabel: "Discard" },
   abortOperation: { title: "Abort the operation", confirmLabel: "Abort" },
+  forcePush: { title: "Force push", confirmLabel: "Force push" },
 };
 
 const fallbackText: ConfirmationText = { title: "Are you sure?", confirmLabel: "Continue" };

@@ -27,6 +27,7 @@ import type {
   Group,
   MutationOutcome,
   OperationInProgress,
+  SyncStatus,
   OutgoingCommit,
   Tab,
   WorktreeDiffRequest,
@@ -69,6 +70,12 @@ export const tauriCoreApi: CoreApi = {
   assessMutation: (path, kind) => invoke<Assessment>("assess_mutation", { path, kind }),
   discardChanges: (path, paths) => invoke<MutationOutcome>("discard_changes", { path, paths }),
   cancelMutation: (mutationId) => invoke<void>("cancel_mutation", { mutationId }),
+  syncStatus: (path) => invoke<SyncStatus>("sync_status", { path }),
+  fetchRemotes: (path) => invoke<MutationOutcome>("fetch_remotes", { path }),
+  pullNeedsStrategy: (path) => invoke<boolean>("pull_needs_strategy", { path }),
+  pull: (path, strategy, remember) =>
+    invoke<MutationOutcome>("pull", { path, strategy, remember }),
+  push: (path, force) => invoke<MutationOutcome>("push", { path, force }),
   operationInProgress: (path) =>
     invoke<OperationInProgress | null>("operation_in_progress", { path }),
   continueOperation: (path) => invoke<MutationOutcome>("continue_operation", { path }),

@@ -28,6 +28,7 @@ mod session;
 mod settings;
 mod staging;
 mod status;
+mod sync;
 mod tabs;
 mod watch;
 
@@ -49,7 +50,7 @@ pub use operation::{OperationInProgress, OperationKind, OperationStep};
 pub use outgoing::OutgoingCommit;
 pub use identity::GitIdentity;
 pub use safety::{Assessment, Loss, MutationKind};
-pub use settings::{AppearanceSettings, DiffMode, DiffSettings, Settings};
+pub use settings::{AppearanceSettings, DiffMode, DiffSettings, Settings, SyncSettings};
 use registry::RegistryStore;
 use staging::Direction;
 pub use staging::LineSelection;
@@ -57,6 +58,7 @@ pub use registry::{Group, WindowBounds};
 pub use repositories::{RepositoryEntry, RepositoryList, WorktreeEntry};
 pub use session::Session;
 pub use status::{ChangeKind, FileChange, WorktreeStatus};
+pub use sync::{PullStrategy, SyncStatus};
 pub use tabs::CacheKind;
 use tabs::Registry;
 
