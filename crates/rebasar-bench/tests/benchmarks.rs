@@ -1,5 +1,5 @@
 use rebasar_bench::{
-    run, scenarios, FixtureCache, Limit, Report, Scale, Scenario, Verdict, COLD_START, THRESHOLDS,
+    app_results, run, scenarios, FixtureCache, Limit, Report, Scale, Scenario, Verdict, COLD_START, THRESHOLDS,
 };
 use std::sync::atomic::{AtomicUsize, Ordering};
 
@@ -217,4 +217,45 @@ fn the_text_report_lists_the_measurements_of_a_scenario() {
 
     assert!(text.contains("tab-switch-max-ms"), "{text}");
     assert!(text.contains("memory-after-open-mb"), "{text}");
+}
+
+#[test]
+fn the_apps_cold_start_and_idle_memory_are_checked_against_their_thresholds() {
+    let within = app_results(r#"{ "coldStartMs": 640.5, "idleMemoryMb": 212.0 }"#).unwrap();
+    let missed = app_results(r#"{ "coldStartMs": 1480.0, "idleMemoryMb": 410.5 }"#).unwrap();
+
+    let summary = |results: &[rebasar_bench::ScenarioResult]| {
+        results
+            .iter()
+            .map(|result| (result.scenario.clone(), result.threshold, result.verdict))
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(
+        summary(&within),
+        [
+            ("app-cold-start".to_owned(), Some("cold-start"), Verdict::Within),
+            ("app-idle-memory".to_owned(), Some("idle-memory"), Verdict::Within),
+        ]
+    );
+    assert_eq!(missed[0].verdict, Verdict::Exceeded);
+    assert_eq!(missed[1].verdict, Verdict::Exceeded);
+    assert_eq!(missed[1].measurements[0].value, 410.5);
+}
+
+#[test]
+fn a_report_with_the_apps_figures_measures_every_threshold() {
+    let mut results = run_placeholders().results;
+    results.extend(app_results(r#"{ "coldStartMs": 700, "idleMemoryMb": 150 }"#).unwrap());
+
+    let report = Report::new(Scale::SMOKE, results);
+
+    for row in &report.thresholds {
+        assert!(!row.measured_by.is_empty(), "{} is not measured", row.id);
+    }
+}
+
+#[test]
+fn unreadable_app_results_are_an_error() {
+    assert!(app_results("not json").is_err());
+    assert!(app_results(r#"{ "coldStartMs": 1 }"#).is_err());
 }

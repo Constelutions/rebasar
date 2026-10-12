@@ -1,19 +1,21 @@
 use std::path::PathBuf;
 use std::process::ExitCode;
 
-use rebasar_bench::{run, scenarios, FixtureCache, Report, Scale};
+use rebasar_bench::{app_results, run, scenarios, FixtureCache, Report, Scale};
 
 const USAGE: &str = "usage: rebasar-bench <generate | run> [--scale alpha|smoke] [--output <file>]
 
   generate  build the large fixture Repositories (cached; reused when already built)
   run       time the benchmark scenarios and report them next to the alpha thresholds
   --scale   alpha (default) is the Linux-kernel scale; smoke is a few seconds, for checking the harness
+  --app-results  a file written by `pnpm bench:app`, to add the cold start and idle memory
   --output  where `run` records its JSON results (default: <fixture folder>/results/<time>.json)";
 
 struct Options {
     command: String,
     scale: Scale,
     output: Option<PathBuf>,
+    app_results: Option<PathBuf>,
 }
 
 fn parse(args: impl Iterator<Item = String>) -> Result<Options, String> {
@@ -26,6 +28,7 @@ fn parse(args: impl Iterator<Item = String>) -> Result<Options, String> {
         command,
         scale: Scale::ALPHA,
         output: None,
+        app_results: None,
     };
     while let Some(flag) = args.next() {
         let value = args.next().ok_or(format!("{flag} needs a value"))?;
@@ -38,6 +41,7 @@ fn parse(args: impl Iterator<Item = String>) -> Result<Options, String> {
                 }
             }
             "--output" => options.output = Some(PathBuf::from(value)),
+            "--app-results" => options.app_results = Some(PathBuf::from(value)),
             other => return Err(format!("unknown option `{other}`")),
         }
     }
@@ -58,7 +62,12 @@ fn execute(options: &Options, cache: &FixtureCache) -> std::io::Result<()> {
         return Ok(());
     }
 
-    let report = run(cache, &options.scale, &scenarios())?;
+    let mut report = run(cache, &options.scale, &scenarios())?;
+    if let Some(file) = &options.app_results {
+        let text = std::fs::read_to_string(file)?;
+        let measured = app_results(&text).map_err(std::io::Error::other)?;
+        report = Report::new(report.scale, [report.results, measured].concat());
+    }
     println!("{report}");
     let output = options
         .output

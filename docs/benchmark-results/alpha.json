@@ -1,0 +1,220 @@
+{
+  "recordedAtUnix": 1791783738,
+  "scale": {
+    "historyCommits": 1200000,
+    "worktreeFiles": 100000,
+    "changesetFiles": 5000,
+    "changesetChangedLines": 500000,
+    "tabRepositories": 20,
+    "tabWorktrees": 50,
+    "tabFiles": 200
+  },
+  "results": [
+    {
+      "scenario": "history-first-page",
+      "elapsedMs": 285.8171,
+      "threshold": "graph",
+      "verdict": "within",
+      "measurements": []
+    },
+    {
+      "scenario": "history-scroll-ten-pages",
+      "elapsedMs": 380.3396,
+      "threshold": null,
+      "verdict": "unchecked",
+      "measurements": []
+    },
+    {
+      "scenario": "open-folder-history",
+      "elapsedMs": 1.9491,
+      "threshold": null,
+      "verdict": "unchecked",
+      "measurements": []
+    },
+    {
+      "scenario": "open-folder-worktree",
+      "elapsedMs": 1.9935999999999998,
+      "threshold": null,
+      "verdict": "unchecked",
+      "measurements": []
+    },
+    {
+      "scenario": "open-folder-changeset",
+      "elapsedMs": 8.3134,
+      "threshold": null,
+      "verdict": "unchecked",
+      "measurements": []
+    },
+    {
+      "scenario": "status-worktree",
+      "elapsedMs": 235.1179,
+      "threshold": "status",
+      "verdict": "within",
+      "measurements": []
+    },
+    {
+      "scenario": "status-changeset",
+      "elapsedMs": 299.12480000000005,
+      "threshold": null,
+      "verdict": "unchecked",
+      "measurements": []
+    },
+    {
+      "scenario": "first-changeset-file",
+      "elapsedMs": 466.6617,
+      "threshold": "first-changeset-file",
+      "verdict": "exceeded",
+      "measurements": []
+    },
+    {
+      "scenario": "tabs-at-scale",
+      "elapsedMs": 6.0349,
+      "threshold": "tab-switch",
+      "verdict": "within",
+      "measurements": [
+        {
+          "name": "tabs-open",
+          "value": 50.0,
+          "unit": "tabs"
+        },
+        {
+          "name": "open-all-ms",
+          "value": 3194.5213,
+          "unit": "ms"
+        },
+        {
+          "name": "memory-before-open-mb",
+          "value": 15.75390625,
+          "unit": "MB"
+        },
+        {
+          "name": "memory-after-open-mb",
+          "value": 21.421875,
+          "unit": "MB"
+        },
+        {
+          "name": "cpu-while-opening-ms",
+          "value": 5703.0,
+          "unit": "ms"
+        },
+        {
+          "name": "cpu-while-idle-percent",
+          "value": 0.8,
+          "unit": "% of one core"
+        },
+        {
+          "name": "events-while-idle",
+          "value": 0.0,
+          "unit": "events"
+        },
+        {
+          "name": "memory-after-switching-mb",
+          "value": 29.4375,
+          "unit": "MB"
+        },
+        {
+          "name": "tab-switch-median-ms",
+          "value": 2.9664,
+          "unit": "ms"
+        },
+        {
+          "name": "tab-switch-max-ms",
+          "value": 6.0349,
+          "unit": "ms"
+        },
+        {
+          "name": "refresh-after-switch-median-ms",
+          "value": 9.575,
+          "unit": "ms"
+        },
+        {
+          "name": "refresh-after-switch-max-ms",
+          "value": 22.1399,
+          "unit": "ms"
+        }
+      ]
+    },
+    {
+      "scenario": "app-cold-start",
+      "elapsedMs": 1003.0,
+      "threshold": "cold-start",
+      "verdict": "exceeded",
+      "measurements": []
+    },
+    {
+      "scenario": "app-idle-memory",
+      "elapsedMs": 0.0,
+      "threshold": "idle-memory",
+      "verdict": "exceeded",
+      "measurements": [
+        {
+          "name": "app-memory",
+          "value": 416.4,
+          "unit": "MB"
+        }
+      ]
+    }
+  ],
+  "thresholds": [
+    {
+      "id": "cold-start",
+      "description": "Cold start to interactive",
+      "limit": {
+        "milliseconds": 1000
+      },
+      "measuredBy": [
+        "app-cold-start"
+      ]
+    },
+    {
+      "id": "graph",
+      "description": "Linux-kernel-sized commit graph usable, scrolling at 60 fps",
+      "limit": {
+        "milliseconds": 2000
+      },
+      "measuredBy": [
+        "history-first-page"
+      ]
+    },
+    {
+      "id": "status",
+      "description": "Status on a 100k-file working tree",
+      "limit": {
+        "milliseconds": 300
+      },
+      "measuredBy": [
+        "status-worktree"
+      ]
+    },
+    {
+      "id": "tab-switch",
+      "description": "Tab switch",
+      "limit": {
+        "milliseconds": 100
+      },
+      "measuredBy": [
+        "tabs-at-scale"
+      ]
+    },
+    {
+      "id": "first-changeset-file",
+      "description": "First file of the 5,000-file / 500k-line changeset",
+      "limit": {
+        "milliseconds": 300
+      },
+      "measuredBy": [
+        "first-changeset-file"
+      ]
+    },
+    {
+      "id": "idle-memory",
+      "description": "Idle memory",
+      "limit": {
+        "megabytes": 300
+      },
+      "measuredBy": [
+        "app-idle-memory"
+      ]
+    }
+  ]
+}
