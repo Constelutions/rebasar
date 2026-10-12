@@ -1,10 +1,13 @@
-import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import { SegmentedControl } from "../components/SegmentedControl";
 import type { CoreApi, HistoryRow, Tab } from "../core/api";
+import { describeError } from "../core/describeError";
 import { useDebounced } from "../useDebounced";
 import { Avatar } from "./Avatar";
+import { CommitActionDialog, type CommitDialog } from "./CommitActionDialog";
 import { CommitDetailPane } from "./CommitDetailPane";
+import { type CommitAction, CommitMenu } from "./CommitMenu";
 import { type Connections, CommitGraph, DayGraph } from "./CommitGraph";
 import { type Chips, FilterBar } from "./FilterBar";
 import { defaultChips, useHistoryCommands } from "./historyCommands";
@@ -52,6 +55,47 @@ export function HistoryView({ api, tab, initialQuery = "" }: HistoryViewProps) {
   const count = useHistoryCount(api, tab.worktreePath, filter);
   const [{ orientation, style }, changeLayout] = useHistoryLayout();
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [comparing, setComparing] = useState(false);
+  const [menu, setMenu] = useState<{ commitId: string; x: number; y: number } | null>(null);
+  const [dialog, setDialog] = useState<{ kind: CommitDialog; commitId: string } | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const closeMenu = useCallback(() => setMenu(null), []);
+
+  function commitOf(commitId: string): HistoryRow | undefined {
+    return items.flatMap((item) => (item.kind === "commit" ? [item.row] : [])).find((row) => row.id === commitId);
+  }
+
+  function select(commitId: string) {
+    setComparing(false);
+    setSelectedId(commitId);
+  }
+
+  async function runAction(action: CommitAction, commitId: string) {
+    setMenu(null);
+    setNotice(null);
+    const shortId = commitOf(commitId)?.shortId ?? commitId.slice(0, 7);
+    switch (action) {
+      case "checkout": {
+        const outcome = await api.checkoutCommit(tab.worktreePath, commitId).catch((failure) => {
+          setNotice(describeError(failure));
+          return null;
+        });
+        if (outcome?.kind === "failed") setNotice(`Check out ${shortId} failed. Details are in the output panel.`);
+        return;
+      }
+      case "createBranch":
+        return setDialog({ kind: "branch", commitId });
+      case "createTag":
+        return setDialog({ kind: "tag", commitId });
+      case "reword":
+        return setDialog({ kind: "reword", commitId });
+      case "copyHash":
+        return navigator.clipboard.writeText(commitId).catch((failure) => setNotice(describeError(failure)));
+      case "compare":
+        setSelectedId(commitId);
+        return setComparing(true);
+    }
+  }
 
   const filterBar = (
     <FilterBar
@@ -111,7 +155,8 @@ export function HistoryView({ api, tab, initialQuery = "" }: HistoryViewProps) {
           style={style}
           loadMore={loadMore}
           selectedId={selectedId}
-          onSelect={setSelectedId}
+          onSelect={select}
+          onOpenMenu={(commitId, x, y) => setMenu({ commitId, x, y })}
         />
         {selectedId !== null && (
           <CommitDetailPane
@@ -119,10 +164,36 @@ export function HistoryView({ api, tab, initialQuery = "" }: HistoryViewProps) {
             api={api}
             worktreePath={tab.worktreePath}
             commitId={selectedId}
+            comparing={comparing}
+            onComparingChange={setComparing}
             onClose={() => setSelectedId(null)}
           />
         )}
       </div>
+      {notice && (
+        <p role="alert" className="error">
+          {notice}
+        </p>
+      )}
+      {menu && (
+        <CommitMenu
+          x={menu.x}
+          y={menu.y}
+          onSelect={(action) => void runAction(action, menu.commitId)}
+          onClose={closeMenu}
+        />
+      )}
+      {dialog && (
+        <CommitActionDialog
+          api={api}
+          worktreePath={tab.worktreePath}
+          kind={dialog.kind}
+          commitId={dialog.commitId}
+          shortId={commitOf(dialog.commitId)?.shortId ?? dialog.commitId.slice(0, 7)}
+          isLatest={commitOf(dialog.commitId)?.refs.some((label) => label.kind === "head") ?? false}
+          onClose={() => setDialog(null)}
+        />
+      )}
     </>
   );
 }
@@ -136,6 +207,7 @@ interface HistoryListProps {
   loadMore: () => void;
   selectedId: string | null;
   onSelect: (commitId: string) => void;
+  onOpenMenu: (commitId: string, x: number, y: number) => void;
 }
 
 function HistoryList({
@@ -147,6 +219,7 @@ function HistoryList({
   loadMore,
   selectedId,
   onSelect,
+  onOpenMenu,
 }: HistoryListProps) {
   const size = itemSize(orientation);
   const horizontal = orientation === "horizontal";
@@ -207,6 +280,7 @@ function HistoryList({
               style={style}
               selectedId={selectedId}
               onSelect={onSelect}
+              onOpenMenu={onOpenMenu}
             />
           );
         })}
@@ -235,6 +309,7 @@ interface HistoryItemViewProps {
   style: GraphStyle;
   selectedId: string | null;
   onSelect: (commitId: string) => void;
+  onOpenMenu: (commitId: string, x: number, y: number) => void;
 }
 
 const HistoryItemView = memo(function HistoryItemView({
@@ -247,6 +322,7 @@ const HistoryItemView = memo(function HistoryItemView({
   style,
   selectedId,
   onSelect,
+  onOpenMenu,
 }: HistoryItemViewProps) {
   const size = itemSize(orientation);
   const position =
@@ -269,6 +345,7 @@ const HistoryItemView = memo(function HistoryItemView({
       style={position}
       selected={item.row.id === selectedId}
       onSelect={onSelect}
+      onOpenMenu={onOpenMenu}
     />
   );
 });
@@ -280,9 +357,10 @@ interface CommitItemProps {
   style: { top: number; height: number } | { left: number; width: number };
   selected: boolean;
   onSelect: (commitId: string) => void;
+  onOpenMenu: (commitId: string, x: number, y: number) => void;
 }
 
-function CommitItem({ row, connections, graph, style, selected, onSelect }: CommitItemProps) {
+function CommitItem({ row, connections, graph, style, selected, onSelect, onOpenMenu }: CommitItemProps) {
   return (
     <div
       role="listitem"
@@ -291,7 +369,17 @@ function CommitItem({ row, connections, graph, style, selected, onSelect }: Comm
       className="history-item commit"
       style={style}
       onClick={() => onSelect(row.id)}
+      onContextMenu={(event) => {
+        event.preventDefault();
+        onOpenMenu(row.id, event.clientX, event.clientY);
+      }}
       onKeyDown={(event) => {
+        if (event.key === "ContextMenu" || (event.shiftKey && event.key === "F10")) {
+          event.preventDefault();
+          const box = event.currentTarget.getBoundingClientRect();
+          onOpenMenu(row.id, box.left, box.bottom);
+          return;
+        }
         if (event.key !== "Enter" && event.key !== " ") return;
         event.preventDefault();
         onSelect(row.id);

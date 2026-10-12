@@ -5,10 +5,10 @@ use std::sync::Arc;
 
 use rebasar_core::{
     ApiError, Assessment, CommitDetail, CommitDiffRequest, CommitHit, CommitOptions, Core,
-    DiffRequest, FileDiff, FoundRepository, GitHubAuthStatus, GitHubRepository, GitIdentity, GitSetup, Group,
+    DiffRequest, FileChange, FileDiff, FoundRepository, GitHubAuthStatus, GitHubRepository, GitIdentity, GitSetup, Group,
     HistoryCount, HistoryFilter, HistoryPage, LineSelection, MutationId, MutationKind, MutationOutcome,
     OutgoingCommit, PullRequest, RefLabel, RepositoryList, Session, Settings, Tab, WindowBounds,
-    WorktreeStatus,
+    WorktreeDiffRequest, WorktreeStatus,
 };
 use tauri::{Emitter, Manager, PhysicalSize, State, WebviewWindow, WindowEvent};
 
@@ -462,6 +462,83 @@ async fn import_repositories(
     .map_err(ApiError::unexpected)?
 }
 
+#[tauri::command]
+async fn checkout_commit(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+    commit: String,
+) -> Result<MutationOutcome, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.checkout_commit(&path, &commit))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn create_branch(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+    name: String,
+    commit: String,
+) -> Result<MutationOutcome, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.create_branch(&path, &name, &commit))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn create_tag(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+    name: String,
+    commit: String,
+) -> Result<MutationOutcome, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.create_tag(&path, &name, &commit))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn reword_latest_commit(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+    commit: String,
+    message: String,
+) -> Result<MutationOutcome, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || {
+        core.reword_latest_commit(&path, &commit, &message)
+    })
+    .await
+    .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn compare_with_worktree(
+    core: State<'_, Arc<Core>>,
+    worktree_path: PathBuf,
+    commit: String,
+) -> Result<Vec<FileChange>, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.compare_with_worktree(&worktree_path, &commit))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn compare_file_diff(
+    core: State<'_, Arc<Core>>,
+    worktree_path: PathBuf,
+    request: WorktreeDiffRequest,
+) -> Result<FileDiff, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.compare_file_diff(&worktree_path, &request))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
 fn restore_window(window: &WebviewWindow, bounds: WindowBounds) {
     if let Err(error) = window.set_size(PhysicalSize::new(bounds.width, bounds.height)) {
         eprintln!("failed to restore the window size: {error}");
@@ -575,7 +652,13 @@ fn main() {
             clone_repository,
             init_repository,
             scan_folder,
-            import_repositories
+            import_repositories,
+            checkout_commit,
+            create_branch,
+            create_tag,
+            reword_latest_commit,
+            compare_with_worktree,
+            compare_file_diff
         ])
         .run(tauri::generate_context!())
         .expect("failed to run Rebasar");

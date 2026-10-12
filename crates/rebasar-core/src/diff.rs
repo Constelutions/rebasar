@@ -219,7 +219,7 @@ pub(crate) fn read_in_commit(
     )
 }
 
-fn ensure_inside_worktree(path: &str) -> Result<(), ApiError> {
+pub(crate) fn ensure_inside_worktree(path: &str) -> Result<(), ApiError> {
     let inside = Path::new(path)
         .components()
         .all(|component| matches!(component, Component::Normal(_)));
@@ -231,14 +231,14 @@ fn ensure_inside_worktree(path: &str) -> Result<(), ApiError> {
     })
 }
 
-enum Source {
+pub(crate) enum Source {
     Missing,
     Blob(gix::ObjectId),
     WorktreeFile(PathBuf),
 }
 
-struct Side {
-    mode: Option<u32>,
+pub(crate) struct Side {
+    pub(crate) mode: Option<u32>,
     source: Source,
 }
 
@@ -266,9 +266,9 @@ impl Loaded {
     }
 }
 
-struct Reader<'repo> {
-    repo: &'repo gix::Repository,
-    work_dir: &'repo Path,
+pub(crate) struct Reader<'repo> {
+    pub(crate) repo: &'repo gix::Repository,
+    pub(crate) work_dir: &'repo Path,
 }
 
 impl Reader<'_> {
@@ -295,7 +295,7 @@ impl Reader<'_> {
         })
     }
 
-    fn diff_between(
+    pub(crate) fn diff_between(
         &self,
         path: &str,
         original_path: Option<&str>,
@@ -333,7 +333,7 @@ impl Reader<'_> {
         self.tree_side(&tree, path)
     }
 
-    fn tree_side(&self, tree: &gix::Tree<'_>, path: &str) -> Result<Side, ApiError> {
+    pub(crate) fn tree_side(&self, tree: &gix::Tree<'_>, path: &str) -> Result<Side, ApiError> {
         let entry = tree
             .lookup_entry_by_path(path)
             .map_err(ApiError::unexpected)?;
@@ -343,7 +343,7 @@ impl Reader<'_> {
         }))
     }
 
-    fn index_side(&self, path: &str, stage: Stage) -> Result<Side, ApiError> {
+    pub(crate) fn index_side(&self, path: &str, stage: Stage) -> Result<Side, ApiError> {
         let index = self.repo.index_or_empty().map_err(ApiError::unexpected)?;
         let entry = index.entry_by_path_and_stage(BStr::new(path), stage);
         Ok(entry.map_or(Side::MISSING, |entry| Side {
@@ -352,7 +352,7 @@ impl Reader<'_> {
         }))
     }
 
-    fn worktree_side(&self, path: &str, indexed_mode: Option<u32>) -> Result<Side, ApiError> {
+    pub(crate) fn worktree_side(&self, path: &str, indexed_mode: Option<u32>) -> Result<Side, ApiError> {
         let file = self.work_dir.join(path);
         let Ok(metadata) = fs::symlink_metadata(&file) else {
             return Ok(Side::MISSING);

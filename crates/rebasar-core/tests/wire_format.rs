@@ -827,3 +827,22 @@ fn an_assessment_serialises_to_the_shape_the_ui_expects() {
         })
     );
 }
+
+#[test]
+fn a_worktree_diff_request_deserialises_from_the_shape_the_ui_sends() {
+    let request: rebasar_core::WorktreeDiffRequest = serde_json::from_value(serde_json::json!({
+        "commit": "abc1234def",
+        "path": "src/new.rs",
+        "loadLarge": true,
+    }))
+    .unwrap();
+
+    assert_eq!(
+        request,
+        rebasar_core::WorktreeDiffRequest {
+            commit: "abc1234def".to_owned(),
+            path: "src/new.rs".to_owned(),
+            load_large: true,
+        }
+    );
+}

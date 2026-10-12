@@ -8,6 +8,8 @@ use thiserror::Error;
 
 mod adding;
 mod commit;
+mod commit_actions;
+mod compare;
 mod diff;
 mod git_setup;
 pub mod github;
@@ -30,6 +32,7 @@ mod watch;
 
 pub use adding::FoundRepository;
 pub use commit::{CommitDetail, CommitParent};
+pub use compare::WorktreeDiffRequest;
 pub use diff::{
     ChangeList, CommitDiffRequest, DiffContent, DiffLine, DiffRequest, FileDiff, Hunk, LineKind,
     ModeChange, WhitespaceMode,

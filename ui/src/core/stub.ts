@@ -29,6 +29,7 @@ import {
   type OutgoingCommit,
   type PullRequest,
   type Tab,
+  type WorktreeDiffRequest,
   type TokenSource,
   type WorktreeStatus,
   type Settings,
@@ -53,6 +54,16 @@ export interface StubGitHub {
   /** Open pull requests by Worktree path. */
   pullRequests?: Record<string, PullRequest[]>;
 }
+
+export function worktreeDiffKey({ commit, path }: Pick<WorktreeDiffRequest, "commit" | "path">) {
+  return `${commit}:${path}`;
+}
+
+export type CommitActionCall =
+  | { kind: "checkout"; commit: string }
+  | { kind: "createBranch"; name: string; commit: string }
+  | { kind: "createTag"; name: string; commit: string }
+  | { kind: "reword"; commit: string; message: string };
 
 export interface MutationFailure {
   exitCode: number;
@@ -87,6 +98,10 @@ export interface StubCommits {
   commitDetails?: Record<string, CommitDetail>;
   /** Diffs of files in commits, keyed by {@link commitDiffKey}; a file without one has no content changes. */
   commitDiffs?: Record<string, FileDiff>;
+  /** The files that differ from the working tree, keyed by commit id. */
+  comparisons?: Record<string, FileChange[]>;
+  /** Diffs of compared files, keyed by {@link worktreeDiffKey}. */
+  comparisonDiffs?: Record<string, FileDiff>;
 }
 
 export interface RecordedCommit extends CommitOptions {
@@ -127,6 +142,8 @@ export interface StubCoreApi extends CoreApi {
   /** The lines the UI staged or unstaged, in order. */
   /** The Repositories the UI cloned, initialised or imported, in order. */
   readonly added: readonly { how: "clone" | "init" | "import"; source: string; groupId: string | null }[];
+  /** Every commit action the UI ran, in order. */
+  readonly commitActions: readonly CommitActionCall[];
   readonly stagedLines: readonly { direction: "stage" | "unstage"; selection: LineSelection }[];
   /** Every diff the UI asked for, in order. */
   readonly diffRequests: readonly DiffRequest[];
@@ -152,7 +169,7 @@ export function createStubCoreApi(
   github: StubGitHub = {},
   gitSetup: GitSetup = ready,
   state: StubCoreState = {},
-  { commitDetails = {}, commitDiffs = {} }: StubCommits = {},
+  { commitDetails = {}, commitDiffs = {}, comparisons = {}, comparisonDiffs = {} }: StubCommits = {},
 ): StubCoreApi {
   const handlers = new Set<(event: CoreEvent) => void>();
   const current = new Map(Object.entries(statuses));
@@ -171,6 +188,7 @@ export function createStubCoreApi(
   const discards: { worktreePath: string; paths: string[] }[] = [];
   const added: { how: "clone" | "init" | "import"; source: string; groupId: string | null }[] = [];
   const scanResults = new Map<string, FoundRepository[]>();
+  const commitActions: CommitActionCall[] = [];
   const stagedLines: { direction: "stage" | "unstage"; selection: LineSelection }[] = [];
   let nextMutationId = 1;
   const backgroundWatched: string[] = [];
@@ -402,6 +420,35 @@ export function createStubCoreApi(
       entry.missing = false;
       entry.worktrees = [{ path: newPath, main: true, head: tab.head }];
     },
+    async checkoutCommit(path, commit) {
+      commitActions.push({ kind: "checkout", commit });
+      return mutate(path, `Check out ${commit.slice(0, 7)}`, (status) => status);
+    },
+    async createBranch(path, name, commit) {
+      commitActions.push({ kind: "createBranch", name, commit });
+      return mutate(path, `Create branch ${name}`, (status) => status);
+    },
+    async createTag(path, name, commit) {
+      commitActions.push({ kind: "createTag", name, commit });
+      return mutate(path, `Create tag ${name}`, (status) => status);
+    },
+    async rewordLatestCommit(path, commit, message) {
+      commitActions.push({ kind: "reword", commit, message });
+      return mutate(path, `Reword ${commit.slice(0, 7)}`, (status) => status);
+    },
+    async compareWithWorktree(_worktreePath, commit) {
+      return comparisons[commit] ?? [];
+    },
+    async compareFileDiff(_worktreePath, request) {
+      return (
+        comparisonDiffs[worktreeDiffKey(request)] ?? {
+          path: request.path,
+          originalPath: null,
+          modeChange: null,
+          content: { kind: "text", hunks: [] },
+        }
+      );
+    },
     async cloneRepository(url, parent, groupId) {
       if (url.includes("unreachable")) {
         throw { kind: "gitFailed", message: "Could not reach the server. Check the URL and your network connection." };
@@ -630,6 +677,7 @@ export function createStubCoreApi(
     assessedMutations: assessed,
     discards,
     stagedLines,
+    commitActions,
     added,
     diffRequests,
     commitDiffRequests,

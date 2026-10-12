@@ -116,7 +116,7 @@ pub(crate) fn parent_tree<'repo>(
         .map_err(ApiError::unexpected)
 }
 
-fn file_change(repo: &gix::Repository, change: Change) -> Option<FileChange> {
+pub(crate) fn file_change(repo: &gix::Repository, change: Change) -> Option<FileChange> {
     let counts = |old: Option<&gix::oid>, new: Option<&gix::oid>| -> Option<(u32, u32)> {
         let old = match old {
             Some(id) => status::countable_blob(repo, id)?,

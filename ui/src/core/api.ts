@@ -353,6 +353,13 @@ export interface CommitDiffRequest {
   loadLarge?: boolean;
 }
 
+export interface WorktreeDiffRequest {
+  commit: string;
+  path: string;
+  /** Computes the diff of a file that would otherwise come back collapsed. */
+  loadLarge?: boolean;
+}
+
 export interface CoreApi {
   /** Rejects with an {@link ApiError} when the folder cannot be opened. */
   openFolder(path: string): Promise<Tab>;
@@ -387,6 +394,9 @@ export interface CoreApi {
    */
   commitDetail(worktreePath: string, commit: string, parent: number): Promise<CommitDetail>;
   commitFileDiff(worktreePath: string, request: CommitDiffRequest): Promise<FileDiff>;
+  /** The tracked files whose content on disk differs from the commit. */
+  compareWithWorktree(worktreePath: string, commit: string): Promise<FileChange[]>;
+  compareFileDiff(worktreePath: string, request: WorktreeDiffRequest): Promise<FileDiff>;
   /** Makes the Tab the most recently used one, so it keeps its caches and a live watcher. */
   activateTab(path: string): Promise<void>;
   /** Reads the Tab again, so that a branch switched outside the app shows. */
@@ -427,6 +437,17 @@ export interface CoreApi {
   discardChanges(path: string, paths: string[]): Promise<MutationOutcome>;
   /** Does nothing for a mutation that has already finished. */
   cancelMutation(mutationId: number): Promise<void>;
+  /** Detaches HEAD at the commit; `failed` if that would overwrite local changes. */
+  checkoutCommit(path: string, commit: string): Promise<MutationOutcome>;
+  /** Does not switch to the new branch. `failed` if Git rejects the name. */
+  createBranch(path: string, name: string, commit: string): Promise<MutationOutcome>;
+  /** A lightweight tag. `failed` if Git rejects the name or the tag exists. */
+  createTag(path: string, name: string, commit: string): Promise<MutationOutcome>;
+  /**
+   * Replaces the message of the commit HEAD points at. Rejects with an {@link ApiError} when
+   * `commit` is no longer that commit.
+   */
+  rewordLatestCommit(path: string, commit: string, message: string): Promise<MutationOutcome>;
   settings(): Promise<Settings>;
   /** Resolves to the settings as stored, with out-of-range values brought back into range. */
   updateSettings(settings: Settings): Promise<Settings>;

@@ -9,6 +9,7 @@ import type {
   CoreApi,
   CoreEvent,
   DiffRequest,
+  FileChange,
   FileDiff,
   HistoryCount,
   HistoryPage,
@@ -27,6 +28,7 @@ import type {
   MutationOutcome,
   OutgoingCommit,
   Tab,
+  WorktreeDiffRequest,
   WorktreeStatus,
 } from "./api";
 
@@ -66,6 +68,16 @@ export const tauriCoreApi: CoreApi = {
   assessMutation: (path, kind) => invoke<Assessment>("assess_mutation", { path, kind }),
   discardChanges: (path, paths) => invoke<MutationOutcome>("discard_changes", { path, paths }),
   cancelMutation: (mutationId) => invoke<void>("cancel_mutation", { mutationId }),
+  checkoutCommit: (path, commit) => invoke<MutationOutcome>("checkout_commit", { path, commit }),
+  createBranch: (path, name, commit) =>
+    invoke<MutationOutcome>("create_branch", { path, name, commit }),
+  createTag: (path, name, commit) => invoke<MutationOutcome>("create_tag", { path, name, commit }),
+  rewordLatestCommit: (path, commit, message) =>
+    invoke<MutationOutcome>("reword_latest_commit", { path, commit, message }),
+  compareWithWorktree: (worktreePath, commit) =>
+    invoke<FileChange[]>("compare_with_worktree", { worktreePath, commit }),
+  compareFileDiff: (worktreePath, request: WorktreeDiffRequest) =>
+    invoke<FileDiff>("compare_file_diff", { worktreePath, request }),
   settings: () => invoke<Settings>("settings"),
   updateSettings: (settings) => invoke<Settings>("update_settings", { settings }),
   gitIdentity: () => invoke<GitIdentity>("git_identity"),
