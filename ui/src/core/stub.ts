@@ -36,6 +36,7 @@ import {
   type ResetMode,
   type StashInfo,
   type StashPreview,
+  type PullRequestDetails,
   type RemoteInfo,
   type TagInfo,
   type WorktreeDetail,
@@ -143,6 +144,8 @@ export interface StubCoreApi extends CoreApi {
   emitEvent(event: CoreEvent): void;
   /** Pauses the Worktree in the middle of an operation, or ends it with `null`, as the terminal would. */
   setOperation(path: string, operation: OperationInProgress | null): void;
+  /** Everything the UI did with pull requests, such as `create:Title:draft`, `update:#7:Title`, `ready:#7`, `open:url`. */
+  readonly pullRequestActions: readonly string[];
   /** The tags and remotes the Branches view lists. */
   setTagsAndRemotes(path: string, tags: TagInfo[], remotes: RemoteInfo[]): void;
   /** The Worktrees the Worktrees view lists. */
@@ -262,6 +265,9 @@ export function createStubCoreApi(
   const tagLists = new Map<string, TagInfo[]>();
   const remoteLists = new Map<string, RemoteInfo[]>();
   const tagRemoteActions: string[] = [];
+  const pullRequestActions: string[] = [];
+  const pullRequestBodies = new Map<number, string>();
+  let nextPullRequest = 100;
   const stagedLines: { direction: "stage" | "unstage"; selection: LineSelection }[] = [];
   let nextMutationId = 1;
   const backgroundWatched: string[] = [];
@@ -365,6 +371,21 @@ export function createStubCoreApi(
       branchDetails.set(path, change(branchesOf(path)));
       return status;
     });
+  }
+
+  function branchNameOf(path: string): string {
+    const head = tabs.get(path)?.head;
+    return head?.kind === "branch" ? head.name : "";
+  }
+
+  function detailsOf(pr: PullRequest): PullRequestDetails {
+    return {
+      number: pr.number,
+      title: pr.title,
+      body: pullRequestBodies.get(pr.number) ?? "",
+      url: pr.url,
+      isDraft: pr.isDraft,
+    };
   }
 
   function syncOf(path: string): SyncStatus {
@@ -534,6 +555,45 @@ export function createStubCoreApi(
       entry.name = tab.repositoryName;
       entry.missing = false;
       entry.worktrees = [{ path: newPath, main: true, head: tab.head }];
+    },
+    async currentPullRequest(path) {
+      const branch = branchNameOf(path);
+      const found = (github.pullRequests?.[path] ?? []).find((pr) => pr.headBranch === branch);
+      return found ? detailsOf(found) : null;
+    },
+    async createPullRequest(path, title, body, draft) {
+      if (source === null) throw { kind: "githubNotSignedIn" };
+      pullRequestActions.push(`create:${title}${draft ? ":draft" : ""}`);
+      const created: PullRequest = {
+        number: nextPullRequest++,
+        title,
+        url: `https://github.com/acme/widgets/pull/${nextPullRequest - 1}`,
+        author: "me",
+        headBranch: branchNameOf(path),
+        baseBranch: "main",
+        isDraft: draft,
+        checks: "none",
+        review: "none",
+      };
+      pullRequestBodies.set(created.number, body);
+      github.pullRequests = { ...github.pullRequests, [path]: [created, ...(github.pullRequests?.[path] ?? [])] };
+      return detailsOf(created);
+    },
+    async updatePullRequest(path, number, title, body) {
+      pullRequestActions.push(`update:#${number}:${title}`);
+      pullRequestBodies.set(number, body);
+      const list = (github.pullRequests?.[path] ?? []).map((pr) => (pr.number === number ? { ...pr, title } : pr));
+      github.pullRequests = { ...github.pullRequests, [path]: list };
+      return detailsOf(list.find((pr) => pr.number === number) as PullRequest);
+    },
+    async markPullRequestReady(path, number) {
+      pullRequestActions.push(`ready:#${number}`);
+      const list = (github.pullRequests?.[path] ?? []).map((pr) => (pr.number === number ? { ...pr, isDraft: false } : pr));
+      github.pullRequests = { ...github.pullRequests, [path]: list };
+      return detailsOf(list.find((pr) => pr.number === number) as PullRequest);
+    },
+    async openInBrowser(url) {
+      pullRequestActions.push(`open:${url}`);
     },
     async listTags(path) {
       return tagLists.get(path) ?? [];
@@ -1145,6 +1205,7 @@ export function createStubCoreApi(
     assessedMutations: assessed,
     discards,
     stagedLines,
+    pullRequestActions,
     tagRemoteActions,
     worktreeActions,
     stashActions,

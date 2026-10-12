@@ -35,6 +35,7 @@ import type {
   ResetMode,
   StashInfo,
   StashPreview,
+  PullRequestDetails,
   RemoteInfo,
   TagInfo,
   WorktreeDetail,
@@ -82,6 +83,15 @@ export const tauriCoreApi: CoreApi = {
   assessMutation: (path, kind) => invoke<Assessment>("assess_mutation", { path, kind }),
   discardChanges: (path, paths) => invoke<MutationOutcome>("discard_changes", { path, paths }),
   cancelMutation: (mutationId) => invoke<void>("cancel_mutation", { mutationId }),
+  currentPullRequest: (path) =>
+    invoke<PullRequestDetails | null>("current_pull_request", { path }),
+  createPullRequest: (path, title, body, draft) =>
+    invoke<PullRequestDetails>("create_pull_request", { path, title, body, draft }),
+  updatePullRequest: (path, number, title, body) =>
+    invoke<PullRequestDetails>("update_pull_request", { path, number, title, body }),
+  markPullRequestReady: (path, number) =>
+    invoke<PullRequestDetails>("mark_pull_request_ready", { path, number }),
+  openInBrowser: (url) => invoke<void>("open_in_browser", { url }),
   listTags: (path) => invoke<TagInfo[]>("list_tags", { path }),
   createTagHere: (path, name, message) =>
     invoke<MutationOutcome>("create_tag_here", { path, name, message }),

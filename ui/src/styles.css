@@ -2274,3 +2274,20 @@ button {
   font: var(--text-xs) var(--font-mono);
   color: var(--color-text-subtle);
 }
+
+.pull-request-toolbar {
+  display: flex;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.pull-request-actions {
+  display: flex;
+  gap: var(--space-2);
+  margin-left: auto;
+}
+
+.pull-request-offer {
+  margin: 0;
+  color: var(--color-accent-text);
+}

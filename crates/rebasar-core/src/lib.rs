@@ -50,7 +50,7 @@ pub use diff::{
     ModeChange, WhitespaceMode,
 };
 pub use github::{
-    CheckState, GitHubAuthStatus, GitHubRepository, PullRequest, ReviewState, TokenSource,
+    CheckState, GitHubAuthStatus, GitHubRepository, PullRequest, PullRequestDetails, ReviewState, TokenSource,
 };
 use github::{GitHub, GitHubServices};
 pub use git_setup::{GitSetup, GitVersion, MINIMUM_GIT_VERSION};
@@ -598,6 +598,78 @@ impl Core {
             path: worktree_path.to_string_lossy().into_owned(),
         })?;
         self.github.pull_requests(&repository)
+    }
+
+    /// The open pull request for the branch the Worktree is on, if there is one.
+    pub fn current_pull_request(&self, path: &Path) -> Result<Option<PullRequestDetails>, ApiError> {
+        let (repository, branch) = self.github_context(path)?;
+        self.github.pull_request_for_branch(&repository, &branch)
+    }
+
+    /// Opens a pull request from the current branch, which must be pushed already, against the
+    /// repository's default branch.
+    pub fn create_pull_request(
+        &self,
+        path: &Path,
+        title: &str,
+        body: &str,
+        draft: bool,
+    ) -> Result<PullRequestDetails, ApiError> {
+        let title = title.trim();
+        if title.is_empty() {
+            return Err(ApiError::Unexpected {
+                message: "a pull request needs a title".to_owned(),
+            });
+        }
+        let (repository, branch) = self.github_context(path)?;
+        self.github.create_pull_request(&repository, &branch, title, body, draft)
+    }
+
+    /// Changes the title and description of a pull request, as after a push.
+    pub fn update_pull_request(
+        &self,
+        path: &Path,
+        number: u64,
+        title: &str,
+        body: &str,
+    ) -> Result<PullRequestDetails, ApiError> {
+        let title = title.trim();
+        if title.is_empty() {
+            return Err(ApiError::Unexpected {
+                message: "a pull request needs a title".to_owned(),
+            });
+        }
+        let (repository, _) = self.github_context(path)?;
+        self.github.update_pull_request(&repository, number, title, body)
+    }
+
+    pub fn mark_pull_request_ready(
+        &self,
+        path: &Path,
+        number: u64,
+    ) -> Result<PullRequestDetails, ApiError> {
+        let (repository, _) = self.github_context(path)?;
+        self.github.mark_pull_request_ready(&repository, number)
+    }
+
+    /// Opens an `https` address in the user's browser.
+    pub fn open_in_browser(&self, url: &str) -> Result<(), ApiError> {
+        platform::open_in_browser(url).map_err(|message| ApiError::Unexpected { message })
+    }
+
+    fn github_context(&self, path: &Path) -> Result<(GitHubRepository, String), ApiError> {
+        let (worktree_path, repo) = open_worktree(path)?;
+        let repository = github::find_remote(&repo).ok_or_else(|| ApiError::NotGithub {
+            path: worktree_path.to_string_lossy().into_owned(),
+        })?;
+        let branch = repo
+            .head_name()
+            .map_err(ApiError::unexpected)?
+            .map(|name| name.shorten().to_string())
+            .ok_or_else(|| ApiError::Unexpected {
+                message: "a detached HEAD has no branch to open a pull request from".to_owned(),
+            })?;
+        Ok((repository, branch))
     }
 
     pub fn worktree_status(&self, path: &Path) -> Result<WorktreeStatus, ApiError> {

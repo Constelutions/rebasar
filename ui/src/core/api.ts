@@ -449,6 +449,15 @@ export interface StashPreview {
   untracked: string[];
 }
 
+/** A pull request with the text a user can edit. */
+export interface PullRequestDetails {
+  number: number;
+  title: string;
+  body: string;
+  url: string;
+  isDraft: boolean;
+}
+
 export interface TagInfo {
   name: string;
   /** An annotated tag is an object of its own, with a message. */
@@ -588,6 +597,14 @@ export interface CoreApi {
   discardChanges(path: string, paths: string[]): Promise<MutationOutcome>;
   /** Does nothing for a mutation that has already finished. */
   cancelMutation(mutationId: number): Promise<void>;
+  /** The open pull request of the branch the Worktree is on; `null` when there is none. */
+  currentPullRequest(path: string): Promise<PullRequestDetails | null>;
+  /** Opens the current branch, which must be pushed, against the default branch. */
+  createPullRequest(path: string, title: string, body: string, draft: boolean): Promise<PullRequestDetails>;
+  updatePullRequest(path: string, number: number, title: string, body: string): Promise<PullRequestDetails>;
+  markPullRequestReady(path: string, number: number): Promise<PullRequestDetails>;
+  /** Only `https` addresses. */
+  openInBrowser(url: string): Promise<void>;
   listTags(path: string): Promise<TagInfo[]>;
   /** At the current commit; annotated when a message is given. */
   createTagHere(path: string, name: string, message: string | null): Promise<MutationOutcome>;

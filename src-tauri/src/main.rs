@@ -7,7 +7,7 @@ use rebasar_core::{
     ApiError, Assessment, BranchInfo, ConflictFile, ConflictSide, CommitDetail, CommitDiffRequest, CommitHit, CommitOptions, Core,
     DiffRequest, FileChange, FileDiff, FoundRepository, GitHubAuthStatus, GitHubRepository, GitIdentity, GitSetup, Group,
     HistoryCount, HistoryFilter, HistoryPage, LineSelection, MutationId, MergeMode, MutationKind, ResetMode, StashInfo, StashPreview, RemoteInfo, TagInfo, WorktreeDetail, WorktreeStart, RebasePlan, MutationOutcome, OperationInProgress, PullStrategy,
-    OutgoingCommit, PullRequest, RefLabel, RepositoryList, Session, Settings, Tab, WindowBounds,
+    OutgoingCommit, PullRequest, PullRequestDetails, RefLabel, RepositoryList, Session, Settings, Tab, WindowBounds,
     SyncStatus, WorktreeDiffRequest, WorktreeStatus,
 };
 use tauri::{Emitter, Manager, PhysicalSize, State, WebviewWindow, WindowEvent};
@@ -1097,6 +1097,68 @@ async fn remove_remote(
         .map_err(ApiError::unexpected)?
 }
 
+#[tauri::command]
+async fn current_pull_request(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+) -> Result<Option<PullRequestDetails>, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.current_pull_request(&path))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn create_pull_request(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+    title: String,
+    body: String,
+    draft: bool,
+) -> Result<PullRequestDetails, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.create_pull_request(&path, &title, &body, draft))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn update_pull_request(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+    number: u64,
+    title: String,
+    body: String,
+) -> Result<PullRequestDetails, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.update_pull_request(&path, number, &title, &body))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn mark_pull_request_ready(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+    number: u64,
+) -> Result<PullRequestDetails, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.mark_pull_request_ready(&path, number))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn open_in_browser(
+    core: State<'_, Arc<Core>>,
+    url: String,
+) -> Result<(), ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.open_in_browser(&url))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
 fn restore_window(window: &WebviewWindow, bounds: WindowBounds) {
     if let Err(error) = window.set_size(PhysicalSize::new(bounds.width, bounds.height)) {
         eprintln!("failed to restore the window size: {error}");
@@ -1262,7 +1324,12 @@ fn main() {
             add_remote,
             rename_remote,
             set_remote_url,
-            remove_remote
+            remove_remote,
+            current_pull_request,
+            create_pull_request,
+            update_pull_request,
+            mark_pull_request_ready,
+            open_in_browser
         ])
         .run(tauri::generate_context!())
         .expect("failed to run Rebasar");
