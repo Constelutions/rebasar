@@ -32,6 +32,10 @@ pub enum MutationKind {
         name: String,
     },
     /// Moves the current branch to a commit; may drop commits and, when hard, uncommitted work.
+    /// Throws a stash away, with the work parked in it.
+    DropStash {
+        stash: String,
+    },
     Reset {
         commit: String,
         mode: crate::commit_actions::ResetMode,
@@ -72,6 +76,7 @@ pub(crate) fn assess(repo: &gix::Repository, kind: &MutationKind) -> Result<Asse
         MutationKind::AbortOperation => crate::operation::abort_loss(repo)?,
         MutationKind::ForcePush => crate::sync::force_push_loss(repo)?,
         MutationKind::DeleteBranch { name } => crate::branches::delete_loss(repo, name)?,
+        MutationKind::DropStash { stash } => crate::stash::drop_loss(repo, stash)?,
         MutationKind::Reset { commit, mode } => {
             crate::commit_actions::reset_loss(repo, commit, *mode)?
         }

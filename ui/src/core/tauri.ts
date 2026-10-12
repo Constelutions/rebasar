@@ -33,6 +33,8 @@ import type {
   OperationInProgress,
   RebasePlan,
   ResetMode,
+  StashInfo,
+  StashPreview,
   SyncStatus,
   OutgoingCommit,
   Tab,
@@ -76,6 +78,13 @@ export const tauriCoreApi: CoreApi = {
   assessMutation: (path, kind) => invoke<Assessment>("assess_mutation", { path, kind }),
   discardChanges: (path, paths) => invoke<MutationOutcome>("discard_changes", { path, paths }),
   cancelMutation: (mutationId) => invoke<void>("cancel_mutation", { mutationId }),
+  listStashes: (path) => invoke<StashInfo[]>("list_stashes", { path }),
+  stashPreview: (path, stash) => invoke<StashPreview>("stash_preview", { path, stash }),
+  stashChanges: (path, message, includeUntracked) =>
+    invoke<MutationOutcome>("stash_changes", { path, message, includeUntracked }),
+  applyStash: (path, stash) => invoke<MutationOutcome>("apply_stash", { path, stash }),
+  popStash: (path, stash) => invoke<MutationOutcome>("pop_stash", { path, stash }),
+  dropStash: (path, stash) => invoke<MutationOutcome>("drop_stash", { path, stash }),
   cherryPickCommit: (path, commit) =>
     invoke<MutationOutcome>("cherry_pick_commit", { path, commit }),
   revertCommit: (path, commit) => invoke<MutationOutcome>("revert_commit", { path, commit }),

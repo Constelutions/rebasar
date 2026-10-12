@@ -34,6 +34,8 @@ import {
   type PullStrategy,
   type RebasePlan,
   type ResetMode,
+  type StashInfo,
+  type StashPreview,
   type SyncStatus,
   type OutgoingCommit,
   type PullRequest,
@@ -138,6 +140,8 @@ export interface StubCoreApi extends CoreApi {
   emitEvent(event: CoreEvent): void;
   /** Pauses the Worktree in the middle of an operation, or ends it with `null`, as the terminal would. */
   setOperation(path: string, operation: OperationInProgress | null): void;
+  /** The stashes the Stashes view lists, newest first, with what each one holds. */
+  setStashes(path: string, stashes: { info: StashInfo; preview: StashPreview }[]): void;
   /** How many commits a reset to `commit` would drop, for the confirmation to name. */
   setCommitsDroppedByReset(commit: string, count: number): void;
   /** What the editor gets for a rebase starting at `from`; `null` is the rebase in progress. */
@@ -180,6 +184,8 @@ export interface StubCoreApi extends CoreApi {
   readonly resolvedContents: ReadonlyMap<string, string>;
   /** Every plan the UI replayed, in order. */
   readonly appliedPlans: readonly RebasePlan[];
+  /** Every stash action the UI ran, such as `pop:abc`, `create:message:untracked`, in order. */
+  readonly stashActions: readonly string[];
   readonly stagedLines: readonly { direction: "stage" | "unstage"; selection: LineSelection }[];
   /** Every diff the UI asked for, in order. */
   readonly diffRequests: readonly DiffRequest[];
@@ -238,6 +244,8 @@ export function createStubCoreApi(
   const rebasePlans = new Map<string, RebasePlan>();
   const appliedPlans: RebasePlan[] = [];
   const resetDrops = new Map<string, number>();
+  const stashLists = new Map<string, { info: StashInfo; preview: StashPreview }[]>();
+  const stashActions: string[] = [];
   const stagedLines: { direction: "stage" | "unstage"; selection: LineSelection }[] = [];
   let nextMutationId = 1;
   const backgroundWatched: string[] = [];
@@ -510,6 +518,49 @@ export function createStubCoreApi(
       entry.name = tab.repositoryName;
       entry.missing = false;
       entry.worktrees = [{ path: newPath, main: true, head: tab.head }];
+    },
+    async listStashes(path) {
+      return (stashLists.get(path) ?? []).map(({ info }) => info);
+    },
+    async stashPreview(path, stash) {
+      const found = (stashLists.get(path) ?? []).find(({ info }) => info.id === stash);
+      if (!found) throw { kind: "unexpected", message: "that stash no longer exists" };
+      return found.preview;
+    },
+    async stashChanges(path, message, includeUntracked) {
+      stashActions.push(`create:${message ?? ""}${includeUntracked ? ":untracked" : ""}`);
+      return mutate(path, "Stash changes", (status) => {
+        const info: StashInfo = {
+          id: String(stashLists.get(path)?.length ?? 0).padStart(40, "9"),
+          shortId: "9999999",
+          message: message ? `On main: ${message}` : "WIP on main: 1234567 Latest",
+          branch: "main",
+          timestamp: 1_700_000_000,
+        };
+        stashLists.set(path, [
+          { info, preview: { files: [...status.staged, ...status.unstaged], untracked: [] } },
+          ...(stashLists.get(path) ?? []),
+        ]);
+        return { ...status, staged: [], unstaged: [] };
+      });
+    },
+    async applyStash(path, stash) {
+      stashActions.push(`apply:${stash}`);
+      return mutate(path, "Apply stash", (status) => status);
+    },
+    async popStash(path, stash) {
+      stashActions.push(`pop:${stash}`);
+      return mutate(path, "Pop stash", (status) => {
+        stashLists.set(path, (stashLists.get(path) ?? []).filter(({ info }) => info.id !== stash));
+        return status;
+      });
+    },
+    async dropStash(path, stash) {
+      stashActions.push(`drop:${stash}`);
+      return mutate(path, "Drop stash", (status) => {
+        stashLists.set(path, (stashLists.get(path) ?? []).filter(({ info }) => info.id !== stash));
+        return status;
+      });
     },
     async cherryPickCommit(path, commit) {
       commitActions.push({ kind: "cherryPick", commit });
@@ -808,6 +859,12 @@ export function createStubCoreApi(
     },
     async assessMutation(path, kind) {
       assessed.push(kind);
+      if (kind.kind === "dropStash") {
+        const found = (stashLists.get(path) ?? []).find(({ info }) => info.id === kind.stash);
+        return found
+          ? { kind: "destructive", loss: { files: found.preview.files, commits: 0, unpushedCommits: 0 } }
+          : { kind: "safe" };
+      }
       if (kind.kind === "reset") {
         const status = statusOf(path);
         const files = kind.mode === "hard" ? [...status.staged, ...status.unstaged] : [];
@@ -885,6 +942,10 @@ export function createStubCoreApi(
       else operations.delete(path);
       emit({ type: "worktreeChanged", worktreePath: path });
     },
+    setStashes(path, stashes) {
+      stashLists.set(path, stashes);
+      emit({ type: "worktreeChanged", worktreePath: path });
+    },
     setCommitsDroppedByReset(commit, count) {
       resetDrops.set(commit, count);
     },
@@ -943,6 +1004,7 @@ export function createStubCoreApi(
     assessedMutations: assessed,
     discards,
     stagedLines,
+    stashActions,
     appliedPlans,
     conflictActions,
     resolvedContents,

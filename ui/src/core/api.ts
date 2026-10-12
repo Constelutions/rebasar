@@ -298,7 +298,8 @@ export type MutationKind =
   | { kind: "abortOperation" }
   | { kind: "forcePush" }
   | { kind: "deleteBranch"; name: string }
-  | { kind: "reset"; commit: string; mode: ResetMode };
+  | { kind: "reset"; commit: string; mode: ResetMode }
+  | { kind: "dropStash"; stash: string };
 
 /** Exactly what a destructive Mutation would lose, as it stands right now. */
 export interface Loss {
@@ -426,6 +427,25 @@ export interface ConflictFile {
 /** Keeps the changes staged, keeps them unstaged, or throws them away with everything uncommitted. */
 export type ResetMode = "soft" | "mixed" | "hard";
 
+export interface StashInfo {
+  /** The stash commit. Every action names a stash by it, never by its position. */
+  id: string;
+  shortId: string;
+  /** What the user typed, or Git's own `WIP on main: abc1234 subject`. */
+  message: string;
+  /** The branch it was made on; empty when Git did not record one. */
+  branch: string;
+  /** Seconds since the Unix epoch. */
+  timestamp: number;
+}
+
+export interface StashPreview {
+  /** The tracked files the stash changes; read their diffs with `commitFileDiff` against parent 0. */
+  files: FileChange[];
+  /** Files that were untracked when the stash was made. */
+  untracked: string[];
+}
+
 export type PlanAction = "pick" | "reword" | "squash" | "fixup" | "drop" | "edit";
 
 export type RebasePlanEntry =
@@ -535,6 +555,20 @@ export interface CoreApi {
   discardChanges(path: string, paths: string[]): Promise<MutationOutcome>;
   /** Does nothing for a mutation that has already finished. */
   cancelMutation(mutationId: number): Promise<void>;
+  /** Newest first. */
+  listStashes(path: string): Promise<StashInfo[]>;
+  stashPreview(path: string, stash: string): Promise<StashPreview>;
+  /** Does nothing, successfully, when there is nothing to park. */
+  stashChanges(
+    path: string,
+    message: string | null,
+    includeUntracked: boolean,
+  ): Promise<MutationOutcome>;
+  /** A conflict leaves conflicted files for the Conflicts view, and `pop` keeps the stash. */
+  applyStash(path: string, stash: string): Promise<MutationOutcome>;
+  popStash(path: string, stash: string): Promise<MutationOutcome>;
+  /** Confirm with `{ kind: "dropStash", stash }` first. */
+  dropStash(path: string, stash: string): Promise<MutationOutcome>;
   /** A conflict leaves the Worktree paused for the banner and the Conflicts view. */
   cherryPickCommit(path: string, commit: string): Promise<MutationOutcome>;
   revertCommit(path: string, commit: string): Promise<MutationOutcome>;

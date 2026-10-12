@@ -39,48 +39,56 @@ impl Core {
         parent: usize,
     ) -> Result<CommitDetail, ApiError> {
         let (_, repo) = open_worktree(worktree_path)?;
-        let commit = find(&repo, commit)?;
-        let new_tree = commit.tree().map_err(ApiError::unexpected)?;
-        let old_tree = parent_tree(&repo, &commit, parent)?;
-
-        let changes = repo
-            .diff_tree_to_tree(&old_tree, &new_tree, None)
-            .map_err(ApiError::unexpected)?;
-        let mut files: Vec<FileChange> = changes
-            .into_iter()
-            .filter_map(|change| file_change(&repo, change))
-            .collect();
-        files.sort_by(|a, b| a.path.cmp(&b.path));
-
-        let author = commit.author().map_err(ApiError::unexpected)?;
-        let message = commit.message_raw_sloppy().to_str_lossy();
-        let mut parents = Vec::new();
-        for id in commit.parent_ids() {
-            let subject = repo
-                .find_commit(id)
-                .map_err(ApiError::unexpected)?
-                .message()
-                .map_err(ApiError::unexpected)?
-                .summary()
-                .to_string();
-            parents.push(CommitParent {
-                id: id.to_string(),
-                short_id: id.to_hex_with_len(SHORT_ID_LENGTH).to_string(),
-                subject,
-            });
-        }
-
-        Ok(CommitDetail {
-            id: commit.id.to_string(),
-            short_id: commit.id.to_hex_with_len(SHORT_ID_LENGTH).to_string(),
-            author_name: author.name.to_string(),
-            author_email: author.email.to_string(),
-            author_timestamp: author.seconds(),
-            message: message.trim_end().to_owned(),
-            parents,
-            files,
-        })
+        detail(&repo, commit, parent)
     }
+}
+
+pub(crate) fn detail(
+    repo: &gix::Repository,
+    commit: &str,
+    parent: usize,
+) -> Result<CommitDetail, ApiError> {
+    let commit = find(repo, commit)?;
+    let new_tree = commit.tree().map_err(ApiError::unexpected)?;
+    let old_tree = parent_tree(repo, &commit, parent)?;
+
+    let changes = repo
+        .diff_tree_to_tree(&old_tree, &new_tree, None)
+        .map_err(ApiError::unexpected)?;
+    let mut files: Vec<FileChange> = changes
+        .into_iter()
+        .filter_map(|change| file_change(repo, change))
+        .collect();
+    files.sort_by(|a, b| a.path.cmp(&b.path));
+
+    let author = commit.author().map_err(ApiError::unexpected)?;
+    let message = commit.message_raw_sloppy().to_str_lossy();
+    let mut parents = Vec::new();
+    for id in commit.parent_ids() {
+        let subject = repo
+            .find_commit(id)
+            .map_err(ApiError::unexpected)?
+            .message()
+            .map_err(ApiError::unexpected)?
+            .summary()
+            .to_string();
+        parents.push(CommitParent {
+            id: id.to_string(),
+            short_id: id.to_hex_with_len(SHORT_ID_LENGTH).to_string(),
+            subject,
+        });
+    }
+
+    Ok(CommitDetail {
+        id: commit.id.to_string(),
+        short_id: commit.id.to_hex_with_len(SHORT_ID_LENGTH).to_string(),
+        author_name: author.name.to_string(),
+        author_email: author.email.to_string(),
+        author_timestamp: author.seconds(),
+        message: message.trim_end().to_owned(),
+        parents,
+        files,
+    })
 }
 
 const SHORT_ID_LENGTH: usize = 7;

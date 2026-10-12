@@ -8,6 +8,7 @@ import { ConflictsView } from "./ConflictsView";
 import { ChangesView } from "./ChangesView";
 import { PullRequestsView } from "./PullRequestsView";
 import { RepositoriesView } from "./RepositoriesView";
+import { StashesView } from "./StashesView";
 import { SettingsView } from "./SettingsView";
 
 export interface CommitSearch {
@@ -82,6 +83,10 @@ function ViewContent({
   if (view === "Conflicts") {
     if (!tab) return <p className="placeholder">Open a folder to see its conflicts.</p>;
     return <ConflictsView api={api} worktreePath={tab.tab.worktreePath} status={tab.status} />;
+  }
+  if (view === "Stashes") {
+    if (!tab) return <p className="placeholder">Open a folder to see its stashes.</p>;
+    return <StashesView key={tab.tab.worktreePath} api={api} tab={tab.tab} />;
   }
   if (view === "Branches") {
     if (!tab) return <p className="placeholder">Open a folder to see its branches.</p>;

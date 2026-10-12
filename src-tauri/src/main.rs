@@ -6,7 +6,7 @@ use std::sync::Arc;
 use rebasar_core::{
     ApiError, Assessment, BranchInfo, ConflictFile, ConflictSide, CommitDetail, CommitDiffRequest, CommitHit, CommitOptions, Core,
     DiffRequest, FileChange, FileDiff, FoundRepository, GitHubAuthStatus, GitHubRepository, GitIdentity, GitSetup, Group,
-    HistoryCount, HistoryFilter, HistoryPage, LineSelection, MutationId, MergeMode, MutationKind, ResetMode, RebasePlan, MutationOutcome, OperationInProgress, PullStrategy,
+    HistoryCount, HistoryFilter, HistoryPage, LineSelection, MutationId, MergeMode, MutationKind, ResetMode, StashInfo, StashPreview, RebasePlan, MutationOutcome, OperationInProgress, PullStrategy,
     OutgoingCommit, PullRequest, RefLabel, RepositoryList, Session, Settings, Tab, WindowBounds,
     SyncStatus, WorktreeDiffRequest, WorktreeStatus,
 };
@@ -852,6 +852,78 @@ async fn reset_to_commit(
         .map_err(ApiError::unexpected)?
 }
 
+#[tauri::command]
+async fn list_stashes(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+) -> Result<Vec<StashInfo>, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.list_stashes(&path))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn stash_preview(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+    stash: String,
+) -> Result<StashPreview, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.stash_preview(&path, &stash))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn stash_changes(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+    message: Option<String>,
+    include_untracked: bool,
+) -> Result<MutationOutcome, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.stash_changes(&path, message.as_deref(), include_untracked))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn apply_stash(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+    stash: String,
+) -> Result<MutationOutcome, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.apply_stash(&path, &stash))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn pop_stash(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+    stash: String,
+) -> Result<MutationOutcome, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.pop_stash(&path, &stash))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn drop_stash(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+    stash: String,
+) -> Result<MutationOutcome, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.drop_stash(&path, &stash))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
 fn restore_window(window: &WebviewWindow, bounds: WindowBounds) {
     if let Err(error) = window.set_size(PhysicalSize::new(bounds.width, bounds.height)) {
         eprintln!("failed to restore the window size: {error}");
@@ -997,7 +1069,13 @@ fn main() {
             apply_rebase_plan,
             cherry_pick_commit,
             revert_commit,
-            reset_to_commit
+            reset_to_commit,
+            list_stashes,
+            stash_preview,
+            stash_changes,
+            apply_stash,
+            pop_stash,
+            drop_stash
         ])
         .run(tauri::generate_context!())
         .expect("failed to run Rebasar");
