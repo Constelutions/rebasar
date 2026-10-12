@@ -36,6 +36,8 @@ import {
   type ResetMode,
   type StashInfo,
   type StashPreview,
+  type RemoteInfo,
+  type TagInfo,
   type WorktreeDetail,
   type SyncStatus,
   type OutgoingCommit,
@@ -141,6 +143,8 @@ export interface StubCoreApi extends CoreApi {
   emitEvent(event: CoreEvent): void;
   /** Pauses the Worktree in the middle of an operation, or ends it with `null`, as the terminal would. */
   setOperation(path: string, operation: OperationInProgress | null): void;
+  /** The tags and remotes the Branches view lists. */
+  setTagsAndRemotes(path: string, tags: TagInfo[], remotes: RemoteInfo[]): void;
   /** The Worktrees the Worktrees view lists. */
   setWorktreeDetails(path: string, worktrees: WorktreeDetail[]): void;
   /** The stashes the Stashes view lists, newest first, with what each one holds. */
@@ -191,6 +195,8 @@ export interface StubCoreApi extends CoreApi {
   readonly stashActions: readonly string[];
   /** Every Worktree action the UI ran, such as `create:/path:branch:topic`, in order. */
   readonly worktreeActions: readonly string[];
+  /** Every tag and remote action the UI ran, such as `tag:v1`, `remote-add:origin:url`, in order. */
+  readonly tagRemoteActions: readonly string[];
   readonly stagedLines: readonly { direction: "stage" | "unstage"; selection: LineSelection }[];
   /** Every diff the UI asked for, in order. */
   readonly diffRequests: readonly DiffRequest[];
@@ -253,6 +259,9 @@ export function createStubCoreApi(
   const stashActions: string[] = [];
   const worktreeLists = new Map<string, WorktreeDetail[]>();
   const worktreeActions: string[] = [];
+  const tagLists = new Map<string, TagInfo[]>();
+  const remoteLists = new Map<string, RemoteInfo[]>();
+  const tagRemoteActions: string[] = [];
   const stagedLines: { direction: "stage" | "unstage"; selection: LineSelection }[] = [];
   let nextMutationId = 1;
   const backgroundWatched: string[] = [];
@@ -525,6 +534,71 @@ export function createStubCoreApi(
       entry.name = tab.repositoryName;
       entry.missing = false;
       entry.worktrees = [{ path: newPath, main: true, head: tab.head }];
+    },
+    async listTags(path) {
+      return tagLists.get(path) ?? [];
+    },
+    async createTagHere(path, name, message) {
+      tagRemoteActions.push(`tag:${name}${message ? `:${message}` : ""}`);
+      return mutate(path, `Create tag ${name}`, (status) => {
+        tagLists.set(path, [
+          ...(tagLists.get(path) ?? []),
+          { name, annotated: message !== null, shortId: "abc1234", subject: "Latest" },
+        ]);
+        return status;
+      });
+    },
+    async deleteTag(path, name) {
+      tagRemoteActions.push(`tag-delete:${name}`);
+      return mutate(path, `Delete tag ${name}`, (status) => {
+        tagLists.set(path, (tagLists.get(path) ?? []).filter((tag) => tag.name !== name));
+        return status;
+      });
+    },
+    async pushTag(path, name, remote) {
+      tagRemoteActions.push(`tag-push:${name}:${remote}`);
+      return mutate(path, `Push tag ${name}`, (status) => status);
+    },
+    async deleteRemoteTag(path, name, remote) {
+      tagRemoteActions.push(`tag-delete-remote:${name}:${remote}`);
+      return mutate(path, `Delete tag ${name} on ${remote}`, (status) => status);
+    },
+    async listRemotes(path) {
+      return remoteLists.get(path) ?? [];
+    },
+    async addRemote(path, name, url) {
+      tagRemoteActions.push(`remote-add:${name}:${url}`);
+      return mutate(path, `Add remote ${name}`, (status) => {
+        remoteLists.set(path, [...(remoteLists.get(path) ?? []), { name, url, pushUrl: "" }]);
+        return status;
+      });
+    },
+    async renameRemote(path, name, newName) {
+      tagRemoteActions.push(`remote-rename:${name}:${newName}`);
+      return mutate(path, `Rename remote ${name}`, (status) => {
+        remoteLists.set(
+          path,
+          (remoteLists.get(path) ?? []).map((remote) => (remote.name === name ? { ...remote, name: newName } : remote)),
+        );
+        return status;
+      });
+    },
+    async setRemoteUrl(path, name, url) {
+      tagRemoteActions.push(`remote-url:${name}:${url}`);
+      return mutate(path, `Change the address of ${name}`, (status) => {
+        remoteLists.set(
+          path,
+          (remoteLists.get(path) ?? []).map((remote) => (remote.name === name ? { ...remote, url } : remote)),
+        );
+        return status;
+      });
+    },
+    async removeRemote(path, name) {
+      tagRemoteActions.push(`remote-remove:${name}`);
+      return mutate(path, `Remove remote ${name}`, (status) => {
+        remoteLists.set(path, (remoteLists.get(path) ?? []).filter((remote) => remote.name !== name));
+        return status;
+      });
     },
     async listWorktreeDetails(path) {
       return (
@@ -898,6 +972,12 @@ export function createStubCoreApi(
     },
     async assessMutation(path, kind) {
       assessed.push(kind);
+      if (kind.kind === "deleteTag") {
+        return kind.name.startsWith("only-")
+          ? { kind: "destructive", loss: { files: [], commits: 2, unpushedCommits: 2 } }
+          : { kind: "safe" };
+      }
+      if (kind.kind === "deleteRemoteTag") return { kind: "safe" };
       if (kind.kind === "removeWorktree") {
         const found = (worktreeLists.get(path) ?? []).find((entry) => entry.path === kind.path);
         return found?.dirty
@@ -994,6 +1074,11 @@ export function createStubCoreApi(
       else operations.delete(path);
       emit({ type: "worktreeChanged", worktreePath: path });
     },
+    setTagsAndRemotes(path, tags, remotes) {
+      tagLists.set(path, tags);
+      remoteLists.set(path, remotes);
+      emit({ type: "worktreeChanged", worktreePath: path });
+    },
     setWorktreeDetails(path, worktrees) {
       worktreeLists.set(path, worktrees);
       emit({ type: "worktreeChanged", worktreePath: path });
@@ -1060,6 +1145,7 @@ export function createStubCoreApi(
     assessedMutations: assessed,
     discards,
     stagedLines,
+    tagRemoteActions,
     worktreeActions,
     stashActions,
     appliedPlans,

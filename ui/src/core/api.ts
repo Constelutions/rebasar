@@ -300,7 +300,9 @@ export type MutationKind =
   | { kind: "deleteBranch"; name: string }
   | { kind: "reset"; commit: string; mode: ResetMode }
   | { kind: "dropStash"; stash: string }
-  | { kind: "removeWorktree"; path: string };
+  | { kind: "removeWorktree"; path: string }
+  | { kind: "deleteTag"; name: string }
+  | { kind: "deleteRemoteTag"; name: string; remote: string };
 
 /** Exactly what a destructive Mutation would lose, as it stands right now. */
 export interface Loss {
@@ -447,6 +449,22 @@ export interface StashPreview {
   untracked: string[];
 }
 
+export interface TagInfo {
+  name: string;
+  /** An annotated tag is an object of its own, with a message. */
+  annotated: boolean;
+  /** The commit the tag points at. */
+  shortId: string;
+  subject: string;
+}
+
+export interface RemoteInfo {
+  name: string;
+  url: string;
+  /** Empty when pushes go to the same address. */
+  pushUrl: string;
+}
+
 export interface WorktreeDetail {
   path: string;
   /** The Worktree that holds the Repository itself; it cannot be removed. */
@@ -570,6 +588,19 @@ export interface CoreApi {
   discardChanges(path: string, paths: string[]): Promise<MutationOutcome>;
   /** Does nothing for a mutation that has already finished. */
   cancelMutation(mutationId: number): Promise<void>;
+  listTags(path: string): Promise<TagInfo[]>;
+  /** At the current commit; annotated when a message is given. */
+  createTagHere(path: string, name: string, message: string | null): Promise<MutationOutcome>;
+  /** Confirm with `{ kind: "deleteTag", name }` first. */
+  deleteTag(path: string, name: string): Promise<MutationOutcome>;
+  pushTag(path: string, name: string, remote: string): Promise<MutationOutcome>;
+  /** Confirm with `{ kind: "deleteRemoteTag", name, remote }` first; the local tag stays. */
+  deleteRemoteTag(path: string, name: string, remote: string): Promise<MutationOutcome>;
+  listRemotes(path: string): Promise<RemoteInfo[]>;
+  addRemote(path: string, name: string, url: string): Promise<MutationOutcome>;
+  renameRemote(path: string, name: string, newName: string): Promise<MutationOutcome>;
+  setRemoteUrl(path: string, name: string, url: string): Promise<MutationOutcome>;
+  removeRemote(path: string, name: string): Promise<MutationOutcome>;
   /** The Worktrees of the Repository the Tab belongs to, the main one first. */
   listWorktreeDetails(path: string): Promise<WorktreeDetail[]>;
   /** A branch start checks it out; with `newBranch` that branch is created; a bare commit detaches. */

@@ -3,6 +3,7 @@ import { type FormEvent, useCallback, useEffect, useId, useState } from "react";
 import type { BranchInfo, CoreApi, MergeMode, MutationOutcome, Tab } from "../core/api";
 import { describeError } from "../core/describeError";
 import { useConfirmation } from "../useConfirmation";
+import { RemotesSection, TagsSection } from "./TagsAndRemotes";
 
 interface BranchesViewProps {
   api: CoreApi;
@@ -93,6 +94,8 @@ export function BranchesView({ api, tab }: BranchesViewProps) {
       {remote.length > 0 && (
         <BranchList label="Remote branches" branches={remote} actions={actions} />
       )}
+      <TagsSection api={api} worktreePath={path} onError={setError} />
+      <RemotesSection api={api} worktreePath={path} onError={setError} />
       {prompt && (
         <BranchPrompt
           prompt={prompt}

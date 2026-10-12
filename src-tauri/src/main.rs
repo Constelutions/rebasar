@@ -6,7 +6,7 @@ use std::sync::Arc;
 use rebasar_core::{
     ApiError, Assessment, BranchInfo, ConflictFile, ConflictSide, CommitDetail, CommitDiffRequest, CommitHit, CommitOptions, Core,
     DiffRequest, FileChange, FileDiff, FoundRepository, GitHubAuthStatus, GitHubRepository, GitIdentity, GitSetup, Group,
-    HistoryCount, HistoryFilter, HistoryPage, LineSelection, MutationId, MergeMode, MutationKind, ResetMode, StashInfo, StashPreview, WorktreeDetail, WorktreeStart, RebasePlan, MutationOutcome, OperationInProgress, PullStrategy,
+    HistoryCount, HistoryFilter, HistoryPage, LineSelection, MutationId, MergeMode, MutationKind, ResetMode, StashInfo, StashPreview, RemoteInfo, TagInfo, WorktreeDetail, WorktreeStart, RebasePlan, MutationOutcome, OperationInProgress, PullStrategy,
     OutgoingCommit, PullRequest, RefLabel, RepositoryList, Session, Settings, Tab, WindowBounds,
     SyncStatus, WorktreeDiffRequest, WorktreeStatus,
 };
@@ -973,6 +973,130 @@ async fn prune_worktrees(
         .map_err(ApiError::unexpected)?
 }
 
+#[tauri::command]
+async fn list_tags(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+) -> Result<Vec<TagInfo>, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.list_tags(&path))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn create_tag_here(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+    name: String,
+    message: Option<String>,
+) -> Result<MutationOutcome, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.create_tag_here(&path, &name, message.as_deref()))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn delete_tag(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+    name: String,
+) -> Result<MutationOutcome, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.delete_tag(&path, &name))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn push_tag(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+    name: String,
+    remote: String,
+) -> Result<MutationOutcome, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.push_tag(&path, &name, &remote))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn delete_remote_tag(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+    name: String,
+    remote: String,
+) -> Result<MutationOutcome, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.delete_remote_tag(&path, &name, &remote))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn list_remotes(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+) -> Result<Vec<RemoteInfo>, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.list_remotes(&path))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn add_remote(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+    name: String,
+    url: String,
+) -> Result<MutationOutcome, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.add_remote(&path, &name, &url))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn rename_remote(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+    name: String,
+    new_name: String,
+) -> Result<MutationOutcome, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.rename_remote(&path, &name, &new_name))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn set_remote_url(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+    name: String,
+    url: String,
+) -> Result<MutationOutcome, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.set_remote_url(&path, &name, &url))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn remove_remote(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+    name: String,
+) -> Result<MutationOutcome, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.remove_remote(&path, &name))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
 fn restore_window(window: &WebviewWindow, bounds: WindowBounds) {
     if let Err(error) = window.set_size(PhysicalSize::new(bounds.width, bounds.height)) {
         eprintln!("failed to restore the window size: {error}");
@@ -1128,7 +1252,17 @@ fn main() {
             list_worktree_details,
             create_worktree,
             remove_worktree,
-            prune_worktrees
+            prune_worktrees,
+            list_tags,
+            create_tag_here,
+            delete_tag,
+            push_tag,
+            delete_remote_tag,
+            list_remotes,
+            add_remote,
+            rename_remote,
+            set_remote_url,
+            remove_remote
         ])
         .run(tauri::generate_context!())
         .expect("failed to run Rebasar");

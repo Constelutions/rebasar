@@ -34,6 +34,7 @@ mod stash;
 mod status;
 mod sync;
 mod tabs;
+mod tags_remotes;
 mod watch;
 mod worktrees;
 
@@ -68,6 +69,7 @@ pub use repositories::{RepositoryEntry, RepositoryList, WorktreeEntry};
 pub use session::Session;
 pub use status::{ChangeKind, FileChange, WorktreeStatus};
 pub use stash::{StashInfo, StashPreview};
+pub use tags_remotes::{RemoteInfo, TagInfo};
 pub use worktrees::{WorktreeDetail, WorktreeStart};
 pub use sync::{PullStrategy, SyncStatus};
 pub use tabs::CacheKind;

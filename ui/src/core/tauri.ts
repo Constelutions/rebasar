@@ -35,6 +35,8 @@ import type {
   ResetMode,
   StashInfo,
   StashPreview,
+  RemoteInfo,
+  TagInfo,
   WorktreeDetail,
   WorktreeStart,
   SyncStatus,
@@ -80,6 +82,19 @@ export const tauriCoreApi: CoreApi = {
   assessMutation: (path, kind) => invoke<Assessment>("assess_mutation", { path, kind }),
   discardChanges: (path, paths) => invoke<MutationOutcome>("discard_changes", { path, paths }),
   cancelMutation: (mutationId) => invoke<void>("cancel_mutation", { mutationId }),
+  listTags: (path) => invoke<TagInfo[]>("list_tags", { path }),
+  createTagHere: (path, name, message) =>
+    invoke<MutationOutcome>("create_tag_here", { path, name, message }),
+  deleteTag: (path, name) => invoke<MutationOutcome>("delete_tag", { path, name }),
+  pushTag: (path, name, remote) => invoke<MutationOutcome>("push_tag", { path, name, remote }),
+  deleteRemoteTag: (path, name, remote) =>
+    invoke<MutationOutcome>("delete_remote_tag", { path, name, remote }),
+  listRemotes: (path) => invoke<RemoteInfo[]>("list_remotes", { path }),
+  addRemote: (path, name, url) => invoke<MutationOutcome>("add_remote", { path, name, url }),
+  renameRemote: (path, name, newName) =>
+    invoke<MutationOutcome>("rename_remote", { path, name, newName }),
+  setRemoteUrl: (path, name, url) => invoke<MutationOutcome>("set_remote_url", { path, name, url }),
+  removeRemote: (path, name) => invoke<MutationOutcome>("remove_remote", { path, name }),
   listWorktreeDetails: (path) => invoke<WorktreeDetail[]>("list_worktree_details", { path }),
   createWorktree: (path, target, from: WorktreeStart, newBranch) =>
     invoke<MutationOutcome>("create_worktree", { path, target, from, newBranch }),
