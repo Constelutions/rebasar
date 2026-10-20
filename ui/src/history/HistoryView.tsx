@@ -1,6 +1,7 @@
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import { SegmentedControl } from "../components/SegmentedControl";
+import { SplitPane, SplitPositionToggle } from "../components/SplitPane";
 import type { CoreApi, HistoryRow, Settings, Tab } from "../core/api";
 import { describeError } from "../core/describeError";
 import { Button } from "../components/Button";
@@ -84,7 +85,9 @@ function FilteredHistory({
   const branchNames = useBranchNames(api, tab.worktreePath);
   const authorNames = useAuthorNames(items);
   const [{ orientation, style }, changeLayout] = useHistoryLayout();
-  const hashLength = useSettings().settings.copy.hashLength;
+  const { settings, update } = useSettings();
+  const { hashLength } = settings.copy;
+  const { detailPosition } = settings.history;
   const { copy, tooltip: copiedTooltip } = useCopyOnSelect();
   const copyHash = useCallback(
     (commitId: string, near: Element) => copy(commitId.slice(0, hashLength ?? undefined), near),
@@ -105,7 +108,7 @@ function FilteredHistory({
 
   function select(commitId: string) {
     setComparing(false);
-    setSelectedId(commitId);
+    setSelectedId(commitId === selectedId ? null : commitId);
   }
 
   async function runAction(action: CommitAction, commitId: string) {
@@ -218,8 +221,30 @@ function FilteredHistory({
           value={style}
           onChange={(value) => changeLayout({ style: value })}
         />
+        <SplitPositionToggle
+          label="Details position"
+          value={detailPosition}
+          onChange={(position) =>
+            update({ ...settings, history: { ...settings.history, detailPosition: position } })
+          }
+        />
       </div>
-      <div className="history" data-detail-open={selectedId !== null || undefined}>
+      <SplitPane
+        position={detailPosition}
+        secondary={
+          selectedId !== null && (
+            <CommitDetailPane
+              key={selectedId}
+              api={api}
+              worktreePath={tab.worktreePath}
+              commitId={selectedId}
+              comparing={comparing}
+              onComparingChange={setComparing}
+              onClose={() => setSelectedId(null)}
+            />
+          )
+        }
+      >
         {orientation === "vertical" && <ColumnTitles />}
         <HistoryList
           key={`${orientation}-${generation}`}
@@ -234,18 +259,7 @@ function FilteredHistory({
           onCopyHash={copyHash}
           onOpenMenu={(commitId, x, y) => setMenu({ commitId, x, y })}
         />
-        {selectedId !== null && (
-          <CommitDetailPane
-            key={selectedId}
-            api={api}
-            worktreePath={tab.worktreePath}
-            commitId={selectedId}
-            comparing={comparing}
-            onComparingChange={setComparing}
-            onClose={() => setSelectedId(null)}
-          />
-        )}
-      </div>
+      </SplitPane>
       {notice && (
         <p role="alert" className="error">
           {notice}

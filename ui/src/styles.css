@@ -1005,6 +1005,7 @@ button.commit-hash:hover {
 .diff-path {
   font: var(--text-md) var(--font-mono);
   color: var(--color-text-strong);
+  user-select: text;
 }
 
 .mode-change {
@@ -1752,20 +1753,47 @@ button.commit-hash:hover {
   user-select: text;
 }
 
-.history {
+.split-pane {
   display: flex;
   flex: 1;
-  flex-direction: column;
   min-height: 0;
+}
+
+.split-pane[data-position="bottom"] {
+  flex-direction: column;
+}
+
+.split-primary {
+  display: flex;
+  flex: 2;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.split-pane > :not(.split-primary) {
+  min-width: 0;
+}
+
+.split-pane[data-position="right"] > :not(.split-primary) {
+  margin-left: var(--space-4);
+  padding-top: 0;
+  padding-left: var(--space-4);
+  border-top: 0;
+  border-left: 1px solid var(--color-border);
+}
+
+/* The list runs to the edge of the view, so beside a pane it stops at the pane instead. */
+.split-pane[data-position="right"][data-open] .split-primary > * {
+  margin-right: 0;
+}
+
+.split-pane[data-position="bottom"][data-open] .history-scroller {
+  margin-bottom: 0;
 }
 
 .history-scroller {
   flex-basis: 0;
-}
-
-.history[data-detail-open] .history-scroller {
-  flex: 2;
-  margin-bottom: 0;
 }
 
 .history-item.commit {

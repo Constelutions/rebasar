@@ -1,5 +1,5 @@
 use rebasar_core::{
-    platform, BranchesFilter, BranchesSettings, ChangesSettings, CommitSettings, ConfirmTabClose, CopySettings, EditorSettings, FilesView, GraphStyle, HistoryOrientation, HistorySettings,
+    platform, BranchesFilter, BranchesSettings, ChangesSettings, CommitSettings, ConfirmTabClose, CopySettings, EditorSettings, FilesView, GraphStyle, HistoryOrientation, HistorySettings, SplitPosition,
     ApiError, AppearanceSettings, Assessment, ChangeKind, ChangeList, CheckState, CommitDetail,
     CommitDiffRequest, CommitHit, CommitOptions, CommitParent, CoreEvent, DiffContent, DiffLine,
     DiffMode, DiffRequest, DiffSettings, Edge, EdgeKind, FileChange, FileDiff, GitHubAuthStatus,
@@ -567,6 +567,7 @@ fn settings_serialise_to_the_shape_the_ui_expects() {
             orientation: HistoryOrientation::Horizontal,
             graph_style: GraphStyle::Tree,
             files_view: FilesView::Flat,
+            detail_position: SplitPosition::Bottom,
         },
         changes: ChangesSettings {
             files_view: FilesView::Flat,
@@ -597,6 +598,7 @@ fn settings_serialise_to_the_shape_the_ui_expects() {
                 "orientation": "horizontal",
                 "graphStyle": "tree",
                 "filesView": "flat",
+                "detailPosition": "bottom",
             },
             "changes": { "filesView": "flat" },
             "commit": { "signOffByDefault": true },

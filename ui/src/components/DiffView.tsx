@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import type { DiffLine, DiffMode, FileDiff, Hunk } from "../core/api";
 import { useSyntaxTokens } from "../highlight/useSyntaxTokens";
 import type { Token } from "../highlight/tokens";
+import { useCopyOnSelect } from "../useCopyOnSelect";
 import { Button } from "./Button";
 import {
   type DiffRow,
@@ -32,6 +33,7 @@ interface DiffViewProps {
 
 export function DiffView({ diff, mode, onModeChange, onLoadLarge, staging }: DiffViewProps) {
   const { content } = diff;
+  const { ref: pathRef, tooltip: copiedTooltip } = useCopyOnSelect<HTMLSpanElement>();
   const [pickedKeys, setPickedKeys] = useState<ReadonlySet<string>>(new Set());
   const picked = useMemo(
     () =>
@@ -61,7 +63,9 @@ export function DiffView({ diff, mode, onModeChange, onLoadLarge, staging }: Dif
     <section className="diff-view" aria-label={`Diff of ${diff.path}`}>
       <header className="diff-header">
         <div className="diff-title">
-          <span className="diff-path">{diff.path}</span>
+          <span ref={pathRef} className="diff-path">
+            {diff.path}
+          </span>
           {diff.originalPath && <span className="renamed-from">renamed from {diff.originalPath}</span>}
           {diff.modeChange && (
             <span className="mode-change">
@@ -114,6 +118,7 @@ export function DiffView({ diff, mode, onModeChange, onLoadLarge, staging }: Dif
           </Button>
         </div>
       )}
+      {copiedTooltip}
     </section>
   );
 }

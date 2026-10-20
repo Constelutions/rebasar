@@ -266,6 +266,8 @@ export interface Settings {
     graphStyle: "tree" | "linear";
     /** How the changed files of a commit are listed. */
     filesView: FilesView;
+    /** Where the details of the selected commit open. */
+    detailPosition: SplitPosition;
   };
   /** How the Staged and Unstaged lists open. */
   changes: { filesView: FilesView };
@@ -280,6 +282,9 @@ export type BranchesFilter = "both" | "local" | "remote";
 
 /** A list of changed files, as a tree of folders or as one flat list of paths. */
 export type FilesView = "tree" | "flat";
+
+/** Where a view puts the pane that opens beside its list. */
+export type SplitPosition = "right" | "bottom";
 
 export type ConfirmTabClose = "always" | "whenLost" | "never";
 
@@ -302,6 +307,7 @@ export const defaultSettings: Settings = {
     orientation: "vertical",
     graphStyle: "tree",
     filesView: "tree",
+    detailPosition: "right",
   },
   changes: { filesView: "tree" },
   commit: { signOffByDefault: false },

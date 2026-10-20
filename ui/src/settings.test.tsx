@@ -362,6 +362,16 @@ it("stores the default view of the changed files of a commit and of the Staged a
   await waitFor(async () => expect((await api.settings()).changes.filesView).toBe("flat"));
 });
 
+it("stores where the details of a commit open as soon as it is picked", async () => {
+  const { user, api } = render();
+  await openSettings(user);
+  expect(screen.getByLabelText("Commit details position")).toHaveValue("right");
+
+  await user.selectOptions(screen.getByLabelText("Commit details position"), "bottom");
+
+  await waitFor(async () => expect((await api.settings()).history.detailPosition).toBe("bottom"));
+});
+
 it("does not offer a Linear graph style for a Horizontal History", async () => {
   const { user } = render();
   await openSettings(user);

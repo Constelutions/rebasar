@@ -344,6 +344,7 @@ function HistorySection({ settings, update }: SectionProps) {
   const orientationId = useId();
   const graphStyleId = useId();
   const filesViewId = useId();
+  const detailPositionId = useId();
   const { history } = settings;
 
   return (
@@ -422,6 +423,23 @@ function HistorySection({ settings, update }: SectionProps) {
           value={history.filesView}
           onChange={(filesView) => update({ ...settings, history: { ...history, filesView } })}
         />
+      </div>
+      <div className="settings-field">
+        <label htmlFor={detailPositionId}>Commit details position</label>
+        <select
+          id={detailPositionId}
+          className="select"
+          value={history.detailPosition}
+          onChange={(event) =>
+            update({
+              ...settings,
+              history: { ...history, detailPosition: event.target.value === "bottom" ? "bottom" : "right" },
+            })
+          }
+        >
+          <option value="right">Right</option>
+          <option value="bottom">Bottom</option>
+        </select>
       </div>
     </section>
   );

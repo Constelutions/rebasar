@@ -65,6 +65,15 @@ pub enum FilesView {
     Flat,
 }
 
+/// Where a view puts the pane that opens beside its list.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum SplitPosition {
+    #[default]
+    Right,
+    Bottom,
+}
+
 /// How the Staged and Unstaged lists open.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
@@ -85,6 +94,8 @@ pub struct HistorySettings {
     pub graph_style: GraphStyle,
     /// How the changed files of a commit are listed.
     pub files_view: FilesView,
+    /// Where the details of the selected commit open.
+    pub detail_position: SplitPosition,
 }
 
 impl Default for HistorySettings {
@@ -96,6 +107,7 @@ impl Default for HistorySettings {
             orientation: HistoryOrientation::default(),
             graph_style: GraphStyle::default(),
             files_view: FilesView::default(),
+            detail_position: SplitPosition::default(),
         }
     }
 }

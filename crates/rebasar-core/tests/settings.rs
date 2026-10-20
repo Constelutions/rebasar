@@ -3,7 +3,7 @@ use std::fs;
 use rebasar_core::{
     ApiError, AppearanceSettings, BranchesFilter, BranchesSettings, ChangesSettings, CommitSettings, ConfirmTabClose, Core, CopySettings, DiffMode,
     EditorSettings,
-    DiffSettings, FilesView, GraphStyle, HistoryOrientation, HistorySettings, Settings, SyncSettings, TabSettings,
+    DiffSettings, FilesView, GraphStyle, HistoryOrientation, HistorySettings, Settings, SplitPosition, SyncSettings, TabSettings,
     WhitespaceMode,
 };
 
@@ -40,6 +40,7 @@ fn customised() -> Settings {
             orientation: HistoryOrientation::Horizontal,
             graph_style: GraphStyle::Tree,
             files_view: FilesView::Flat,
+            detail_position: SplitPosition::Bottom,
         },
         changes: ChangesSettings {
             files_view: FilesView::Flat,
@@ -90,6 +91,17 @@ fn changed_files_start_as_a_tree_everywhere() {
 
     assert_eq!(settings.history.files_view, FilesView::Tree);
     assert_eq!(settings.changes.files_view, FilesView::Tree);
+}
+
+#[test]
+fn commit_details_open_to_the_right_until_settings_say_otherwise() {
+    assert_eq!(Settings::default().history.detail_position, SplitPosition::Right);
+
+    let dir = tempfile::tempdir().unwrap();
+    fs::write(dir.path().join("settings.json"), r#"{ "history": { "mine": true } }"#).unwrap();
+    let settings = core_in(dir.path()).settings().expect("settings");
+
+    assert_eq!(settings.history.detail_position, SplitPosition::Right);
 }
 
 #[test]
