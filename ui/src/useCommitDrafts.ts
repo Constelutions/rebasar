@@ -1,11 +1,10 @@
 import { useCallback, useMemo, useState } from "react";
 
 export interface CommitDraft {
-  subject: string;
-  body: string;
+  message: string;
 }
 
-export const emptyDraft: CommitDraft = { subject: "", body: "" };
+export const emptyDraft: CommitDraft = { message: "" };
 
 /**
  * The commit message each Tab has typed and not committed. It lives above the views so that moving
@@ -24,8 +23,7 @@ export function useCommitDrafts() {
 
   const hasUnsent = useCallback(
     (worktreePath: string) => {
-      const { subject, body } = draftOf(worktreePath);
-      return subject.trim() !== "" || body.trim() !== "";
+      return draftOf(worktreePath).message.trim() !== "";
     },
     [draftOf],
   );

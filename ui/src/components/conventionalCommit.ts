@@ -7,20 +7,24 @@ export const SUBJECT_LIMIT = 72;
 
 const PREFIX = new RegExp(`^(${COMMIT_TYPES.join("|")})(\\([^)]*\\))?(!)?:\\s?`);
 
-export function typeOf(subject: string): CommitType | undefined {
-  return PREFIX.exec(subject)?.[1] as CommitType | undefined;
+/** The first line of a message is its subject; the rest is the body. */
+export function subjectOf(message: string): string {
+  const end = message.indexOf("\n");
+  return end === -1 ? message : message.slice(0, end);
 }
 
-/** Swaps the type prefix, keeping any scope; `undefined` removes the prefix. */
-export function withType(subject: string, type: CommitType | undefined): string {
+export function typeOf(message: string): CommitType | undefined {
+  return PREFIX.exec(subjectOf(message))?.[1] as CommitType | undefined;
+}
+
+/** Swaps the type prefix of the subject, keeping any scope; `undefined` removes the prefix. */
+export function withType(message: string, type: CommitType | undefined): string {
+  const subject = subjectOf(message);
+  const body = message.slice(subject.length);
   const match = PREFIX.exec(subject);
-  if (!match) return type ? `${type}: ${subject}` : subject;
+  if (!match) return (type ? `${type}: ${subject}` : subject) + body;
 
   const rest = subject.slice(match[0].length);
-  if (!type) return rest;
-  return `${type}${match[2] ?? ""}${match[3] ?? ""}: ${rest}`;
-}
-
-export function messageOf(subject: string, body: string): string {
-  return body.trim() === "" ? subject.trim() : `${subject.trim()}\n\n${body.trim()}`;
+  if (!type) return rest + body;
+  return `${type}${match[2] ?? ""}${match[3] ?? ""}: ${rest}${body}`;
 }

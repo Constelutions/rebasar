@@ -1,5 +1,5 @@
 use rebasar_core::{
-    ChangesSettings, ConfirmTabClose, CopySettings, FilesView, GraphStyle, HistoryOrientation, HistorySettings,
+    ChangesSettings, CommitSettings, ConfirmTabClose, CopySettings, FilesView, GraphStyle, HistoryOrientation, HistorySettings,
     ApiError, AppearanceSettings, Assessment, ChangeKind, ChangeList, CheckState, CommitDetail,
     CommitDiffRequest, CommitHit, CommitOptions, CommitParent, CoreEvent, DiffContent, DiffLine,
     DiffMode, DiffRequest, DiffSettings, Edge, EdgeKind, FileChange, FileDiff, GitHubAuthStatus,
@@ -568,6 +568,9 @@ fn settings_serialise_to_the_shape_the_ui_expects() {
         changes: ChangesSettings {
             files_view: FilesView::Flat,
         },
+        commit: CommitSettings {
+            sign_off_by_default: true,
+        },
     };
 
     assert_eq!(
@@ -587,6 +590,7 @@ fn settings_serialise_to_the_shape_the_ui_expects() {
                 "filesView": "flat",
             },
             "changes": { "filesView": "flat" },
+            "commit": { "signOffByDefault": true },
         })
     );
 }

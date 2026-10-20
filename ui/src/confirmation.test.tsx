@@ -130,7 +130,7 @@ describe("safe mutations", () => {
     await user.click(screen.getByRole("button", { name: "Unstage notes.txt" }));
     await unstaged().findByText("notes.txt");
     await user.click(screen.getByRole("button", { name: "Stage src/stub.ts" }));
-    await user.type(screen.getByRole("textbox", { name: "Subject" }), "Message");
+    await user.type(screen.getByRole("textbox", { name: "Commit message" }), "Message");
     await user.click(screen.getByRole("button", { name: "Commit" }));
 
     await vi.waitFor(() => expect(api.commits).toHaveLength(1));

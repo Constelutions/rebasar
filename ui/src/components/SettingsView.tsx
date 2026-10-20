@@ -61,6 +61,7 @@ function GlobalSettings({ api }: { api: CoreApi }) {
       <TabsSection settings={settings} update={update} />
       <HistorySection settings={settings} update={update} />
       <ChangesSection settings={settings} update={update} />
+      <CommitSection settings={settings} update={update} />
       <CopySection settings={settings} update={update} />
       <AppearanceSection settings={settings} update={update} />
       {error && (
@@ -462,6 +463,28 @@ function FilesViewSelect({
       <option value="tree">Tree</option>
       <option value="flat">Flat list</option>
     </select>
+  );
+}
+
+function CommitSection({ settings, update }: SectionProps) {
+  const signOffId = useId();
+  const { commit } = settings;
+
+  return (
+    <section className="settings-section" aria-labelledby={`${signOffId}-title`}>
+      <h2 id={`${signOffId}-title`}>Commit</h2>
+      <div className="settings-field">
+        <label htmlFor={signOffId}>Sign off commits by default</label>
+        <input
+          id={signOffId}
+          type="checkbox"
+          checked={commit.signOffByDefault}
+          onChange={(event) =>
+            update({ ...settings, commit: { ...commit, signOffByDefault: event.target.checked } })
+          }
+        />
+      </div>
+    </section>
   );
 }
 

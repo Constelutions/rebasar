@@ -71,21 +71,21 @@ describe("committing", () => {
   it("commits the staged files with the typed message and clears the message", async () => {
     const { user, api } = await openChanges();
 
-    await user.type(screen.getByRole("textbox", { name: "Subject" }), "Fix the api");
+    await user.type(screen.getByRole("textbox", { name: "Commit message" }), "Fix the api");
     await user.click(screen.getByRole("button", { name: "Commit" }));
 
     await screen.findByText(/no changes|notes\.txt/);
     expect(api.commits).toEqual([
       { worktreePath: sampleTab.worktreePath, message: "Fix the api", amend: false, signOff: false },
     ]);
-    expect(screen.getByRole("textbox", { name: "Subject" })).toHaveValue("");
+    expect(screen.getByRole("textbox", { name: "Commit message" })).toHaveValue("");
     expect(screen.queryByRole("button", { name: "Unstage src/api.ts" })).not.toBeInTheDocument();
   });
 
   it("cannot commit without a message or without staged files", async () => {
     const { user } = await openChanges({ conflicts: [], staged: [], unstaged: status.unstaged });
     const commit = screen.getByRole("button", { name: "Commit" });
-    const message = screen.getByRole("textbox", { name: "Subject" });
+    const message = screen.getByRole("textbox", { name: "Commit message" });
 
     await user.type(message, "Message but nothing staged");
     expect(commit).toBeDisabled();
@@ -102,13 +102,13 @@ describe("committing", () => {
     const { user, api } = await openChanges();
     api.failNextMutation({ exitCode: 1, output: ["lint failed: no tabs please"] });
 
-    await user.type(screen.getByRole("textbox", { name: "Subject" }), "Fix the api");
+    await user.type(screen.getByRole("textbox", { name: "Commit message" }), "Fix the api");
     await user.click(screen.getByRole("button", { name: "Commit" }));
 
     const output = await screen.findByRole("article", { name: "Commit" });
     expect(output).toHaveTextContent("lint failed: no tabs please");
     expect(output).toHaveTextContent("failed (exit code 1)");
-    expect(screen.getByRole("textbox", { name: "Subject" })).toHaveValue("Fix the api");
+    expect(screen.getByRole("textbox", { name: "Commit message" })).toHaveValue("Fix the api");
   });
 });
 

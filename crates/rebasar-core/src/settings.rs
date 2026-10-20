@@ -19,6 +19,15 @@ pub struct Settings {
     pub tabs: TabSettings,
     pub history: HistorySettings,
     pub changes: ChangesSettings,
+    pub commit: CommitSettings,
+}
+
+/// How the commit composer opens.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, rename_all = "camelCase")]
+pub struct CommitSettings {
+    /// Starts with Sign off checked.
+    pub sign_off_by_default: bool,
 }
 
 /// How a list of changed files is laid out.

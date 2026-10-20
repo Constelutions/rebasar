@@ -1,7 +1,7 @@
 use std::fs;
 
 use rebasar_core::{
-    ApiError, AppearanceSettings, ChangesSettings, ConfirmTabClose, Core, CopySettings, DiffMode,
+    ApiError, AppearanceSettings, ChangesSettings, CommitSettings, ConfirmTabClose, Core, CopySettings, DiffMode,
     DiffSettings, FilesView, GraphStyle, HistoryOrientation, HistorySettings, Settings, SyncSettings, TabSettings,
     WhitespaceMode,
 };
@@ -42,6 +42,9 @@ fn customised() -> Settings {
         changes: ChangesSettings {
             files_view: FilesView::Flat,
         },
+        commit: CommitSettings {
+            sign_off_by_default: true,
+        },
     }
 }
 
@@ -67,6 +70,21 @@ fn settings_files_written_before_the_files_view_existed_still_load() {
     assert!(settings.history.mine);
     assert_eq!(settings.history.files_view, FilesView::Tree);
     assert_eq!(settings.changes.files_view, FilesView::Tree);
+}
+
+#[test]
+fn commits_are_not_signed_off_by_default_until_settings_say_so() {
+    let dir = tempfile::tempdir().unwrap();
+    assert!(!Settings::default().commit.sign_off_by_default);
+    fs::write(
+        dir.path().join("settings.json"),
+        r#"{ "commit": { "signOffByDefault": true } }"#,
+    )
+    .unwrap();
+
+    let settings = core_in(dir.path()).settings().expect("settings");
+
+    assert!(settings.commit.sign_off_by_default);
 }
 
 #[test]

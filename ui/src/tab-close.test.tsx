@@ -68,7 +68,7 @@ const closeSample = () => screen.getByRole("button", { name: "Close sample · ma
 
 async function typeMessage(user: ReturnType<typeof userEvent.setup>, text: string) {
   await user.click(screen.getByRole("button", { name: "Changes" }));
-  await user.type(await screen.findByRole("textbox", { name: "Subject" }), text);
+  await user.type(await screen.findByRole("textbox", { name: "Commit message" }), text);
 }
 
 it("puts a close button on the left of each Tab, before its label and status dot", async () => {
@@ -112,7 +112,7 @@ it("keeps the Tab and its message when the closing is cancelled", async () => {
 
   expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
   expect(screen.getAllByRole("tab")).toHaveLength(2);
-  expect(screen.getByRole("textbox", { name: "Subject" })).toHaveValue("feat: draft");
+  expect(screen.getByRole("textbox", { name: "Commit message" })).toHaveValue("feat: draft");
 });
 
 it("closes the Tab once the loss is confirmed", async () => {

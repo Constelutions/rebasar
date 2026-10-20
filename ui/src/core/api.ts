@@ -268,6 +268,7 @@ export interface Settings {
   };
   /** How the Staged and Unstaged lists open. */
   changes: { filesView: FilesView };
+  commit: { signOffByDefault: boolean };
 }
 
 /** A list of changed files, as a tree of folders or as one flat list of paths. */
@@ -296,6 +297,7 @@ export const defaultSettings: Settings = {
     filesView: "tree",
   },
   changes: { filesView: "tree" },
+  commit: { signOffByDefault: false },
 };
 
 export interface Group {

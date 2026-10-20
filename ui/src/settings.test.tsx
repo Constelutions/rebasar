@@ -278,6 +278,7 @@ it("starts from the stored settings", async () => {
       tabs: { confirmClose: "whenLost", restoreOnLaunch: true },
       history: { ...defaultSettings.history },
       changes: { ...defaultSettings.changes },
+      commit: { ...defaultSettings.commit },
     },
   });
   await openSettings(user);
@@ -318,6 +319,19 @@ it("stores the History orientation and graph style it opens with as soon as they
   await waitFor(async () =>
     expect((await api.settings()).history).toMatchObject({ orientation: "horizontal", graphStyle: "tree" }),
   );
+});
+
+it("stores whether commits are signed off by default as soon as it is toggled", async () => {
+  const { user, api } = render();
+  await openSettings(user);
+  const toggle = screen.getByLabelText("Sign off commits by default");
+  expect(toggle).not.toBeChecked();
+
+  await user.click(toggle);
+  await waitFor(async () => expect((await api.settings()).commit.signOffByDefault).toBe(true));
+
+  await user.click(toggle);
+  await waitFor(async () => expect((await api.settings()).commit.signOffByDefault).toBe(false));
 });
 
 it("stores the default view of the changed files of a commit and of the Staged and Unstaged lists", async () => {
