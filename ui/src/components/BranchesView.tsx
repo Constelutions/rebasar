@@ -1,30 +1,58 @@
 import { type FormEvent, useCallback, useEffect, useId, useState } from "react";
 
-import type { BranchInfo, CoreApi, MergeMode, MutationOutcome, Tab } from "../core/api";
+import type {
+  BranchInfo,
+  BranchesFilter,
+  CoreApi,
+  MergeMode,
+  MutationOutcome,
+  RemoteInfo,
+  Tab,
+} from "../core/api";
 import { describeError } from "../core/describeError";
+import { useSettings } from "../settings/SettingsContext";
 import { useConfirmation } from "../useConfirmation";
 import { Button } from "./Button";
+import { SegmentedControl } from "./SegmentedControl";
 import { RemotesSection, TagsSection } from "./TagsAndRemotes";
+import { type BranchRow, buildBranchRows, detailsOf, filterBranchRows } from "./branchRows";
 
 interface BranchesViewProps {
   api: CoreApi;
   tab: Tab;
 }
 
+const filterOptions = [
+  { value: "local", label: "Local" },
+  { value: "remote", label: "Remote" },
+  { value: "both", label: "Both" },
+] as const;
+
 type Prompt =
   | { kind: "rename"; branch: BranchInfo }
   | { kind: "upstream"; branch: BranchInfo };
 
-export function BranchesView({ api, tab }: BranchesViewProps) {
+export function BranchesView(props: BranchesViewProps) {
+  const { settings, ready } = useSettings();
+  if (!ready) return null;
+  return <LoadedBranches {...props} defaultFilter={settings.branches.filter} />;
+}
+
+function LoadedBranches({ api, tab, defaultFilter }: BranchesViewProps & { defaultFilter: BranchesFilter }) {
   const path = tab.worktreePath;
   const [branches, setBranches] = useState<BranchInfo[] | null>(null);
+  const [remotes, setRemotes] = useState<RemoteInfo[]>([]);
+  const [filter, setFilter] = useState(defaultFilter);
+  const [search, setSearch] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [prompt, setPrompt] = useState<Prompt | null>(null);
   const { confirm, dialog } = useConfirmation(api, path);
 
   const reload = useCallback(async () => {
     try {
-      setBranches(await api.listBranchDetails(path));
+      const [loadedBranches, loadedRemotes] = await Promise.all([api.listBranchDetails(path), api.listRemotes(path)]);
+      setBranches(loadedBranches);
+      setRemotes(loadedRemotes);
     } catch (failure) {
       setError(describeError(failure));
     }
@@ -60,17 +88,25 @@ export function BranchesView({ api, tab }: BranchesViewProps) {
   }
 
   const current = branches.find((branch) => branch.current);
-  const local = branches.filter((branch) => branch.kind === "local");
-  const remote = branches.filter((branch) => branch.kind === "remote");
+  const rows = filterBranchRows(
+    buildBranchRows(
+      branches,
+      remotes.map((remote) => remote.name),
+    ),
+    filter,
+    search,
+  );
   const actions: RowActions = {
     current,
-    checkout: (branch) =>
-      run(`Check out ${branch.name}`, () =>
-        api.checkoutBranch(path, branch.name, branch.kind === "remote"),
+    checkout: (row) =>
+      run(`Check out ${row.name}`, () =>
+        row.local
+          ? api.checkoutBranch(path, row.local.name, false)
+          : api.checkoutBranch(path, detailsOf(row).name, true),
       ),
-    merge: (branch, mode) =>
-      run(`Merge ${branch.name}`, () => api.mergeBranch(path, branch.name, mode)),
-    rebase: (branch) => run(`Rebase onto ${branch.name}`, () => api.rebaseOnto(path, branch.name)),
+    merge: (row, mode) =>
+      run(`Merge ${row.name}`, () => api.mergeBranch(path, detailsOf(row).name, mode)),
+    rebase: (row) => run(`Rebase onto ${row.name}`, () => api.rebaseOnto(path, detailsOf(row).name)),
     rename: (branch) => setPrompt({ kind: "rename", branch }),
     setUpstream: (branch) => setPrompt({ kind: "upstream", branch }),
     remove: (branch) =>
@@ -86,15 +122,23 @@ export function BranchesView({ api, tab }: BranchesViewProps) {
           run(`Create branch ${name}`, () => api.createBranchHere(path, name, switchTo))
         }
       />
+      <div className="branch-toolbar">
+        <input
+          type="search"
+          className="filter-input"
+          aria-label="Search branches"
+          placeholder="Search branches"
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+        />
+        <SegmentedControl label="Show" options={filterOptions} value={filter} onChange={setFilter} />
+      </div>
       {error && (
         <p role="alert" className="error">
           {error}
         </p>
       )}
-      <BranchList label="Local branches" branches={local} actions={actions} />
-      {remote.length > 0 && (
-        <BranchList label="Remote branches" branches={remote} actions={actions} />
-      )}
+      <BranchList rows={rows} actions={actions} />
       <TagsSection api={api} worktreePath={path} onError={setError} />
       <RemotesSection api={api} worktreePath={path} onError={setError} />
       {prompt && (
@@ -119,42 +163,40 @@ export function BranchesView({ api, tab }: BranchesViewProps) {
 
 interface RowActions {
   current: BranchInfo | undefined;
-  checkout: (branch: BranchInfo) => void;
-  merge: (branch: BranchInfo, mode: MergeMode) => void;
-  rebase: (branch: BranchInfo) => void;
+  checkout: (row: BranchRow) => void;
+  merge: (row: BranchRow, mode: MergeMode) => void;
+  rebase: (row: BranchRow) => void;
   rename: (branch: BranchInfo) => void;
   setUpstream: (branch: BranchInfo) => void;
   remove: (branch: BranchInfo) => void;
 }
 
-function BranchList({
-  label,
-  branches,
-  actions,
-}: {
-  label: string;
-  branches: BranchInfo[];
-  actions: RowActions;
-}) {
+function BranchList({ rows, actions }: { rows: BranchRow[]; actions: RowActions }) {
+  if (rows.length === 0) return <p className="settings-hint">No branches match.</p>;
+
   return (
-    <section aria-label={label} className="branch-section">
-      <h2>{label}</h2>
-      <ul className="branch-list">
-        {branches.map((branch) => (
-          <BranchRow key={`${branch.kind}:${branch.name}`} branch={branch} actions={actions} />
-        ))}
-      </ul>
-    </section>
+    <ul aria-label="Branches" className="branch-list">
+      {rows.map((row) => (
+        <BranchItem key={row.name} row={row} actions={actions} />
+      ))}
+    </ul>
   );
 }
 
-function BranchRow({ branch, actions }: { branch: BranchInfo; actions: RowActions }) {
-  const isLocal = branch.kind === "local";
+function BranchItem({ row, actions }: { row: BranchRow; actions: RowActions }) {
+  const branch = detailsOf(row);
+  const local = row.local;
   const canJoin = !branch.current && actions.current !== undefined;
 
   return (
     <li className="branch-row" aria-current={branch.current || undefined}>
-      <span className="branch-name">{branch.name}</span>
+      <span className="branch-name">{row.name}</span>
+      {local && <span className="branch-presence">local</span>}
+      {row.remotes.map(({ remote }) => (
+        <span key={remote} className="branch-presence">
+          {remote}
+        </span>
+      ))}
       {branch.current && <span className="branch-badge">current</span>}
       {branch.merged && !branch.current && <span className="branch-badge">merged</span>}
       {branch.upstream && <span className="branch-upstream">{branch.upstream}</span>}
@@ -165,56 +207,52 @@ function BranchRow({ branch, actions }: { branch: BranchInfo; actions: RowAction
       )}
       <span className="branch-actions">
         {!branch.current && (
-          <Button size="sm" type="button" aria-label={`Check out ${branch.name}`} onClick={() => actions.checkout(branch)}>
+          <Button size="sm" aria-label={`Check out ${row.name}`} onClick={() => actions.checkout(row)}>
             Check out
           </Button>
         )}
         {canJoin && (
           <>
-            <Button size="sm" type="button" aria-label={`Merge ${branch.name}`} onClick={() => actions.merge(branch, "default")}>
+            <Button size="sm" aria-label={`Merge ${row.name}`} onClick={() => actions.merge(row, "default")}>
               Merge
             </Button>
             <Button
               size="sm"
-              type="button"
-              aria-label={`Merge ${branch.name} with a merge commit`}
-              onClick={() => actions.merge(branch, "noFastForward")}
+              aria-label={`Merge ${row.name} with a merge commit`}
+              onClick={() => actions.merge(row, "noFastForward")}
             >
               Merge (no-ff)
             </Button>
             <Button
               size="sm"
-              type="button"
-              aria-label={`Squash merge ${branch.name}`}
-              onClick={() => actions.merge(branch, "squash")}
+              aria-label={`Squash merge ${row.name}`}
+              onClick={() => actions.merge(row, "squash")}
             >
               Squash
             </Button>
-            <Button size="sm" type="button" aria-label={`Rebase onto ${branch.name}`} onClick={() => actions.rebase(branch)}>
+            <Button size="sm" aria-label={`Rebase onto ${row.name}`} onClick={() => actions.rebase(row)}>
               Rebase onto
             </Button>
           </>
         )}
-        {isLocal && (
+        {local && (
           <>
-            <Button size="sm" type="button" aria-label={`Rename ${branch.name}`} onClick={() => actions.rename(branch)}>
+            <Button size="sm" aria-label={`Rename ${row.name}`} onClick={() => actions.rename(local)}>
               Rename
             </Button>
             <Button
               size="sm"
-              type="button"
-              aria-label={`Set upstream of ${branch.name}`}
-              onClick={() => actions.setUpstream(branch)}
+              aria-label={`Set upstream of ${row.name}`}
+              onClick={() => actions.setUpstream(local)}
             >
               Upstream
             </Button>
-            {!branch.current && (
+            {!local.current && (
               <Button
                 size="sm"
-                type="button"
                 variant="danger"
-                aria-label={`Delete ${branch.name}`}
-                onClick={() => actions.remove(branch)}
+                aria-label={`Delete ${row.name}`}
+                onClick={() => actions.remove(local)}
               >
                 Delete
               </Button>
@@ -228,26 +266,31 @@ function BranchRow({ branch, actions }: { branch: BranchInfo; actions: RowAction
 
 function NewBranchForm({ onCreate }: { onCreate: (name: string, switchTo: boolean) => Promise<void> }) {
   const [name, setName] = useState("");
-  const [switchTo, setSwitchTo] = useState(true);
   const nameId = useId();
+  const empty = name.trim() === "";
 
-  async function submit(event: FormEvent) {
-    event.preventDefault();
-    if (name.trim() === "") return;
+  async function create(switchTo: boolean) {
+    if (empty) return;
     await onCreate(name.trim(), switchTo);
     setName("");
   }
 
   return (
-    <form className="new-branch" aria-label="New branch" onSubmit={submit}>
+    <form
+      className="new-branch"
+      aria-label="New branch"
+      onSubmit={(event) => {
+        event.preventDefault();
+        void create(true);
+      }}
+    >
       <label htmlFor={nameId}>New branch</label>
       <input id={nameId} value={name} onChange={(event) => setName(event.target.value)} />
-      <label className="option">
-        <input type="checkbox" checked={switchTo} onChange={(event) => setSwitchTo(event.target.checked)} />
-        Switch to it
-      </label>
-      <Button variant="primary" type="submit" disabled={name.trim() === ""}>
+      <Button disabled={empty} onClick={() => void create(false)}>
         Create
+      </Button>
+      <Button variant="primary" type="submit" disabled={empty}>
+        Create & Switch
       </Button>
     </form>
   );

@@ -1,7 +1,7 @@
 use std::fs;
 
 use rebasar_core::{
-    ApiError, AppearanceSettings, ChangesSettings, CommitSettings, ConfirmTabClose, Core, CopySettings, DiffMode,
+    ApiError, AppearanceSettings, BranchesFilter, BranchesSettings, ChangesSettings, CommitSettings, ConfirmTabClose, Core, CopySettings, DiffMode,
     EditorSettings,
     DiffSettings, FilesView, GraphStyle, HistoryOrientation, HistorySettings, Settings, SyncSettings, TabSettings,
     WhitespaceMode,
@@ -49,7 +49,28 @@ fn customised() -> Settings {
         editor: EditorSettings {
             last_used: Some("zed".to_owned()),
         },
+        branches: BranchesSettings {
+            filter: BranchesFilter::Remote,
+        },
     }
+}
+
+#[test]
+fn the_branches_page_lists_local_and_remote_branches_until_settings_say_otherwise() {
+    let dir = tempfile::tempdir().unwrap();
+    assert_eq!(Settings::default().branches.filter, BranchesFilter::Both);
+    fs::write(dir.path().join("settings.json"), r#"{ "history": { "mine": true } }"#).unwrap();
+    assert_eq!(core_in(dir.path()).settings().expect("settings").branches.filter, BranchesFilter::Both);
+
+    fs::write(
+        dir.path().join("settings.json"),
+        r#"{ "branches": { "filter": "local" } }"#,
+    )
+    .unwrap();
+
+    let settings = core_in(dir.path()).settings().expect("settings");
+
+    assert_eq!(settings.branches.filter, BranchesFilter::Local);
 }
 
 #[test]

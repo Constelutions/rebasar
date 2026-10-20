@@ -1,6 +1,7 @@
 import { type FormEvent, useEffect, useId, useState } from "react";
 
 import type {
+  BranchesFilter,
   ConfirmTabClose,
   CoreApi,
   DiffMode,
@@ -61,6 +62,7 @@ function GlobalSettings({ api }: { api: CoreApi }) {
       <TabsSection settings={settings} update={update} />
       <HistorySection settings={settings} update={update} />
       <ChangesSection settings={settings} update={update} />
+      <BranchesSection settings={settings} update={update} />
       <CommitSection settings={settings} update={update} />
       <CopySection settings={settings} update={update} />
       <AppearanceSection settings={settings} update={update} />
@@ -464,6 +466,38 @@ function FilesViewSelect({
       <option value="flat">Flat list</option>
     </select>
   );
+}
+
+function BranchesSection({ settings, update }: SectionProps) {
+  const filterId = useId();
+
+  return (
+    <section className="settings-section" aria-labelledby={`${filterId}-title`}>
+      <h2 id={`${filterId}-title`}>Branches page</h2>
+      <div className="settings-field">
+        <label htmlFor={filterId}>Branches page lists</label>
+        <select
+          id={filterId}
+          className="select"
+          value={settings.branches.filter}
+          onChange={(event) =>
+            update({
+              ...settings,
+              branches: { filter: parseBranchesFilter(event.target.value) },
+            })
+          }
+        >
+          <option value="both">Local and remote branches</option>
+          <option value="local">Local branches</option>
+          <option value="remote">Remote branches</option>
+        </select>
+      </div>
+    </section>
+  );
+}
+
+function parseBranchesFilter(value: string): BranchesFilter {
+  return value === "local" || value === "remote" ? value : "both";
 }
 
 function CommitSection({ settings, update }: SectionProps) {

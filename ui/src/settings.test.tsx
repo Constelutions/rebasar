@@ -280,6 +280,7 @@ it("starts from the stored settings", async () => {
       changes: { ...defaultSettings.changes },
       commit: { ...defaultSettings.commit },
       editor: { ...defaultSettings.editor },
+      branches: { ...defaultSettings.branches },
     },
   });
   await openSettings(user);
@@ -320,6 +321,18 @@ it("stores the History orientation and graph style it opens with as soon as they
   await waitFor(async () =>
     expect((await api.settings()).history).toMatchObject({ orientation: "horizontal", graphStyle: "tree" }),
   );
+});
+
+it("stores which branches the Branches page lists when it opens as soon as it is picked", async () => {
+  const { user, api } = render();
+  await openSettings(user);
+  expect(screen.getByLabelText("Branches page lists")).toHaveValue("both");
+
+  await user.selectOptions(screen.getByLabelText("Branches page lists"), "remote");
+  await waitFor(async () => expect((await api.settings()).branches.filter).toBe("remote"));
+
+  await user.selectOptions(screen.getByLabelText("Branches page lists"), "local");
+  await waitFor(async () => expect((await api.settings()).branches.filter).toBe("local"));
 });
 
 it("stores whether commits are signed off by default as soon as it is toggled", async () => {

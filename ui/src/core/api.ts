@@ -271,7 +271,11 @@ export interface Settings {
   commit: { signOffByDefault: boolean };
   /** `lastUsed` is the id of the editor the title bar opens with one click. */
   editor: { lastUsed: string | null };
+  /** Which Branches the Branches page lists when it opens. */
+  branches: { filter: BranchesFilter };
 }
+
+export type BranchesFilter = "both" | "local" | "remote";
 
 /** A list of changed files, as a tree of folders or as one flat list of paths. */
 export type FilesView = "tree" | "flat";
@@ -301,6 +305,7 @@ export const defaultSettings: Settings = {
   changes: { filesView: "tree" },
   commit: { signOffByDefault: false },
   editor: { lastUsed: null },
+  branches: { filter: "both" },
 };
 
 export interface Editor {

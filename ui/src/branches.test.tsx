@@ -1,7 +1,7 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-import type { BranchInfo } from "./core/api";
+import { type BranchInfo, type Settings, defaultSettings } from "./core/api";
 import { createStubCoreApi } from "./core/stub";
 import { renderApp, sampleTab } from "./test-support";
 
@@ -29,9 +29,9 @@ const branches = [
   branch("origin/feature", { kind: "remote" }),
 ];
 
-async function openBranches(list: BranchInfo[] = branches) {
+async function openBranches(list: BranchInfo[] = branches, settings?: Settings) {
   const user = userEvent.setup();
-  const api = createStubCoreApi({ [worktree]: sampleTab });
+  const api = createStubCoreApi({ [worktree]: sampleTab }, {}, {}, {}, {}, undefined, { settings });
   api.setBranchDetails(worktree, list);
   renderApp({ api, pickFolder: async () => worktree });
   await user.click(screen.getByRole("button", { name: /open folder/i }));
@@ -44,20 +44,112 @@ function row(name: string) {
   return screen.findByText(name, { selector: ".branch-name" }).then((element) => element.closest("li") as HTMLElement);
 }
 
-it("lists local and remote branches with ahead, behind, upstream and merged state", async () => {
+function badges(element: HTMLElement) {
+  return [...element.querySelectorAll(".branch-presence")].map((badge) => badge.textContent);
+}
+
+it("lists each branch once with its ahead, behind, upstream and merged state", async () => {
   await openBranches();
 
-  const local = await screen.findByRole("region", { name: "Local branches" });
-  const remote = screen.getByRole("region", { name: "Remote branches" });
+  const list = await screen.findByRole("list", { name: "Branches" });
 
-  expect(within(local).getAllByRole("listitem")).toHaveLength(3);
-  expect(within(remote).getAllByRole("listitem")).toHaveLength(2);
+  expect(within(list).getAllByRole("listitem")).toHaveLength(4);
   const main = await row("main");
   expect(main).toHaveTextContent("current");
   expect(main).toHaveTextContent("origin/main");
   expect(within(main).getByLabelText("2 ahead, 1 behind")).toBeInTheDocument();
   expect(await row("old")).toHaveTextContent("merged");
   expect(await row("topic")).not.toHaveTextContent("merged");
+});
+
+it("shows a branch that exists locally and on a remote as one row with both badges", async () => {
+  await openBranches();
+
+  expect(badges(await row("main"))).toEqual(["local", "origin"]);
+  expect(screen.getAllByText("main", { selector: ".branch-name" })).toHaveLength(1);
+  expect(badges(await row("topic"))).toEqual(["local"]);
+});
+
+it("shows a remote-only branch as its own row", async () => {
+  await openBranches();
+
+  const feature = await row("feature");
+
+  expect(badges(feature)).toEqual(["origin"]);
+  expect(screen.queryByText("origin/feature", { selector: ".branch-name" })).not.toBeInTheDocument();
+});
+
+it("gives a branch on several remotes one badge per remote", async () => {
+  await openBranches([
+    branch("main", { current: true }),
+    branch("origin/shared", { kind: "remote" }),
+    branch("backup/shared", { kind: "remote" }),
+  ]);
+
+  expect(badges(await row("shared"))).toEqual(["origin", "backup"]);
+});
+
+it("tells the remote from the branch name when the remote's own name contains a slash", async () => {
+  const user = userEvent.setup();
+  const api = createStubCoreApi({ [worktree]: sampleTab });
+  await api.addRemote(worktree, "team/fork", "https://example.com/fork.git");
+  api.setBranchDetails(worktree, [branch("main", { current: true }), branch("team/fork/wip", { kind: "remote" })]);
+  renderApp({ api, pickFolder: async () => worktree });
+  await user.click(screen.getByRole("button", { name: /open folder/i }));
+  await screen.findByRole("tab");
+  await user.click(screen.getByRole("button", { name: "Branches" }));
+
+  expect(badges(await row("wip"))).toEqual(["team/fork"]);
+});
+
+it("filters the list to local branches, remote branches or both", async () => {
+  const { user } = await openBranches();
+  await row("topic");
+  expect(screen.getByRole("radio", { name: "Both" })).toBeChecked();
+
+  await user.click(screen.getByRole("radio", { name: "Local" }));
+  expect(screen.getAllByRole("listitem").map((item) => item.querySelector(".branch-name")?.textContent)).toEqual([
+    "main",
+    "topic",
+    "old",
+  ]);
+
+  await user.click(screen.getByRole("radio", { name: "Remote" }));
+  expect(screen.getAllByRole("listitem").map((item) => item.querySelector(".branch-name")?.textContent)).toEqual([
+    "main",
+    "feature",
+  ]);
+
+  await user.click(screen.getByRole("radio", { name: "Both" }));
+  expect(screen.getAllByRole("listitem")).toHaveLength(4);
+});
+
+it("opens with the filter the settings name", async () => {
+  await openBranches(branches, { ...defaultSettings, branches: { filter: "remote" } });
+  await row("feature");
+
+  expect(screen.getByRole("radio", { name: "Remote" })).toBeChecked();
+  expect(screen.queryByText("topic", { selector: ".branch-name" })).not.toBeInTheDocument();
+});
+
+it("filters the list by what is typed in the search box", async () => {
+  const { user } = await openBranches();
+  await row("topic");
+
+  await user.type(screen.getByRole("searchbox", { name: "Search branches" }), "OP");
+
+  expect(screen.getAllByRole("listitem")).toHaveLength(1);
+  expect(await row("topic")).toBeInTheDocument();
+});
+
+it("says so when no branch matches the search", async () => {
+  const { user } = await openBranches();
+  await row("topic");
+
+  await user.type(screen.getByRole("searchbox", { name: "Search branches" }), "zzz");
+
+  expect(screen.queryAllByRole("listitem")).toHaveLength(0);
+  expect(screen.getByText("No branches match.")).toBeInTheDocument();
 });
 
 it("asks to open a folder when there is no Tab", async () => {
@@ -69,22 +161,21 @@ it("asks to open a folder when there is no Tab", async () => {
   expect(screen.getByText("Open a folder to see its branches.")).toBeInTheDocument();
 });
 
-it("creates a branch and switches to it", async () => {
+it("creates a branch and switches to it with Create & Switch", async () => {
   const { user, api } = await openBranches();
-  await screen.findByRole("region", { name: "Local branches" });
+  await row("main");
 
   await user.type(screen.getByRole("textbox", { name: "New branch" }), "feature/login");
-  await user.click(screen.getByRole("button", { name: "Create" }));
+  await user.click(screen.getByRole("button", { name: "Create & Switch" }));
 
   await waitFor(() => expect(api.branchActions).toEqual(["create:feature/login:switch"]));
   expect(await row("feature/login")).toHaveTextContent("current");
 });
 
-it("creates a branch without switching when asked not to", async () => {
+it("creates a branch without switching with Create", async () => {
   const { user, api } = await openBranches();
-  await screen.findByRole("region", { name: "Local branches" });
+  await row("main");
 
-  await user.click(screen.getByRole("checkbox", { name: "Switch to it" }));
   await user.type(screen.getByRole("textbox", { name: "New branch" }), "spare");
   await user.click(screen.getByRole("button", { name: "Create" }));
 
@@ -92,12 +183,19 @@ it("creates a branch without switching when asked not to", async () => {
   expect(await row("main")).toHaveTextContent("current");
 });
 
+it("has no Switch to it checkbox any more", async () => {
+  await openBranches();
+  await row("main");
+
+  expect(screen.queryByRole("checkbox", { name: "Switch to it" })).not.toBeInTheDocument();
+});
+
 it("checks out a local branch and a remote one", async () => {
   const { user, api } = await openBranches();
   await row("topic");
 
   await user.click(screen.getByRole("button", { name: "Check out topic" }));
-  await user.click(await screen.findByRole("button", { name: "Check out origin/feature" }));
+  await user.click(await screen.findByRole("button", { name: "Check out feature" }));
 
   await waitFor(() => expect(api.branchActions).toEqual(["checkout:topic", "checkout:origin/feature"]));
   expect(await row("feature")).toHaveTextContent("current");
@@ -197,6 +295,40 @@ it("rebases the current branch onto another", async () => {
   await user.click(screen.getByRole("button", { name: "Rebase onto topic" }));
 
   await waitFor(() => expect(api.branchActions).toEqual(["rebase:topic"]));
+});
+
+it("acts on the local branch of a merged row and on the remote ref of a remote-only row", async () => {
+  const { user, api } = await openBranches([
+    branch("main", { current: true }),
+    branch("topic"),
+    branch("origin/topic", { kind: "remote" }),
+    branch("origin/feature", { kind: "remote" }),
+  ]);
+  await row("topic");
+
+  await user.click(screen.getByRole("button", { name: "Merge topic" }));
+  await user.click(await screen.findByRole("button", { name: "Rebase onto topic" }));
+  await user.click(await screen.findByRole("button", { name: "Merge feature" }));
+  await user.click(await screen.findByRole("button", { name: "Rebase onto feature" }));
+
+  await waitFor(() =>
+    expect(api.branchActions).toEqual([
+      "merge:topic:default",
+      "rebase:topic",
+      "merge:origin/feature:default",
+      "rebase:origin/feature",
+    ]),
+  );
+});
+
+it("offers rename, upstream and delete only for branches that exist locally", async () => {
+  await openBranches();
+
+  expect(within(await row("topic")).getByRole("button", { name: "Rename topic" })).toBeInTheDocument();
+  const feature = await row("feature");
+  expect(within(feature).queryByRole("button", { name: /Rename/ })).not.toBeInTheDocument();
+  expect(within(feature).queryByRole("button", { name: /Upstream/ })).not.toBeInTheDocument();
+  expect(within(feature).queryByRole("button", { name: /Delete/ })).not.toBeInTheDocument();
 });
 
 it("says so when a merge fails and points to the output panel", async () => {

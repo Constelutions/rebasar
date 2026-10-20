@@ -1,5 +1,5 @@
 use rebasar_core::{
-    platform, ChangesSettings, CommitSettings, ConfirmTabClose, CopySettings, EditorSettings, FilesView, GraphStyle, HistoryOrientation, HistorySettings,
+    platform, BranchesFilter, BranchesSettings, ChangesSettings, CommitSettings, ConfirmTabClose, CopySettings, EditorSettings, FilesView, GraphStyle, HistoryOrientation, HistorySettings,
     ApiError, AppearanceSettings, Assessment, ChangeKind, ChangeList, CheckState, CommitDetail,
     CommitDiffRequest, CommitHit, CommitOptions, CommitParent, CoreEvent, DiffContent, DiffLine,
     DiffMode, DiffRequest, DiffSettings, Edge, EdgeKind, FileChange, FileDiff, GitHubAuthStatus,
@@ -574,6 +574,9 @@ fn settings_serialise_to_the_shape_the_ui_expects() {
         editor: EditorSettings {
             last_used: Some("zed".to_owned()),
         },
+        branches: BranchesSettings {
+            filter: BranchesFilter::Local,
+        },
     };
 
     assert_eq!(
@@ -595,6 +598,7 @@ fn settings_serialise_to_the_shape_the_ui_expects() {
             "changes": { "filesView": "flat" },
             "commit": { "signOffByDefault": true },
             "editor": { "lastUsed": "zed" },
+            "branches": { "filter": "local" },
         })
     );
 }

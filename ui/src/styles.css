@@ -2325,6 +2325,13 @@ button {
   color: var(--color-text-muted);
 }
 
+.branch-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
 .branch-list {
   margin: 0;
   padding: 0;
@@ -2347,6 +2354,14 @@ button {
 .branch-name {
   font: var(--text-md) var(--font-mono);
   color: var(--color-text-strong);
+}
+
+.branch-presence {
+  padding: 0 var(--space-2);
+  font: var(--text-xs) var(--font-mono);
+  color: var(--color-accent-text);
+  background: var(--color-accent-surface);
+  border-radius: var(--radius-sm);
 }
 
 .branch-badge,

@@ -21,6 +21,23 @@ pub struct Settings {
     pub changes: ChangesSettings,
     pub commit: CommitSettings,
     pub editor: EditorSettings,
+    pub branches: BranchesSettings,
+}
+
+/// What the Branches page lists when it opens.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, rename_all = "camelCase")]
+pub struct BranchesSettings {
+    pub filter: BranchesFilter,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum BranchesFilter {
+    #[default]
+    Both,
+    Local,
+    Remote,
 }
 
 /// The editor the title bar opens a Worktree in with one click.
