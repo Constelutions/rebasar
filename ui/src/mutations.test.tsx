@@ -140,7 +140,7 @@ describe("output panel", () => {
     const worktreePath = sampleTab.worktreePath;
 
     act(() => {
-      api.emitEvent({ type: "mutationQueued", mutation: { id: 40, worktreePath, title: "Push" } });
+      api.emitEvent({ type: "mutationQueued", mutation: { id: 40, worktreePath, title: "Push", command: "git push" } });
       api.emitEvent({ type: "mutationStarted", mutationId: 40 });
       api.emitEvent({
         type: "mutationOutput",
@@ -179,7 +179,7 @@ describe("output panel", () => {
     act(() => {
       api.emitEvent({
         type: "mutationQueued",
-        mutation: { id: 50, worktreePath: sampleTab.worktreePath, title: "Commit" },
+        mutation: { id: 50, worktreePath: sampleTab.worktreePath, title: "Commit", command: "git commit" },
       });
     });
 
@@ -194,7 +194,7 @@ describe("output panel", () => {
       api.emitEvent({ type: "mutationOutput", mutationId: 60, stream: "stderr", text, transient });
 
     act(() => {
-      api.emitEvent({ type: "mutationQueued", mutation: { id: 60, worktreePath, title: "Clone" } });
+      api.emitEvent({ type: "mutationQueued", mutation: { id: 60, worktreePath, title: "Clone", command: "git clone" } });
       output("Receiving objects: 10%", true);
       output("Receiving objects: 60%", true);
     });
@@ -207,5 +207,93 @@ describe("output panel", () => {
 
     expect(run).toHaveTextContent("Receiving objects: 100%, done.");
     expect(run).not.toHaveTextContent("60%");
+  });
+});
+
+describe("output panel command line and copy on select", () => {
+  const worktreePath = sampleTab.worktreePath;
+
+  async function openOutputWithRun() {
+    const opened = await openChanges();
+    await opened.user.click(screen.getByRole("button", { name: "Output" }));
+    act(() => {
+      opened.api.emitEvent({
+        type: "mutationQueued",
+        mutation: {
+          id: 70,
+          worktreePath,
+          title: "Commit",
+          command: "git -c core.hooksPath=hooks commit --message 'Fix the api'",
+        },
+      });
+      opened.api.emitEvent({ type: "mutationStarted", mutationId: 70 });
+      opened.api.emitEvent({
+        type: "mutationOutput",
+        mutationId: 70,
+        stream: "stdout",
+        text: "[main 1a2b3c4] Fix the api",
+        transient: false,
+      });
+    });
+    return opened;
+  }
+
+  function select(element: HTMLElement, start: number, end: number) {
+    const range = document.createRange();
+    range.setStart(element.firstChild!, start);
+    range.setEnd(element.firstChild!, end);
+    const selection = document.getSelection()!;
+    selection.removeAllRanges();
+    selection.addRange(range);
+  }
+
+  it("shows the command as run above the streamed output", async () => {
+    await openOutputWithRun();
+
+    const run = screen.getByRole("article", { name: "Commit" });
+    const command = within(run).getByText(
+      "git -c core.hooksPath=hooks commit --message 'Fix the api'",
+    );
+    const line = within(run).getByText("[main 1a2b3c4] Fix the api");
+    expect(command.compareDocumentPosition(line) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("copies exactly what is selected in the panel and says it was copied", async () => {
+    await openOutputWithRun();
+    const run = screen.getByRole("article", { name: "Commit" });
+
+    select(within(run).getByText("[main 1a2b3c4] Fix the api"), 1, 14);
+
+    expect(await screen.findByRole("tooltip")).toHaveTextContent("Copied");
+    expect(await navigator.clipboard.readText()).toBe("main 1a2b3c4]");
+  });
+
+  it("copies nothing from outside the panel", async () => {
+    await openOutputWithRun();
+
+    select(screen.getByRole("heading", { level: 1, name: "Changes" }), 0, 4);
+    await new Promise((resolve) => setTimeout(resolve, 600));
+
+    expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
+    expect(await navigator.clipboard.readText()).toBe("");
+  });
+
+  it("stops copying when copy on select is turned off in Settings, and resumes when turned on", async () => {
+    const { user } = await openOutputWithRun();
+    await user.click(screen.getByRole("button", { name: "Settings" }));
+    const toggle = await screen.findByRole("checkbox", { name: "Copy selected text automatically" });
+    expect(toggle).toBeChecked();
+    await user.click(toggle);
+    const run = screen.getByRole("article", { name: "Commit" });
+
+    select(within(run).getByText("[main 1a2b3c4] Fix the api"), 1, 5);
+    await new Promise((resolve) => setTimeout(resolve, 600));
+    expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
+    expect(await navigator.clipboard.readText()).toBe("");
+
+    await user.click(toggle);
+    select(within(run).getByText("[main 1a2b3c4] Fix the api"), 1, 5);
+    expect(await screen.findByRole("tooltip")).toHaveTextContent("Copied");
+    expect(await navigator.clipboard.readText()).toBe("main");
   });
 });

@@ -15,6 +15,7 @@ pub struct Settings {
     pub diff: DiffSettings,
     pub appearance: AppearanceSettings,
     pub sync: SyncSettings,
+    pub copy: CopySettings,
     pub tabs: TabSettings,
 }
 
@@ -79,6 +80,20 @@ impl Default for SyncSettings {
             auto_fetch: true,
             fetch_interval_minutes: 5,
         }
+    }
+}
+
+/// What selecting text copies. Only file paths, commit hashes and the Output panel copy; diffs and
+/// commit messages never do.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, rename_all = "camelCase")]
+pub struct CopySettings {
+    pub on_select: bool,
+}
+
+impl Default for CopySettings {
+    fn default() -> Self {
+        Self { on_select: true }
     }
 }
 

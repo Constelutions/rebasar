@@ -1,5 +1,5 @@
 use rebasar_core::{
-    ConfirmTabClose,
+    ConfirmTabClose, CopySettings,
     ApiError, AppearanceSettings, Assessment, ChangeKind, ChangeList, CheckState, CommitDetail,
     CommitDiffRequest, CommitHit, CommitOptions, CommitParent, CoreEvent, DiffContent, DiffLine,
     DiffMode, DiffRequest, DiffSettings, Edge, EdgeKind, FileChange, FileDiff, GitHubAuthStatus,
@@ -460,12 +460,18 @@ fn mutation_events_serialise_to_the_shape_the_ui_expects() {
                 id,
                 worktree_path: "/work/sample".to_owned(),
                 title: "Commit".to_owned(),
+                command: "git commit --message 'Fix'".to_owned(),
             }
         })
         .unwrap(),
         json!({
             "type": "mutationQueued",
-            "mutation": { "id": 7, "worktreePath": "/work/sample", "title": "Commit" },
+            "mutation": {
+                "id": 7,
+                "worktreePath": "/work/sample",
+                "title": "Commit",
+                "command": "git commit --message 'Fix'",
+            },
         })
     );
     assert_eq!(
@@ -548,6 +554,7 @@ fn settings_serialise_to_the_shape_the_ui_expects() {
             auto_fetch: false,
             fetch_interval_minutes: 10,
         },
+        copy: CopySettings { on_select: false },
         tabs: TabSettings {
             confirm_close: ConfirmTabClose::WhenLost,
             restore_on_launch: false,
@@ -560,6 +567,7 @@ fn settings_serialise_to_the_shape_the_ui_expects() {
             "diff": { "whitespace": "ignoreAll", "defaultMode": "sideBySide" },
             "appearance": { "codeFontSize": 13, "sidebarCollapsed": true },
             "sync": { "autoFetch": false, "fetchIntervalMinutes": 10 },
+            "copy": { "onSelect": false },
             "tabs": { "confirmClose": "whenLost", "restoreOnLaunch": false },
         })
     );

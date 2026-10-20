@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState } from "react";
 
+import { useCopyOnSelect } from "../useCopyOnSelect";
 import { type MutationRun, type MutationState, isActive } from "../useMutations";
 import { Button } from "./Button";
 
@@ -10,6 +11,7 @@ interface OutputPanelProps {
 
 export function OutputPanel({ runs, onCancel }: OutputPanelProps) {
   const [expanded, setExpanded] = useState(false);
+  const { ref, tooltip } = useCopyOnSelect<HTMLDivElement>();
   const bodyId = useId();
   const active = runs.find(isActive);
   const latest = runs.at(-1);
@@ -47,13 +49,14 @@ export function OutputPanel({ runs, onCancel }: OutputPanelProps) {
         )}
       </header>
       {expanded && (
-        <div id={bodyId} className="output-body">
+        <div id={bodyId} ref={ref} className="output-body">
           {runs.length === 0 && <p className="placeholder">No output yet.</p>}
           {runs.map((run) => (
             <article key={run.id} aria-label={run.title} className="output-run">
               <h3>
                 {run.title} <span className="output-state">{describeState(run.state)}</span>
               </h3>
+              <code className="output-command">{run.command}</code>
               <pre className="output-lines">
                 {run.lines.map((line, index) => (
                   <span key={index} className={`output-line output-${line.stream}`}>
@@ -66,6 +69,7 @@ export function OutputPanel({ runs, onCancel }: OutputPanelProps) {
           ))}
         </div>
       )}
+      {tooltip}
     </section>
   );
 }

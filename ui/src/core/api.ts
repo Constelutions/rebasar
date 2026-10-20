@@ -237,6 +237,8 @@ export interface MutationInfo {
   id: number;
   worktreePath: string;
   title: string;
+  /** As run, quoted for a terminal; environment variables are left out. */
+  command: string;
 }
 
 export type MutationOutcome =
@@ -250,6 +252,7 @@ export interface Settings {
   diff: { whitespace: WhitespaceMode; defaultMode: DiffMode };
   appearance: { codeFontSize: number; sidebarCollapsed: boolean };
   sync: { autoFetch: boolean; fetchIntervalMinutes: number };
+  copy: { onSelect: boolean };
   tabs: { confirmClose: ConfirmTabClose; restoreOnLaunch: boolean };
 }
 
@@ -265,6 +268,7 @@ export const defaultSettings: Settings = {
   diff: { whitespace: "show", defaultMode: "unified" },
   appearance: { codeFontSize: 12, sidebarCollapsed: false },
   sync: { autoFetch: true, fetchIntervalMinutes: 5 },
+  copy: { onSelect: true },
   tabs: { confirmClose: "whenLost", restoreOnLaunch: true },
 };
 

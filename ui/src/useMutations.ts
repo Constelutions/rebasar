@@ -20,6 +20,7 @@ export interface MutationRun {
   id: number;
   title: string;
   state: MutationState;
+  command: string;
   lines: OutputLine[];
 }
 
@@ -50,6 +51,7 @@ function reduce(runs: MutationRun[], event: CoreEvent): MutationRun[] {
       const queued: MutationRun = {
         id: event.mutation.id,
         title: event.mutation.title,
+        command: event.mutation.command,
         state: { kind: "queued" },
         lines: [],
       };

@@ -24,6 +24,8 @@ pub struct MutationInfo {
     pub id: MutationId,
     pub worktree_path: String,
     pub title: String,
+    /// Exactly as run, quoted so it can be pasted into a terminal; environment variables are left out.
+    pub command: String,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -83,6 +85,13 @@ impl Mutation {
     pub(crate) fn with_stdin(mut self, input: Vec<u8>) -> Self {
         self.stdin = Some(input);
         self
+    }
+
+    fn command_line(&self) -> String {
+        std::iter::once("git".to_owned())
+            .chain(self.args.iter().map(|arg| quote_argument(&arg.to_string_lossy())))
+            .collect::<Vec<_>>()
+            .join(" ")
     }
 }
 
@@ -154,6 +163,7 @@ impl MutationRunner {
                 id,
                 worktree_path: reported_path.clone(),
                 title: mutation.title.clone(),
+                command: mutation.command_line(),
             },
         });
 
@@ -435,6 +445,21 @@ impl LineSplitter {
         }
         emit(String::from_utf8_lossy(&self.line).into_owned(), transient);
         self.line.clear();
+    }
+}
+
+/// Left bare when no shell would treat any character in it specially.
+fn quote_argument(argument: &str) -> String {
+    let is_plain = |character: char| {
+        character.is_ascii_alphanumeric() || "_+=:,./-".contains(character)
+    };
+    if !argument.is_empty() && argument.chars().all(is_plain) {
+        return argument.to_owned();
+    }
+    if cfg!(windows) {
+        format!("\"{}\"", argument.replace('"', "\\\""))
+    } else {
+        format!("'{}'", argument.replace('\'', r"'\''"))
     }
 }
 

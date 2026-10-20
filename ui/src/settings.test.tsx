@@ -274,6 +274,7 @@ it("starts from the stored settings", async () => {
       diff: { whitespace: "ignoreAll", defaultMode: "sideBySide" },
       appearance: { codeFontSize: 14, sidebarCollapsed: false },
       sync: { autoFetch: true, fetchIntervalMinutes: 5 },
+      copy: { onSelect: true },
       tabs: { confirmClose: "whenLost", restoreOnLaunch: true },
     },
   });

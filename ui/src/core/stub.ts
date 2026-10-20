@@ -303,7 +303,10 @@ export function createStubCoreApi(
     change: (status: WorktreeStatus) => WorktreeStatus,
   ): MutationOutcome {
     const mutationId = nextMutationId++;
-    emit({ type: "mutationQueued", mutation: { id: mutationId, worktreePath: path, title } });
+    emit({
+      type: "mutationQueued",
+      mutation: { id: mutationId, worktreePath: path, title, command: `git ${title.toLowerCase()}` },
+    });
     emit({ type: "mutationStarted", mutationId });
 
     const failure = failures.shift();

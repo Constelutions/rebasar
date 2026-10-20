@@ -58,6 +58,7 @@ function GlobalSettings({ api }: { api: CoreApi }) {
       <DiffSection settings={settings} update={update} />
       <SyncSection settings={settings} update={update} />
       <TabsSection settings={settings} update={update} />
+      <CopySection settings={settings} update={update} />
       <AppearanceSection settings={settings} update={update} />
       {error && (
         <p role="alert" className="error">
@@ -324,6 +325,26 @@ function TabsSection({ settings, update }: SectionProps) {
           onChange={(event) =>
             update({ ...settings, tabs: { ...tabs, restoreOnLaunch: event.target.checked } })
           }
+        />
+      </div>
+    </section>
+  );
+}
+
+function CopySection({ settings, update }: SectionProps) {
+  const onSelectId = useId();
+  const { copy } = settings;
+
+  return (
+    <section className="settings-section" aria-labelledby={`${onSelectId}-title`}>
+      <h2 id={`${onSelectId}-title`}>Copy</h2>
+      <div className="settings-field">
+        <label htmlFor={onSelectId}>Copy selected text automatically</label>
+        <input
+          id={onSelectId}
+          type="checkbox"
+          checked={copy.onSelect}
+          onChange={(event) => update({ ...settings, copy: { ...copy, onSelect: event.target.checked } })}
         />
       </div>
     </section>

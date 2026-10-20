@@ -1,7 +1,7 @@
 use std::fs;
 
 use rebasar_core::{
-    ApiError, AppearanceSettings, ConfirmTabClose, Core, DiffMode, DiffSettings, Settings,
+    ApiError, AppearanceSettings, ConfirmTabClose, Core, CopySettings, DiffMode, DiffSettings, Settings,
     SyncSettings, TabSettings, WhitespaceMode,
 };
 
@@ -22,6 +22,9 @@ fn customised() -> Settings {
         sync: SyncSettings {
             auto_fetch: false,
             fetch_interval_minutes: 15,
+        },
+        copy: CopySettings {
+            on_select: false,
         },
         tabs: TabSettings {
             confirm_close: ConfirmTabClose::Never,
@@ -141,4 +144,23 @@ fn settings_cannot_be_used_without_a_config_folder() {
     let error = Core::new(|_| {}).settings().unwrap_err();
 
     assert!(matches!(error, ApiError::Unexpected { .. }));
+}
+
+#[test]
+fn selecting_text_copies_it_by_default() {
+    assert!(Settings::default().copy.on_select);
+}
+
+#[test]
+fn a_settings_file_from_before_copy_on_select_keeps_it_on() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::write(
+        dir.path().join("settings.json"),
+        r#"{ "sync": { "autoFetch": false } }"#,
+    )
+    .unwrap();
+
+    let settings = core_in(dir.path()).settings().expect("settings");
+
+    assert!(settings.copy.on_select);
 }
