@@ -1,4 +1,5 @@
 import type { Group, RepositoryEntry } from "../core/api";
+import { Button } from "./Button";
 import { describeHead } from "./TabStrip";
 
 interface RepositoryRowProps {
@@ -27,22 +28,20 @@ export function RepositoryRow({
         <div className="repository-actions">
           {repository.missing && (
             <>
-              <button
-                type="button"
-                className="text-button"
+              <Button
+                type="button" size="sm"
                 aria-label={`Locate ${repository.name}`}
                 onClick={() => onLocate(repository)}
               >
                 Locate…
-              </button>
-              <button
-                type="button"
-                className="text-button"
+              </Button>
+              <Button
+                type="button" size="sm"
                 aria-label={`Remove ${repository.name}`}
                 onClick={() => onRemove(repository)}
               >
                 Remove
-              </button>
+              </Button>
             </>
           )}
           <select

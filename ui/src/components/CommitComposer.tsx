@@ -1,6 +1,7 @@
 import { type FormEvent, useId, useState } from "react";
 
 import type { CommitOptions, OutgoingCommit } from "../core/api";
+import { Button } from "./Button";
 import {
   COMMIT_TYPES,
   SUBJECT_LIMIT,
@@ -65,7 +66,8 @@ export function CommitComposer({
       <form className="commit-composer" aria-label="Commit" onSubmit={submit}>
         <div className="type-chips" role="group" aria-label="Commit type">
           {COMMIT_TYPES.map((type) => (
-            <button
+            <Button
+              variant="plain"
               key={type}
               type="button"
               className="type-chip"
@@ -73,7 +75,7 @@ export function CommitComposer({
               onClick={() => setSubject(withType(subject, selectedType === type ? undefined : type))}
             >
               {type}
-            </button>
+            </Button>
           ))}
         </div>
 
@@ -125,9 +127,9 @@ export function CommitComposer({
           Push after commit
         </label>
 
-        <button type="submit" disabled={!canCommit}>
+        <Button variant="primary" type="submit" disabled={!canCommit}>
           {amend ? "Amend commit" : "Commit"}
-        </button>
+        </Button>
       </form>
 
       <OutgoingList

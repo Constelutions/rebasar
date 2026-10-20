@@ -10,6 +10,7 @@ import type {
 } from "../core/api";
 import { describeError } from "../core/describeError";
 import { useConfirmation } from "../useConfirmation";
+import { Button } from "./Button";
 import { describeHead } from "./TabStrip";
 
 interface WorktreesViewProps {
@@ -73,9 +74,9 @@ export function WorktreesView({ api, tab, pickFolder }: WorktreesViewProps) {
         }
       />
       <div className="worktrees-toolbar">
-        <button type="button" onClick={() => void run("Pruning", () => api.pruneWorktrees(path))}>
+        <Button type="button" onClick={() => void run("Pruning", () => api.pruneWorktrees(path))}>
           Prune
-        </button>
+        </Button>
       </div>
       {error && (
         <p role="alert" className="error">
@@ -90,7 +91,8 @@ export function WorktreesView({ api, tab, pickFolder }: WorktreesViewProps) {
             <span className="branch-badge">{worktree.dirty ? "dirty" : "clean"}</span>
             {worktree.main && <span className="branch-badge">main</span>}
             <span className="branch-actions">
-              <button
+              <Button
+                size="sm"
                 type="button"
                 aria-label={`Open ${worktree.path} as a Tab`}
                 onClick={() =>
@@ -98,11 +100,12 @@ export function WorktreesView({ api, tab, pickFolder }: WorktreesViewProps) {
                 }
               >
                 Open
-              </button>
+              </Button>
               {!worktree.main && (
-                <button
+                <Button
+                  size="sm"
                   type="button"
-                  className="danger"
+                  variant="danger"
                   aria-label={`Remove ${worktree.path}`}
                   onClick={() =>
                     void confirm({ kind: "removeWorktree", path: worktree.path }, () =>
@@ -113,7 +116,7 @@ export function WorktreesView({ api, tab, pickFolder }: WorktreesViewProps) {
                   }
                 >
                   Remove
-                </button>
+                </Button>
               )}
             </span>
           </li>
@@ -157,7 +160,7 @@ function NewWorktreeForm({
     <form className="new-worktree" aria-label="New worktree" onSubmit={submit}>
       <label htmlFor={folderId}>Folder</label>
       <input id={folderId} value={folder} onChange={(event) => setFolder(event.target.value)} />
-      <button
+      <Button
         type="button"
         onClick={async () => {
           const picked = await pickFolder();
@@ -165,7 +168,7 @@ function NewWorktreeForm({
         }}
       >
         Choose folder…
-      </button>
+      </Button>
       <label htmlFor={sourceId}>Start from</label>
       <select id={sourceId} value={source} onChange={(event) => setSource(event.target.value)}>
         {branches.map((branch) => (
@@ -183,9 +186,9 @@ function NewWorktreeForm({
       )}
       <label htmlFor={branchId}>New branch (optional)</label>
       <input id={branchId} value={newBranch} onChange={(event) => setNewBranch(event.target.value)} />
-      <button type="submit" disabled={!from || folder.trim() === ""}>
+      <Button variant="primary" type="submit" disabled={!from || folder.trim() === ""}>
         Add worktree
-      </button>
+      </Button>
     </form>
   );
 }

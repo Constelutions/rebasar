@@ -2,6 +2,7 @@ import { type FormEvent, useEffect, useId, useState } from "react";
 
 import type { CoreApi, FoundRepository, Group } from "../core/api";
 import { describeError } from "../core/describeError";
+import { Button } from "./Button";
 
 export type AddKind = "clone" | "init" | "scan";
 
@@ -272,16 +273,15 @@ function FolderField({
     <div className="folder-field">
       <span>{label}</span>
       <span className="folder-path">{folder ?? "No folder chosen"}</span>
-      <button
-        type="button"
-        className="text-button"
+      <Button
+        type="button" size="sm"
         onClick={async () => {
           const picked = await pickFolder();
           if (picked !== null) onPick(picked);
         }}
       >
         Choose folder…
-      </button>
+      </Button>
     </div>
   );
 }
@@ -323,12 +323,12 @@ function FormActions({
 }) {
   return (
     <div className="dialog-actions">
-      <button type="button" onClick={onCancel}>
+      <Button type="button" onClick={onCancel}>
         Cancel
-      </button>
-      <button type="submit" disabled={!canSubmit}>
+      </Button>
+      <Button variant="primary" type="submit" disabled={!canSubmit}>
         {submitLabel}
-      </button>
+      </Button>
     </div>
   );
 }

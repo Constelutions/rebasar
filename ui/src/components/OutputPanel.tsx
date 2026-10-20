@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 
 import { type MutationRun, type MutationState, isActive } from "../useMutations";
+import { Button } from "./Button";
 
 interface OutputPanelProps {
   runs: MutationRun[];
@@ -23,7 +24,8 @@ export function OutputPanel({ runs, onCancel }: OutputPanelProps) {
   return (
     <section aria-label="Output" className="output-panel">
       <header className="output-header">
-        <button
+        <Button
+          variant="plain"
           type="button"
           aria-expanded={expanded}
           aria-controls={bodyId}
@@ -31,16 +33,16 @@ export function OutputPanel({ runs, onCancel }: OutputPanelProps) {
           onClick={() => setExpanded((current) => !current)}
         >
           Output
-        </button>
+        </Button>
         <span role="status" className="output-summary">
           {summarise(active, latest)}
         </span>
         {active && (
           <>
             <progress aria-label={`${active.title} in progress`} className="output-progress" />
-            <button type="button" className="output-cancel" onClick={() => onCancel(active)}>
+            <Button type="button" className="output-cancel" onClick={() => onCancel(active)}>
               Cancel {active.title}
-            </button>
+            </Button>
           </>
         )}
       </header>

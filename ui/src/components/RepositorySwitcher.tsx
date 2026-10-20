@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import type { OpenTab } from "../useOpenTabs";
+import { Button } from "./Button";
 import { StatusDot } from "./StatusDot";
 import { describeHead } from "./TabStrip";
 
@@ -42,7 +43,8 @@ export function RepositorySwitcher({ tabs, onSelect }: RepositorySwitcherProps) 
 
   return (
     <div ref={container} className="repository-switcher">
-      <button
+      <Button
+        variant="plain"
         type="button"
         aria-label="Switch repository"
         aria-haspopup="menu"
@@ -52,7 +54,7 @@ export function RepositorySwitcher({ tabs, onSelect }: RepositorySwitcherProps) 
         onClick={toggle}
       >
         ⇅
-      </button>
+      </Button>
       {open && (
         <div className="switcher-popover">
           <input
@@ -66,7 +68,8 @@ export function RepositorySwitcher({ tabs, onSelect }: RepositorySwitcherProps) 
           />
           <div role="menu" aria-label="Repositories" className="switcher-list">
             {matches.map(({ tab, status }) => (
-              <button
+              <Button
+                variant="plain"
                 key={tab.worktreePath}
                 type="button"
                 role="menuitem"
@@ -80,7 +83,7 @@ export function RepositorySwitcher({ tabs, onSelect }: RepositorySwitcherProps) 
                 <StatusDot status={status} />
                 <span className="tab-name">{tab.repositoryName}</span>
                 <span className="tab-head">{describeHead(tab.head)}</span>
-              </button>
+              </Button>
             ))}
           </div>
         </div>

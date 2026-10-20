@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 
 import type { ChangeKind, FileChange } from "../core/api";
+import { Button } from "./Button";
 import { type GroupTree, type TreeRow, fileKey, flattenChanges } from "./changeTree";
 import { VirtualList } from "./VirtualList";
 
@@ -109,13 +110,14 @@ function TreeRowView<L extends string>({
         <h2>{row.name}</h2>
         <span className="change-group-count">{row.count}</span>
         {groupAction && (
-          <button
+          <Button
+            variant="plain"
             type="button"
             className="row-action danger group-action"
             onClick={groupAction.run}
           >
             {groupAction.label}
-          </button>
+          </Button>
         )}
       </header>
     );
@@ -123,7 +125,8 @@ function TreeRowView<L extends string>({
 
   if (row.type === "folder") {
     return (
-      <button
+      <Button
+        variant="plain"
         type="button"
         aria-expanded={row.expanded}
         className="tree-row folder-row"
@@ -132,14 +135,15 @@ function TreeRowView<L extends string>({
       >
         <span className="tree-name">{row.folder.name}</span>
         <LineCounts added={row.folder.added} removed={row.folder.removed} />
-      </button>
+      </Button>
     );
   }
 
   const { kind, originalPath, added, removed } = row.file.change;
   return (
     <div className="file-row-wrap">
-      <button
+      <Button
+        variant="plain"
         type="button"
         aria-current={selected || undefined}
         className="tree-row file-row"
@@ -152,9 +156,10 @@ function TreeRowView<L extends string>({
         <span className="tree-name">{row.file.name}</span>
         {originalPath && <span className="renamed-from">{originalPath}</span>}
         <LineCounts added={added} removed={removed} />
-      </button>
+      </Button>
       {actions.map((action) => (
-        <button
+        <Button
+          variant="plain"
           key={action.label}
           type="button"
           aria-label={`${action.label} ${row.file.change.path}`}
@@ -162,7 +167,7 @@ function TreeRowView<L extends string>({
           onClick={() => action.run(row.file.change)}
         >
           {action.label}
-        </button>
+        </Button>
       ))}
     </div>
   );

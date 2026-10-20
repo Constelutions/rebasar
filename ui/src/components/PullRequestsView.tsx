@@ -11,6 +11,7 @@ import {
   isApiError,
 } from "../core/api";
 import { describeError } from "../core/describeError";
+import { Button } from "./Button";
 import { PullRequestDialog } from "./PullRequestDialog";
 
 type Load =
@@ -148,9 +149,9 @@ function SignIn({
         value={token}
         onChange={(event) => setToken(event.target.value)}
       />
-      <button type="submit" disabled={busy || token.trim() === ""}>
+      <Button variant="primary" type="submit" disabled={busy || token.trim() === ""}>
         Sign in
-      </button>
+      </Button>
       {error && (
         <p role="alert" className="error">
           {error}
@@ -207,21 +208,21 @@ function PullRequestList({
         <div className="pull-request-toolbar">
           {current ? (
             <>
-              <button type="button" onClick={() => setEditing(true)}>
+              <Button type="button" onClick={() => setEditing(true)}>
                 Edit pull request #{current.number}
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
                 aria-label={`Open the current branch's pull request #${current.number} in the browser`}
                 onClick={() => attempt(api.openInBrowser(current.url))}
               >
                 Open #{current.number} in the browser
-              </button>
+              </Button>
             </>
           ) : (
-            <button type="button" onClick={() => setEditing(true)}>
+            <Button type="button" onClick={() => setEditing(true)}>
               Create pull request
-            </button>
+            </Button>
           )}
         </div>
       )}
@@ -257,9 +258,9 @@ function PullRequestList({
         </ul>
       )}
       {canSignOut && (
-        <button type="button" className="github-sign-out" onClick={() => void onSignOut()}>
+        <Button type="button" className="github-sign-out" onClick={() => void onSignOut()}>
           Sign out of GitHub
-        </button>
+        </Button>
       )}
     </div>
   );
@@ -292,17 +293,18 @@ function PullRequestRow({
         </span>
       )}
       <span className="pull-request-actions">
-        <button type="button" aria-label={`Open #${pullRequest.number} in the browser`} onClick={onOpen}>
+        <Button size="sm" type="button" aria-label={`Open #${pullRequest.number} in the browser`} onClick={onOpen}>
           Open
-        </button>
+        </Button>
         {pullRequest.isDraft && (
-          <button
+          <Button
+            size="sm"
             type="button"
             aria-label={`Mark #${pullRequest.number} ready for review`}
             onClick={onReady}
           >
             Ready for review
-          </button>
+          </Button>
         )}
       </span>
     </li>

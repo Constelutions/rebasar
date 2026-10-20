@@ -1,5 +1,6 @@
 import type { Head } from "../core/api";
 import type { OpenTab } from "../useOpenTabs";
+import { Button } from "./Button";
 import { StatusDot } from "./StatusDot";
 
 interface TabStripProps {
@@ -12,7 +13,8 @@ export function TabStrip({ tabs, activePath, onSelect }: TabStripProps) {
   return (
     <div role="tablist" className="tab-strip">
       {tabs.map(({ tab, status }) => (
-        <button
+        <Button
+          variant="plain"
           key={tab.worktreePath}
           type="button"
           role="tab"
@@ -24,7 +26,7 @@ export function TabStrip({ tabs, activePath, onSelect }: TabStripProps) {
           <StatusDot status={status} />
           <span className="tab-name">{tab.repositoryName}</span>
           <span className="tab-head">{describeHead(tab.head)}</span>
-        </button>
+        </Button>
       ))}
     </div>
   );

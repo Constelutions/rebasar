@@ -1,3 +1,4 @@
+import { Button } from "../components/Button";
 import type { HistoryCount } from "../core/api";
 
 export interface Chips {
@@ -40,7 +41,8 @@ export function FilterBar({
         onChange={(event) => onQueryChange(event.target.value)}
       />
       {(Object.keys(chipLabels) as (keyof Chips)[]).map((chip) => (
-        <button
+        <Button
+          variant="plain"
           key={chip}
           type="button"
           className="chip"
@@ -48,7 +50,7 @@ export function FilterBar({
           onClick={() => onChipsChange({ ...chips, [chip]: !chips[chip] })}
         >
           {chipLabels[chip]}
-        </button>
+        </Button>
       ))}
       <span role="status" className="filter-count">
         {count === null ? "Counting commits…" : describeCount(count)}

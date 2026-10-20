@@ -1,6 +1,7 @@
 import { type KeyboardEvent, useEffect, useId, useRef } from "react";
 
 import type { Loss } from "../core/api";
+import { Button } from "./Button";
 import { LineCounts, statusLetters } from "./FileTree";
 
 export interface ConfirmationDialogProps {
@@ -91,12 +92,12 @@ export function ConfirmationDialog({
           </p>
         </div>
         <div className="dialog-actions">
-          <button type="button" ref={cancelRef} onClick={onCancel}>
+          <Button type="button" ref={cancelRef} onClick={onCancel}>
             Cancel
-          </button>
-          <button type="button" ref={confirmRef} className="danger" onClick={onConfirm}>
+          </Button>
+          <Button type="button" ref={confirmRef} variant="danger" onClick={onConfirm}>
             {confirmLabel}
-          </button>
+          </Button>
         </div>
       </div>
     </div>

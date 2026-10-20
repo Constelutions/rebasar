@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { Button } from "../components/Button";
 
 export type CommitAction =
   | "checkout"
@@ -75,9 +76,9 @@ export function CommitMenu({ x, y, onSelect, onClose }: CommitMenuProps) {
       }}
     >
       {items.map(({ action, label }) => (
-        <button key={action} type="button" role="menuitem" onClick={() => onSelect(action)}>
+        <Button variant="plain" key={action} type="button" role="menuitem" onClick={() => onSelect(action)}>
           {label}
-        </button>
+        </Button>
       ))}
     </div>
   );

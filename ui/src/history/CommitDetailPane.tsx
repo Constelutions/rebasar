@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 
+import { Button } from "../components/Button";
 import { DiffView } from "../components/DiffView";
 import { FileTree } from "../components/FileTree";
 import { type GroupTree, buildGroupTrees, firstFile } from "../components/changeTree";
@@ -51,14 +52,15 @@ export function CommitDetailPane({
           onParentChange={setParent}
         />
       )}
-      <button
+      <Button
+        variant="plain"
         type="button"
         className="commit-detail-close"
         aria-label="Close commit detail"
         onClick={onClose}
       >
         ×
-      </button>
+      </Button>
     </section>
   );
 }
@@ -141,25 +143,27 @@ function CommitBody({
           )}
         </dd>
       </dl>
-      <button
+      <Button
+        size="sm"
         type="button"
         aria-pressed={comparing}
         className="compare-toggle"
         onClick={() => onComparingChange(!comparing)}
       >
         Compare with working tree
-      </button>
+      </Button>
       {!comparing && detail.parents.length > 1 && (
         <div role="group" aria-label="Compare with parent" className="mode-toggle parent-toggle">
           {detail.parents.map((parent, index) => (
-            <button
+            <Button
+              variant="plain"
               key={parent.id}
               type="button"
               aria-pressed={base === index}
               onClick={() => onParentChange(index)}
             >
               Parent {index + 1}
-            </button>
+            </Button>
           ))}
         </div>
       )}

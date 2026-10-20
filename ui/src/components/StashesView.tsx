@@ -14,6 +14,7 @@ import { formatDateTime } from "../history/items";
 import { useCommitFileDiff } from "../history/useCommitFileDiff";
 import { useSettings } from "../settings/SettingsContext";
 import { useConfirmation } from "../useConfirmation";
+import { Button } from "./Button";
 import { buildGroupTrees, firstFile } from "./changeTree";
 import { DiffView } from "./DiffView";
 import { FileTree } from "./FileTree";
@@ -90,7 +91,8 @@ export function StashesView({ api, tab }: StashesViewProps) {
           <ul className="stash-list" aria-label="Stashes">
             {stashes.map((stash) => (
               <li key={stash.id} aria-current={stash.id === selected?.id || undefined}>
-                <button
+                <Button
+                  variant="plain"
                   type="button"
                   className="stash-select"
                   onClick={() => setPicked(stash.id)}
@@ -103,25 +105,28 @@ export function StashesView({ api, tab }: StashesViewProps) {
                       {formatDateTime(stash.timestamp)}
                     </time>
                   </span>
-                </button>
+                </Button>
                 <span className="stash-actions">
-                  <button
+                  <Button
+                    size="sm"
                     type="button"
                     aria-label={`Apply ${stash.message}`}
                     onClick={() => void run("Apply", () => api.applyStash(path, stash.id))}
                   >
                     Apply
-                  </button>
-                  <button
+                  </Button>
+                  <Button
+                    size="sm"
                     type="button"
                     aria-label={`Pop ${stash.message}`}
                     onClick={() => void run("Pop", () => api.popStash(path, stash.id))}
                   >
                     Pop
-                  </button>
-                  <button
+                  </Button>
+                  <Button
+                    size="sm"
                     type="button"
-                    className="danger"
+                    variant="danger"
                     aria-label={`Drop ${stash.message}`}
                     onClick={() =>
                       void confirm({ kind: "dropStash", stash: stash.id }, () =>
@@ -130,7 +135,7 @@ export function StashesView({ api, tab }: StashesViewProps) {
                     }
                   >
                     Drop
-                  </button>
+                  </Button>
                 </span>
               </li>
             ))}
@@ -172,7 +177,7 @@ function CreateStashForm({
         />
         Include untracked files
       </label>
-      <button type="submit">Stash changes</button>
+      <Button variant="primary" type="submit">Stash changes</Button>
     </form>
   );
 }

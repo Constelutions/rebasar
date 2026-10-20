@@ -3,6 +3,7 @@ import { type FormEvent, useCallback, useEffect, useId, useState } from "react";
 import type { CoreApi, MutationOutcome, RemoteInfo, TagInfo } from "../core/api";
 import { describeError } from "../core/describeError";
 import { useConfirmation } from "../useConfirmation";
+import { Button } from "./Button";
 
 interface SectionProps {
   api: CoreApi;
@@ -80,9 +81,9 @@ export function TagsSection({ api, worktreePath, onError }: SectionProps) {
         <input id={nameId} value={name} onChange={(event) => setName(event.target.value)} />
         <label htmlFor={messageId}>Message (makes it annotated)</label>
         <input id={messageId} value={message} onChange={(event) => setMessage(event.target.value)} />
-        <button type="submit" disabled={name.trim() === ""}>
+        <Button variant="primary" type="submit" disabled={name.trim() === ""}>
           Create tag
-        </button>
+        </Button>
       </form>
       {tags.length === 0 ? (
         <p className="placeholder">No tags.</p>
@@ -98,7 +99,8 @@ export function TagsSection({ api, worktreePath, onError }: SectionProps) {
               <span className="branch-actions">
                 {remote && (
                   <>
-                    <button
+                    <Button
+                      size="sm"
                       type="button"
                       aria-label={`Push tag ${tag.name} to ${remote.name}`}
                       onClick={() =>
@@ -106,10 +108,11 @@ export function TagsSection({ api, worktreePath, onError }: SectionProps) {
                       }
                     >
                       Push
-                    </button>
-                    <button
+                    </Button>
+                    <Button
+                      size="sm"
                       type="button"
-                      className="danger"
+                      variant="danger"
                       aria-label={`Delete tag ${tag.name} on ${remote.name}`}
                       onClick={() =>
                         void confirm({ kind: "deleteRemoteTag", name: tag.name, remote: remote.name }, () =>
@@ -122,12 +125,13 @@ export function TagsSection({ api, worktreePath, onError }: SectionProps) {
                       }
                     >
                       Delete on {remote.name}
-                    </button>
+                    </Button>
                   </>
                 )}
-                <button
+                <Button
+                  size="sm"
                   type="button"
-                  className="danger"
+                  variant="danger"
                   aria-label={`Delete tag ${tag.name}`}
                   onClick={() =>
                     void confirm({ kind: "deleteTag", name: tag.name }, () =>
@@ -136,7 +140,7 @@ export function TagsSection({ api, worktreePath, onError }: SectionProps) {
                   }
                 >
                   Delete
-                </button>
+                </Button>
               </span>
             </li>
           ))}
@@ -177,9 +181,9 @@ export function RemotesSection({ api, worktreePath, onError }: SectionProps) {
         <input id={nameId} value={name} onChange={(event) => setName(event.target.value)} />
         <label htmlFor={urlId}>Address</label>
         <input id={urlId} value={url} onChange={(event) => setUrl(event.target.value)} />
-        <button type="submit" disabled={name.trim() === "" || url.trim() === ""}>
+        <Button variant="primary" type="submit" disabled={name.trim() === "" || url.trim() === ""}>
           Add remote
-        </button>
+        </Button>
       </form>
       {remotes.length === 0 ? (
         <p className="placeholder">No remotes.</p>
@@ -191,22 +195,23 @@ export function RemotesSection({ api, worktreePath, onError }: SectionProps) {
               <span className="branch-upstream">{remote.url}</span>
               {remote.pushUrl && <span className="branch-upstream">push: {remote.pushUrl}</span>}
               <span className="branch-actions">
-                <button type="button" aria-label={`Rename remote ${remote.name}`} onClick={() => setEditing({ remote, field: "name" })}>
+                <Button size="sm" type="button" aria-label={`Rename remote ${remote.name}`} onClick={() => setEditing({ remote, field: "name" })}>
                   Rename
-                </button>
-                <button type="button" aria-label={`Edit address of ${remote.name}`} onClick={() => setEditing({ remote, field: "url" })}>
+                </Button>
+                <Button size="sm" type="button" aria-label={`Edit address of ${remote.name}`} onClick={() => setEditing({ remote, field: "url" })}>
                   Edit address
-                </button>
-                <button
+                </Button>
+                <Button
+                  size="sm"
                   type="button"
-                  className="danger"
+                  variant="danger"
                   aria-label={`Remove remote ${remote.name}`}
                   onClick={() =>
                     void report(`Removing ${remote.name}`, () => api.removeRemote(worktreePath, remote.name), onError).then(reload)
                   }
                 >
                   Remove
-                </button>
+                </Button>
               </span>
             </li>
           ))}
@@ -269,12 +274,12 @@ function RemoteEditDialog({
           <label htmlFor={inputId}>{label}</label>
           <input id={inputId} value={value} onChange={(event) => setValue(event.target.value)} autoFocus />
           <div className="dialog-actions">
-            <button type="button" onClick={onCancel}>
+            <Button type="button" onClick={onCancel}>
               Cancel
-            </button>
-            <button type="submit" disabled={value.trim() === ""}>
+            </Button>
+            <Button variant="primary" type="submit" disabled={value.trim() === ""}>
               Save
-            </button>
+            </Button>
           </div>
         </form>
       </div>

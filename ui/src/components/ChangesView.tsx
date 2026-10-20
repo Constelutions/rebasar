@@ -14,6 +14,7 @@ import type {
 import { describeError } from "../core/describeError";
 import { useSettings } from "../settings/SettingsContext";
 import { useConfirmation } from "../useConfirmation";
+import { Button } from "./Button";
 import { type ChangeGroup, type GroupTree, buildGroupTrees, firstFile } from "./changeTree";
 import { CommitComposer } from "./CommitComposer";
 import { DiffView, type LineStaging } from "./DiffView";
@@ -153,9 +154,9 @@ export function ChangesView({ api, worktreePath, status, error }: ChangesViewPro
       {pushedPullRequest && (
         <p role="status" className="pull-request-offer">
           Pushed. Pull request #{pushedPullRequest.number} is open for this branch.{" "}
-          <button type="button" onClick={() => setEditingPullRequest(true)}>
+          <Button type="button" onClick={() => setEditingPullRequest(true)}>
             Update pull request
-          </button>
+          </Button>
         </p>
       )}
       {editingPullRequest && (

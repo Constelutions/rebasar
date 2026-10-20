@@ -4,6 +4,7 @@ import type { CoreApi, PullStrategy } from "../core/api";
 import { describeError } from "../core/describeError";
 import { useConfirmation } from "../useConfirmation";
 import { useSync } from "../useSync";
+import { Button } from "./Button";
 
 interface SyncControlsProps {
   api: CoreApi;
@@ -53,29 +54,29 @@ export function SyncControls({ api, worktreePath, onError }: SyncControlsProps) 
           Fetch failed
         </span>
       )}
-      <button type="button" disabled={busy} onClick={() => void run(fetchNow)}>
+      <Button type="button" disabled={busy} onClick={() => void run(fetchNow)}>
         Fetch
-      </button>
-      <button
+      </Button>
+      <Button
         type="button"
         disabled={busy || detached}
         title={status?.upstream ? `Pull from ${status.upstream}` : undefined}
         onClick={() => void startPull()}
       >
         Pull{behind > 0 && <span className="sync-count"> ↓{behind}</span>}
-      </button>
-      <button
+      </Button>
+      <Button
         type="button"
         disabled={busy || detached}
         title={status?.upstream ? `Push to ${status.upstream}` : "Publish this branch"}
         onClick={() => void run(() => api.push(worktreePath, false))}
       >
         Push{ahead > 0 && <span className="sync-count"> ↑{ahead}</span>}
-      </button>
+      </Button>
       {diverged && (
-        <button
+        <Button
           type="button"
-          className="danger"
+          variant="danger"
           disabled={busy}
           onClick={() =>
             void run(() =>
@@ -86,7 +87,7 @@ export function SyncControls({ api, worktreePath, onError }: SyncControlsProps) 
           }
         >
           Force push
-        </button>
+        </Button>
       )}
       {choosing && <PullStrategyDialog onChoose={pull} onCancel={() => setChoosing(false)} />}
       {dialog}
@@ -129,15 +130,15 @@ function PullStrategyDialog({
           </label>
         </div>
         <div className="dialog-actions">
-          <button type="button" onClick={onCancel}>
+          <Button type="button" onClick={onCancel}>
             Cancel
-          </button>
-          <button type="button" onClick={() => onChoose("merge", remember)}>
+          </Button>
+          <Button type="button" onClick={() => onChoose("merge", remember)}>
             Merge
-          </button>
-          <button type="button" onClick={() => onChoose("rebase", remember)}>
+          </Button>
+          <Button type="button" onClick={() => onChoose("rebase", remember)}>
             Rebase
-          </button>
+          </Button>
         </div>
       </div>
     </div>

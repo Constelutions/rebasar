@@ -1,4 +1,5 @@
 import { type ViewName, viewGroups } from "../views";
+import { Button } from "./Button";
 
 interface SidebarProps {
   selected: ViewName;
@@ -11,7 +12,8 @@ export function Sidebar({ selected, onSelect }: SidebarProps) {
       {viewGroups.map((group) => (
         <div key={group[0]} className="sidebar-group">
           {group.map((view) => (
-            <button
+            <Button
+              variant="plain"
               key={view}
               type="button"
               aria-current={view === selected ? "page" : undefined}
@@ -19,7 +21,7 @@ export function Sidebar({ selected, onSelect }: SidebarProps) {
               onClick={() => onSelect(view)}
             >
               {view}
-            </button>
+            </Button>
           ))}
         </div>
       ))}

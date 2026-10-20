@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import type { CoreApi, RepositoryEntry, RepositoryList } from "../core/api";
 import { describeError } from "../core/describeError";
 import type { AddKind } from "./AddRepositoryDialog";
+import { Button } from "./Button";
 import { GroupHeader, GroupNameForm } from "./GroupHeader";
 import { RepositoryRow } from "./RepositoryRow";
 
@@ -76,15 +77,15 @@ export function RepositoriesView({ api, pickFolder, onAdd, version }: Repositori
   return (
     <div className="repositories">
       <div className="repositories-toolbar">
-        <button type="button" className="text-button" onClick={() => onAdd("clone")}>
+        <Button type="button" size="sm" onClick={() => onAdd("clone")}>
           Clone…
-        </button>
-        <button type="button" className="text-button" onClick={() => onAdd("init")}>
+        </Button>
+        <Button type="button" size="sm" onClick={() => onAdd("init")}>
           Initialise…
-        </button>
-        <button type="button" className="text-button" onClick={() => onAdd("scan")}>
+        </Button>
+        <Button type="button" size="sm" onClick={() => onAdd("scan")}>
           Scan folder…
-        </button>
+        </Button>
         {creating ? (
           <GroupNameForm
             initialName=""
@@ -93,9 +94,9 @@ export function RepositoriesView({ api, pickFolder, onAdd, version }: Repositori
             onCancel={() => setCreating(false)}
           />
         ) : (
-          <button type="button" className="text-button" onClick={() => setCreating(true)}>
+          <Button type="button" size="sm" onClick={() => setCreating(true)}>
             New group
-          </button>
+          </Button>
         )}
       </div>
       {error && (

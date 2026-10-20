@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import type { DiffLine, DiffMode, FileDiff, Hunk } from "../core/api";
 import { useSyntaxTokens } from "../highlight/useSyntaxTokens";
 import type { Token } from "../highlight/tokens";
+import { Button } from "./Button";
 import {
   type DiffRow,
   changedLines,
@@ -71,14 +72,13 @@ export function DiffView({ diff, mode, onModeChange, onLoadLarge, staging }: Dif
         {content.kind === "text" && content.hunks.length > 0 && (
           <div className="diff-controls">
             {applying && (
-              <button
+              <Button
                 type="button"
-                className="button"
                 disabled={picked.length === 0}
                 onClick={() => applying.apply(picked)}
               >
                 {applying.label} selected lines
-              </button>
+              </Button>
             )}
             <ModeToggle mode={mode} onChange={onModeChange} />
           </div>
@@ -109,9 +109,9 @@ export function DiffView({ diff, mode, onModeChange, onLoadLarge, staging }: Dif
             {content.lines !== null && `, ${content.lines.toLocaleString("en-US")} lines`}), so its
             diff is not shown.
           </p>
-          <button type="button" className="button" onClick={onLoadLarge}>
+          <Button type="button" onClick={onLoadLarge}>
             Load diff
-          </button>
+          </Button>
         </div>
       )}
     </section>
@@ -126,14 +126,15 @@ function ModeToggle({ mode, onChange }: { mode: DiffMode; onChange: (mode: DiffM
   return (
     <div role="group" aria-label="Diff mode" className="mode-toggle">
       {options.map((option) => (
-        <button
+        <Button
+          variant="plain"
           key={option.mode}
           type="button"
           aria-pressed={mode === option.mode}
           onClick={() => onChange(option.mode)}
         >
           {option.label}
-        </button>
+        </Button>
       ))}
     </div>
   );
@@ -179,14 +180,15 @@ function DiffRowView({ row, ...context }: { row: DiffRow } & RowContext) {
       <div className="diff-hunk-header">
         <span>{row.header}</span>
         {staging && (
-          <button
+          <Button
+            variant="plain"
             type="button"
             className="hunk-action"
             aria-label={`${staging.label} hunk ${row.header}`}
             onClick={() => staging.apply(changedLines(row.hunk))}
           >
             {staging.label} hunk
-          </button>
+          </Button>
         )}
       </div>
     );

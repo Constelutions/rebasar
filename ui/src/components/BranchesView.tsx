@@ -3,6 +3,7 @@ import { type FormEvent, useCallback, useEffect, useId, useState } from "react";
 import type { BranchInfo, CoreApi, MergeMode, MutationOutcome, Tab } from "../core/api";
 import { describeError } from "../core/describeError";
 import { useConfirmation } from "../useConfirmation";
+import { Button } from "./Button";
 import { RemotesSection, TagsSection } from "./TagsAndRemotes";
 
 interface BranchesViewProps {
@@ -164,55 +165,59 @@ function BranchRow({ branch, actions }: { branch: BranchInfo; actions: RowAction
       )}
       <span className="branch-actions">
         {!branch.current && (
-          <button type="button" aria-label={`Check out ${branch.name}`} onClick={() => actions.checkout(branch)}>
+          <Button size="sm" type="button" aria-label={`Check out ${branch.name}`} onClick={() => actions.checkout(branch)}>
             Check out
-          </button>
+          </Button>
         )}
         {canJoin && (
           <>
-            <button type="button" aria-label={`Merge ${branch.name}`} onClick={() => actions.merge(branch, "default")}>
+            <Button size="sm" type="button" aria-label={`Merge ${branch.name}`} onClick={() => actions.merge(branch, "default")}>
               Merge
-            </button>
-            <button
+            </Button>
+            <Button
+              size="sm"
               type="button"
               aria-label={`Merge ${branch.name} with a merge commit`}
               onClick={() => actions.merge(branch, "noFastForward")}
             >
               Merge (no-ff)
-            </button>
-            <button
+            </Button>
+            <Button
+              size="sm"
               type="button"
               aria-label={`Squash merge ${branch.name}`}
               onClick={() => actions.merge(branch, "squash")}
             >
               Squash
-            </button>
-            <button type="button" aria-label={`Rebase onto ${branch.name}`} onClick={() => actions.rebase(branch)}>
+            </Button>
+            <Button size="sm" type="button" aria-label={`Rebase onto ${branch.name}`} onClick={() => actions.rebase(branch)}>
               Rebase onto
-            </button>
+            </Button>
           </>
         )}
         {isLocal && (
           <>
-            <button type="button" aria-label={`Rename ${branch.name}`} onClick={() => actions.rename(branch)}>
+            <Button size="sm" type="button" aria-label={`Rename ${branch.name}`} onClick={() => actions.rename(branch)}>
               Rename
-            </button>
-            <button
+            </Button>
+            <Button
+              size="sm"
               type="button"
               aria-label={`Set upstream of ${branch.name}`}
               onClick={() => actions.setUpstream(branch)}
             >
               Upstream
-            </button>
+            </Button>
             {!branch.current && (
-              <button
+              <Button
+                size="sm"
                 type="button"
-                className="danger"
+                variant="danger"
                 aria-label={`Delete ${branch.name}`}
                 onClick={() => actions.remove(branch)}
               >
                 Delete
-              </button>
+              </Button>
             )}
           </>
         )}
@@ -241,9 +246,9 @@ function NewBranchForm({ onCreate }: { onCreate: (name: string, switchTo: boolea
         <input type="checkbox" checked={switchTo} onChange={(event) => setSwitchTo(event.target.checked)} />
         Switch to it
       </label>
-      <button type="submit" disabled={name.trim() === ""}>
+      <Button variant="primary" type="submit" disabled={name.trim() === ""}>
         Create
-      </button>
+      </Button>
     </form>
   );
 }
@@ -285,12 +290,12 @@ function BranchPrompt({
           <input id={inputId} value={value} onChange={(event) => setValue(event.target.value)} autoFocus />
           {!renaming && <p className="settings-hint">Leave empty to stop tracking.</p>}
           <div className="dialog-actions">
-            <button type="button" onClick={onCancel}>
+            <Button type="button" onClick={onCancel}>
               Cancel
-            </button>
-            <button type="submit" disabled={renaming && value.trim() === ""}>
+            </Button>
+            <Button variant="primary" type="submit" disabled={renaming && value.trim() === ""}>
               {renaming ? "Rename" : "Set upstream"}
-            </button>
+            </Button>
           </div>
         </form>
       </div>

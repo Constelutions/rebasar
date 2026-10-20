@@ -3,6 +3,7 @@ import { type FormEvent, useEffect, useId, useState } from "react";
 import type { CoreApi, DiffMode, Settings, WhitespaceMode } from "../core/api";
 import { describeError } from "../core/describeError";
 import { useSettings } from "../settings/SettingsContext";
+import { Button } from "./Button";
 
 const codeFontSizes = [11, 12, 13, 14];
 
@@ -92,9 +93,9 @@ function IdentitySection({ api }: { api: CoreApi }) {
         />
       </div>
       <div className="settings-actions">
-        <button type="submit" className="button">
+        <Button variant="primary" type="submit">
           Save identity
-        </button>
+        </Button>
         {saved && <span role="status">Saved</span>}
       </div>
       {error && (

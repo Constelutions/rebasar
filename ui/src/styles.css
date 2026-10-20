@@ -15,9 +15,77 @@ body {
   user-select: none;
 }
 
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-scrollbar-thumb) var(--color-scrollbar-track);
+}
+
 button {
   font: inherit;
   color: inherit;
+}
+
+.button {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  box-sizing: border-box;
+  white-space: nowrap;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+
+.button:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.button-md {
+  height: var(--control-height);
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-md);
+}
+
+.button-sm {
+  height: var(--control-height-sm);
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-sm);
+}
+
+.button-secondary {
+  color: var(--color-text);
+  background: var(--color-surface-raised);
+  border-color: var(--color-border-raised);
+}
+
+.button-secondary:hover:not(:disabled) {
+  background: var(--color-hover);
+}
+
+.button-secondary[aria-pressed="true"] {
+  color: var(--color-accent-text);
+  background: var(--color-accent-surface);
+  border-color: var(--color-selected-border);
+}
+
+.button-primary {
+  color: var(--color-on-accent);
+  background: var(--color-accent);
+}
+
+.button-primary:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
+
+.button-danger {
+  color: var(--color-on-danger);
+  background: var(--color-danger-strong);
+}
+
+.button-danger:hover:not(:disabled) {
+  filter: brightness(1.1);
 }
 
 .app {
@@ -75,6 +143,7 @@ button {
 }
 
 .open-folder {
+  flex: none;
   width: var(--control-height);
   height: var(--control-height);
   padding: 0;
@@ -696,11 +765,6 @@ button {
   gap: var(--space-3);
 }
 
-.diff-controls .button:disabled {
-  color: var(--color-text-subtle);
-  cursor: default;
-}
-
 .diff-pick {
   flex: none;
   width: var(--diff-pick-width);
@@ -762,19 +826,6 @@ button {
 
 .diff-collapsed p {
   margin: 0;
-}
-
-.button {
-  height: var(--control-height);
-  padding: 0 var(--space-4);
-  background: var(--color-surface-raised);
-  border: 1px solid var(--color-border-raised);
-  border-radius: var(--radius-md);
-  cursor: pointer;
-}
-
-.button:hover {
-  background: var(--color-hover);
 }
 
 .diff-lines {
@@ -874,7 +925,6 @@ button {
 .tab-strip {
   min-width: 0;
   overflow-x: auto;
-  scrollbar-width: thin;
 }
 
 .tab {
@@ -1080,21 +1130,6 @@ button {
   user-select: text;
 }
 
-.github-sign-in button,
-.github-sign-out {
-  height: var(--control-height);
-  padding: 0 var(--space-4);
-  background: var(--color-surface-raised);
-  border: 1px solid var(--color-border-raised);
-  border-radius: var(--radius-md);
-  cursor: pointer;
-}
-
-.github-sign-in button:disabled {
-  color: var(--color-text-subtle);
-  cursor: default;
-}
-
 .github-sign-out {
   align-self: flex-start;
 }
@@ -1213,22 +1248,6 @@ button {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-}
-
-.commit-composer button[type="submit"] {
-  align-self: flex-end;
-  padding: var(--space-1) var(--space-4);
-  color: var(--color-on-accent);
-  background: var(--color-accent);
-  border: 0;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-}
-
-.commit-composer button[type="submit"]:disabled {
-  color: var(--color-text-subtle);
-  background: var(--color-surface-raised);
-  cursor: default;
 }
 
 .outgoing h2 {
@@ -1518,6 +1537,7 @@ button {
 
 .palette-trigger {
   display: flex;
+  flex: none;
   align-items: center;
   gap: var(--space-4);
   height: var(--control-height);
@@ -1645,24 +1665,6 @@ button {
 
 .repositories-toolbar {
   display: flex;
-}
-
-.text-button {
-  padding: var(--space-1) var(--space-3);
-  color: var(--color-text-muted);
-  background: transparent;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-}
-
-.text-button:hover:not(:disabled) {
-  background: var(--color-hover);
-}
-
-.text-button:disabled {
-  color: var(--color-text-subtle);
-  cursor: default;
 }
 
 .group-header {
@@ -1848,31 +1850,6 @@ button {
   gap: var(--space-2);
 }
 
-.dialog-actions button {
-  height: var(--control-height);
-  padding: 0 var(--space-4);
-  color: var(--color-text);
-  background: transparent;
-  border: 1px solid var(--color-border-raised);
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-}
-
-.dialog-actions button:hover {
-  background: var(--color-hover);
-}
-
-.dialog-actions .danger {
-  color: var(--color-on-danger);
-  background: var(--color-danger-strong);
-  border-color: transparent;
-}
-
-.dialog-actions .danger:hover {
-  background: var(--color-danger-strong);
-  filter: brightness(1.1);
-}
-
 .add-form {
   display: flex;
   flex-direction: column;
@@ -1987,11 +1964,6 @@ button {
   gap: var(--space-2);
 }
 
-.operation-actions button:disabled {
-  cursor: default;
-  opacity: 0.5;
-}
-
 .sync-controls {
   display: flex;
   flex: none;
@@ -2014,6 +1986,8 @@ button {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .new-branch {
@@ -2080,10 +2054,6 @@ button {
   list-style: none;
 }
 
-.conflict-files button[aria-pressed="true"] {
-  background: var(--color-hover);
-}
-
 .conflict-detail {
   display: flex;
   flex: 1;
@@ -2130,10 +2100,6 @@ button {
   align-items: center;
   gap: var(--space-2);
   padding: var(--space-1) 0;
-}
-
-.conflict-hunks button[aria-pressed="true"] {
-  background: var(--color-hover);
 }
 
 .conflict-actions,
@@ -2242,6 +2208,8 @@ button {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .new-worktree {

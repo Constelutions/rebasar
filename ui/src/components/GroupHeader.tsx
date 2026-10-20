@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 
 import type { Group } from "../core/api";
+import { Button } from "./Button";
 
 interface GroupHeaderProps {
   group: Group;
@@ -32,32 +33,29 @@ export function GroupHeader({ group, count, isFirst, isLast, onRename, onMove }:
           <h2>{group.name}</h2>
           <span className="group-count">{count}</span>
           <div className="group-actions">
-            <button
-              type="button"
-              className="text-button"
+            <Button
+              type="button" size="sm"
               aria-label={`Rename ${group.name}`}
               onClick={() => setRenaming(true)}
             >
               Rename
-            </button>
-            <button
-              type="button"
-              className="text-button"
+            </Button>
+            <Button
+              type="button" size="sm"
               aria-label={`Move ${group.name} up`}
               disabled={isFirst}
               onClick={() => onMove(-1)}
             >
               ↑
-            </button>
-            <button
-              type="button"
-              className="text-button"
+            </Button>
+            <Button
+              type="button" size="sm"
               aria-label={`Move ${group.name} down`}
               disabled={isLast}
               onClick={() => onMove(1)}
             >
               ↓
-            </button>
+            </Button>
           </div>
         </>
       )}
@@ -93,12 +91,12 @@ export function GroupNameForm({ initialName, submitLabel, onSubmit, onCancel }: 
           if (event.key === "Escape") onCancel();
         }}
       />
-      <button type="submit" className="text-button">
+      <Button variant="primary" type="submit" size="sm">
         {submitLabel}
-      </button>
-      <button type="button" className="text-button" onClick={onCancel}>
+      </Button>
+      <Button type="button" size="sm" onClick={onCancel}>
         Cancel
-      </button>
+      </Button>
     </form>
   );
 }

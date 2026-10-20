@@ -2,6 +2,7 @@ import { useState } from "react";
 
 import type { CoreApi, OperationInProgress, OperationKind } from "../core/api";
 import { describeError } from "../core/describeError";
+import { Button } from "./Button";
 import { RebaseEditor } from "./RebaseEditor";
 import { useConfirmation } from "../useConfirmation";
 
@@ -51,27 +52,27 @@ export function OperationBanner({ api, worktreePath, operation }: OperationBanne
         </p>
       )}
       <div className="operation-actions">
-        <button
+        <Button
           type="button"
           disabled={operation.conflicts > 0}
           title={operation.conflicts > 0 ? "Resolve the conflicts first" : undefined}
           onClick={() => run(() => api.continueOperation(worktreePath))}
         >
           Continue
-        </button>
+        </Button>
         {operation.canSkip && (
-          <button type="button" onClick={() => run(() => api.skipOperation(worktreePath))}>
+          <Button type="button" onClick={() => run(() => api.skipOperation(worktreePath))}>
             Skip
-          </button>
+          </Button>
         )}
         {operation.kind === "rebase" && (
-          <button type="button" onClick={() => setEditing(true)}>
+          <Button type="button" onClick={() => setEditing(true)}>
             Edit plan
-          </button>
+          </Button>
         )}
-        <button
+        <Button
           type="button"
-          className="danger"
+          variant="danger"
           onClick={() =>
             run(() =>
               confirm({ kind: "abortOperation" }, () =>
@@ -81,7 +82,7 @@ export function OperationBanner({ api, worktreePath, operation }: OperationBanne
           }
         >
           Abort
-        </button>
+        </Button>
       </div>
       {dialog}
       {editing && (
