@@ -2,6 +2,7 @@ use std::fs;
 
 use rebasar_core::{
     ApiError, AppearanceSettings, ChangesSettings, CommitSettings, ConfirmTabClose, Core, CopySettings, DiffMode,
+    EditorSettings,
     DiffSettings, FilesView, GraphStyle, HistoryOrientation, HistorySettings, Settings, SyncSettings, TabSettings,
     WhitespaceMode,
 };
@@ -45,7 +46,20 @@ fn customised() -> Settings {
         commit: CommitSettings {
             sign_off_by_default: true,
         },
+        editor: EditorSettings {
+            last_used: Some("zed".to_owned()),
+        },
     }
+}
+
+#[test]
+fn no_editor_is_remembered_until_one_is_used() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::write(dir.path().join("settings.json"), r#"{ "history": { "mine": true } }"#).unwrap();
+
+    let settings = core_in(dir.path()).settings().expect("settings");
+
+    assert_eq!(settings.editor.last_used, None);
 }
 
 #[test]

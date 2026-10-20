@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { type AddKind, AddRepositoryDialog } from "./components/AddRepositoryDialog";
+import { OpenInEditor } from "./components/OpenInEditor";
 import { OperationBanner } from "./components/OperationBanner";
 import { SyncControls } from "./components/SyncControls";
 import { OutputPanel } from "./components/OutputPanel";
@@ -209,12 +210,19 @@ function Shell({
         onOpenFolder={openFolder}
         actions={
           activeTab && (
-            <SyncControls
-              key={activeTab.tab.worktreePath}
-              api={api}
-              worktreePath={activeTab.tab.worktreePath}
-              onError={onError}
-            />
+            <>
+              <OpenInEditor
+                api={api}
+                worktreePath={activeTab.tab.worktreePath}
+                onError={onError}
+              />
+              <SyncControls
+                key={activeTab.tab.worktreePath}
+                api={api}
+                worktreePath={activeTab.tab.worktreePath}
+                onError={onError}
+              />
+            </>
           )
         }
       />

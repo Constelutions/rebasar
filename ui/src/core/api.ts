@@ -269,6 +269,8 @@ export interface Settings {
   /** How the Staged and Unstaged lists open. */
   changes: { filesView: FilesView };
   commit: { signOffByDefault: boolean };
+  /** `lastUsed` is the id of the editor the title bar opens with one click. */
+  editor: { lastUsed: string | null };
 }
 
 /** A list of changed files, as a tree of folders or as one flat list of paths. */
@@ -298,7 +300,16 @@ export const defaultSettings: Settings = {
   },
   changes: { filesView: "tree" },
   commit: { signOffByDefault: false },
+  editor: { lastUsed: null },
 };
+
+export interface Editor {
+  id: string;
+  label: string;
+  available: boolean;
+  /** Why it cannot be used; set exactly when it is not available. */
+  unavailableReason: string | null;
+}
 
 export interface Group {
   id: string;
@@ -662,6 +673,10 @@ export interface CoreApi {
   markPullRequestReady(path: string, number: number): Promise<PullRequestDetails>;
   /** Only `https` addresses. */
   openInBrowser(url: string): Promise<void>;
+  /** The editors this OS supports, alphabetically, with whether each was found on the PATH. */
+  listEditors(): Promise<Editor[]>;
+  /** Opens a Worktree folder in one of the listed editors that is available. */
+  openInEditor(editorId: string, path: string): Promise<void>;
   listTags(path: string): Promise<TagInfo[]>;
   /** At the current commit; annotated when a message is given. */
   createTagHere(path: string, name: string, message: string | null): Promise<MutationOutcome>;

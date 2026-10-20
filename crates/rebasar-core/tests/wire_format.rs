@@ -1,5 +1,5 @@
 use rebasar_core::{
-    ChangesSettings, CommitSettings, ConfirmTabClose, CopySettings, FilesView, GraphStyle, HistoryOrientation, HistorySettings,
+    platform, ChangesSettings, CommitSettings, ConfirmTabClose, CopySettings, EditorSettings, FilesView, GraphStyle, HistoryOrientation, HistorySettings,
     ApiError, AppearanceSettings, Assessment, ChangeKind, ChangeList, CheckState, CommitDetail,
     CommitDiffRequest, CommitHit, CommitOptions, CommitParent, CoreEvent, DiffContent, DiffLine,
     DiffMode, DiffRequest, DiffSettings, Edge, EdgeKind, FileChange, FileDiff, GitHubAuthStatus,
@@ -571,6 +571,9 @@ fn settings_serialise_to_the_shape_the_ui_expects() {
         commit: CommitSettings {
             sign_off_by_default: true,
         },
+        editor: EditorSettings {
+            last_used: Some("zed".to_owned()),
+        },
     };
 
     assert_eq!(
@@ -591,7 +594,27 @@ fn settings_serialise_to_the_shape_the_ui_expects() {
             },
             "changes": { "filesView": "flat" },
             "commit": { "signOffByDefault": true },
+            "editor": { "lastUsed": "zed" },
         })
+    );
+}
+
+#[test]
+fn editors_serialise_to_the_shape_the_ui_expects() {
+    let editors = platform::detect_editors(
+        platform::EDITORS,
+        platform::Os::Linux,
+        &std::ffi::OsString::new(),
+    );
+
+    assert_eq!(
+        serde_json::to_value(&editors[..1]).unwrap(),
+        json!([{
+            "id": "vscode",
+            "label": "VS Code",
+            "available": false,
+            "unavailableReason": "The code command was not found on the PATH.",
+        }])
     );
 }
 

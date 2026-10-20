@@ -63,7 +63,7 @@ pub use outgoing::OutgoingCommit;
 pub use identity::GitIdentity;
 pub use safety::{Assessment, Loss, MutationKind};
 pub use settings::{
-    AppearanceSettings, ChangesSettings, CommitSettings, ConfirmTabClose, CopySettings, DiffMode, DiffSettings, FilesView, GraphStyle, HistoryOrientation, HistorySettings, Settings, SyncSettings,
+    AppearanceSettings, ChangesSettings, CommitSettings, ConfirmTabClose, CopySettings, DiffMode, DiffSettings, EditorSettings, FilesView, GraphStyle, HistoryOrientation, HistorySettings, Settings, SyncSettings,
     TabSettings,
 };
 use registry::RegistryStore;
@@ -688,6 +688,17 @@ impl Core {
     /// Opens an `https` address in the user's browser.
     pub fn open_in_browser(&self, url: &str) -> Result<(), ApiError> {
         platform::open_in_browser(url).map_err(|message| ApiError::Unexpected { message })
+    }
+
+    /// The editors this OS supports, with whether each was found on the `PATH`.
+    pub fn list_editors(&self) -> Vec<platform::Editor> {
+        platform::supported_editors(&std::env::var_os("PATH").unwrap_or_default())
+    }
+
+    /// Opens a Worktree folder in one of the editors from `list_editors`.
+    pub fn open_in_editor(&self, editor_id: &str, path: &Path) -> Result<(), ApiError> {
+        platform::open_in_editor(editor_id, path, &std::env::var_os("PATH").unwrap_or_default())
+            .map_err(|message| ApiError::Unexpected { message })
     }
 
     fn github_context(&self, path: &Path) -> Result<(github::Remote, String), ApiError> {

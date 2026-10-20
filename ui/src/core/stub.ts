@@ -7,6 +7,7 @@ import {
   type CoreEvent,
   type DiffLine,
   type DiffRequest,
+  type Editor,
   type BranchInfo,
   type ConflictFile,
   type ConflictSide,
@@ -60,6 +61,11 @@ export function diffKey({ list, path }: Pick<DiffRequest, "list" | "path">) {
 
 const ready: GitSetup = { kind: "ready", version: "2.47.1" };
 
+const defaultEditors: Editor[] = [
+  { id: "vscode", label: "VS Code", available: true, unavailableReason: null },
+  { id: "zed", label: "Zed", available: true, unavailableReason: null },
+];
+
 export interface StubGitHub {
   /** GitHub remote by Worktree path; a Worktree that is not listed has no GitHub remote. */
   remotes?: Record<string, GitHubRepository>;
@@ -100,6 +106,8 @@ export interface StubCoreState {
   identity?: GitIdentity;
   /** What every Repository's own Git configuration holds, before anything is saved to it. */
   repositoryIdentity?: GitIdentity;
+  /** What the platform layer reports as the editors of this OS; both usable by default. */
+  editors?: Editor[];
 }
 
 export function commitKey(commit: string, parent: number) {
@@ -149,6 +157,8 @@ export interface StubCoreApi extends CoreApi {
   setOperation(path: string, operation: OperationInProgress | null): void;
   /** Everything the UI did with pull requests, such as `create:Title:draft`, `update:#7:Title`, `ready:#7`, `open:url`. */
   readonly pullRequestActions: readonly string[];
+  /** The Worktree folders opened in an editor, in order. */
+  readonly openedInEditor: readonly { editorId: string; path: string }[];
   /** The tags and remotes the Branches view lists. */
   setTagsAndRemotes(path: string, tags: TagInfo[], remotes: RemoteInfo[]): void;
   /** The Worktrees the Worktrees view lists. */
@@ -269,6 +279,7 @@ export function createStubCoreApi(
   const remoteLists = new Map<string, RemoteInfo[]>();
   const tagRemoteActions: string[] = [];
   const pullRequestActions: string[] = [];
+  const openedInEditor: { editorId: string; path: string }[] = [];
   const pullRequestBodies = new Map<number, string>();
   let nextPullRequest = 100;
   const stagedLines: { direction: "stage" | "unstage"; selection: LineSelection }[] = [];
@@ -619,6 +630,12 @@ export function createStubCoreApi(
     },
     async openInBrowser(url) {
       pullRequestActions.push(`open:${url}`);
+    },
+    async listEditors() {
+      return state.editors ?? defaultEditors;
+    },
+    async openInEditor(editorId, path) {
+      openedInEditor.push({ editorId, path });
     },
     async listTags(path) {
       return tagLists.get(path) ?? [];
@@ -1248,6 +1265,7 @@ export function createStubCoreApi(
     discards,
     stagedLines,
     pullRequestActions,
+    openedInEditor,
     tagRemoteActions,
     worktreeActions,
     stashActions,

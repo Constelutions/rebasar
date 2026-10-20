@@ -10,6 +10,7 @@ use rebasar_core::{
     OutgoingCommit, PullRequest, PullRequestDetails, RefLabel, RepositoryList, Session, Settings, Tab, WindowBounds,
     SyncStatus, WorktreeDiffRequest, WorktreeStatus,
 };
+use rebasar_core::platform::Editor;
 use tauri::{Emitter, Manager, PhysicalSize, State, WebviewWindow, WindowEvent};
 
 #[tauri::command]
@@ -1192,6 +1193,26 @@ async fn open_in_browser(
         .map_err(ApiError::unexpected)?
 }
 
+#[tauri::command]
+async fn list_editors(core: State<'_, Arc<Core>>) -> Result<Vec<Editor>, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.list_editors())
+        .await
+        .map_err(ApiError::unexpected)
+}
+
+#[tauri::command]
+async fn open_in_editor(
+    core: State<'_, Arc<Core>>,
+    editor_id: String,
+    path: PathBuf,
+) -> Result<(), ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.open_in_editor(&editor_id, &path))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
 fn restore_window(window: &WebviewWindow, bounds: WindowBounds) {
     if let Err(error) = window.set_size(PhysicalSize::new(bounds.width, bounds.height)) {
         eprintln!("failed to restore the window size: {error}");
@@ -1374,7 +1395,9 @@ fn main() {
             create_pull_request,
             update_pull_request,
             mark_pull_request_ready,
-            open_in_browser
+            open_in_browser,
+            list_editors,
+            open_in_editor
         ])
         .run(tauri::generate_context!())
         .expect("failed to run Rebasar");

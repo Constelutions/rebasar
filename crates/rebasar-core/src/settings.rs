@@ -20,6 +20,15 @@ pub struct Settings {
     pub history: HistorySettings,
     pub changes: ChangesSettings,
     pub commit: CommitSettings,
+    pub editor: EditorSettings,
+}
+
+/// The editor the title bar opens a Worktree in with one click.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, rename_all = "camelCase")]
+pub struct EditorSettings {
+    /// The id of the editor chosen last; none until one is used.
+    pub last_used: Option<String>,
 }
 
 /// How the commit composer opens.

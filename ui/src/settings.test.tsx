@@ -279,6 +279,7 @@ it("starts from the stored settings", async () => {
       history: { ...defaultSettings.history },
       changes: { ...defaultSettings.changes },
       commit: { ...defaultSettings.commit },
+      editor: { ...defaultSettings.editor },
     },
   });
   await openSettings(user);

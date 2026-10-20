@@ -1,3 +1,4 @@
+use std::ffi::OsStr;
 use std::io;
 use std::process::{Child, Command, Stdio};
 
@@ -14,8 +15,8 @@ pub fn gh_command() -> Command {
     hidden_command("gh")
 }
 
-fn hidden_command(program: &str) -> Command {
-    let mut command = Command::new(program);
+pub(super) fn hidden_command(program: impl AsRef<OsStr>) -> Command {
+    let mut command = Command::new(program.as_ref());
 
     #[cfg(windows)]
     {
