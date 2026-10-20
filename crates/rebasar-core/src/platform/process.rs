@@ -6,6 +6,10 @@ pub fn git_command() -> Command {
     hidden_command("git")
 }
 
+pub fn ssh_command() -> Command {
+    hidden_command("ssh")
+}
+
 pub fn gh_command() -> Command {
     hidden_command("gh")
 }

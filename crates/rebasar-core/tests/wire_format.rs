@@ -6,7 +6,7 @@ use rebasar_core::{
     HistoryPage, HistoryRow, Hunk, LineKind, Loss, ModeChange, MutationId, MutationInfo,
     MutationKind, MutationOutcome, OutgoingCommit, OutputStream, PullRequest, RefKind, RefLabel,
     RepositoryEntry, RepositoryList, ReviewState, Session, Settings, SyncSettings, Tab, TokenSource,
-    WhitespaceMode, WorktreeEntry, WorktreeStatus,
+    UnavailableReason, WhitespaceMode, WorktreeEntry, WorktreeStatus,
 };
 use serde_json::json;
 
@@ -413,14 +413,29 @@ fn github_errors_serialise_to_the_shape_the_ui_expects() {
     let serialised = |error: ApiError| serde_json::to_value(error).unwrap();
 
     assert_eq!(
-        serialised(ApiError::NotGithub {
-            path: "/work/sample".to_owned()
-        }),
-        json!({ "kind": "notGithub", "path": "/work/sample" })
+        serialised(
+            UnavailableReason::NotGithub {
+                host: "gitlab.com".to_owned()
+            }
+            .into_error(Some("https://gitlab.com/acme/widgets.git".to_owned()))
+        ),
+        json!({
+            "kind": "pullRequestsUnavailable",
+            "reason": { "kind": "notGithub", "host": "gitlab.com" },
+            "message": "The remote (gitlab.com) is not on GitHub.",
+            "url": "https://gitlab.com/acme/widgets.git",
+            "hint": null,
+        })
     );
     assert_eq!(
-        serialised(ApiError::GithubNotSignedIn),
-        json!({ "kind": "githubNotSignedIn" })
+        serialised(UnavailableReason::NoToken.into_error(None)),
+        json!({
+            "kind": "pullRequestsUnavailable",
+            "reason": { "kind": "noToken" },
+            "message": "You are not signed in to GitHub.",
+            "url": null,
+            "hint": "Run `gh auth login`, or paste a personal access token.",
+        })
     );
     assert_eq!(
         serialised(ApiError::GithubTokenRejected),

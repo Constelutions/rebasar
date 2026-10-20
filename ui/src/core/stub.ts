@@ -15,6 +15,7 @@ import {
   type FoundRepository,
   type GitHubAuthStatus,
   type GitHubRepository,
+  type PullRequestsUnavailable,
   type GitSetup,
   type Group,
   type GitIdentity,
@@ -323,6 +324,24 @@ export function createStubCoreApi(
 
   let source: TokenSource | null = github.signedInWith ?? null;
   const authStatus = (): GitHubAuthStatus => ({ source });
+  const remoteUrl = (path: string) => {
+    const remote = github.remotes?.[path];
+    return remote ? `https://github.com/${remote.owner}/${remote.name}.git` : null;
+  };
+  const noRemotes = (): PullRequestsUnavailable => ({
+    kind: "pullRequestsUnavailable",
+    reason: { kind: "noRemotes" },
+    message: "This Repository has no remotes.",
+    url: null,
+    hint: "Add the GitHub remote with `git remote add origin <url>`.",
+  });
+  const noToken = (url: string | null): PullRequestsUnavailable => ({
+    kind: "pullRequestsUnavailable",
+    reason: { kind: "noToken" },
+    message: "You are not signed in to GitHub.",
+    url,
+    hint: "Run `gh auth login`, or paste a personal access token.",
+  });
 
   for (const tab of session.tabs) tabs.set(tab.worktreePath, tab);
 
@@ -565,7 +584,7 @@ export function createStubCoreApi(
       return found ? detailsOf(found) : null;
     },
     async createPullRequest(path, title, body, draft) {
-      if (source === null) throw { kind: "githubNotSignedIn" };
+      if (source === null) throw noToken(remoteUrl(path));
       pullRequestActions.push(`create:${title}${draft ? ":draft" : ""}`);
       const created: PullRequest = {
         number: nextPullRequest++,
@@ -954,8 +973,8 @@ export function createStubCoreApi(
       return authStatus();
     },
     async pullRequests(path) {
-      if (!github.remotes?.[path]) throw { kind: "notGithub", path };
-      if (source === null) throw { kind: "githubNotSignedIn" };
+      if (!github.remotes?.[path]) throw noRemotes();
+      if (source === null) throw noToken(remoteUrl(path));
       return github.pullRequests?.[path] ?? [];
     },
     async checkGit() {

@@ -265,6 +265,20 @@ button {
   color: var(--color-danger);
 }
 
+.error p {
+  margin: 0;
+}
+
+.error p + p {
+  margin-top: var(--space-1);
+}
+
+.error code,
+.github-sign-in code {
+  font: var(--text-xs) var(--font-mono);
+  user-select: text;
+}
+
 .changes {
   display: flex;
   flex: 1;

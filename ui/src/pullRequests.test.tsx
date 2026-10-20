@@ -1,7 +1,7 @@
 import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-import type { PullRequest } from "./core/api";
+import type { PullRequest, PullRequestsUnavailable } from "./core/api";
 import { type StubGitHub, createStubCoreApi } from "./core/stub";
 import { renderApp, sampleTab } from "./test-support";
 
@@ -100,14 +100,91 @@ it("says so when the Repository has no open pull requests", async () => {
   expect(await screen.findByText("No open pull requests.")).toBeInTheDocument();
 });
 
-it("explains that pull requests are disabled when the remote is not on GitHub", async () => {
+it("says there are no remotes when the Repository has none", async () => {
   await openPullRequests({ ...github, remotes: {} });
 
-  expect(await screen.findByText(/disabled/i)).toHaveTextContent(
-    "Pull requests are disabled: this Repository has no GitHub remote.",
-  );
+  const alert = await screen.findByRole("alert");
+  expect(alert).toHaveTextContent("This Repository has no remotes.");
+  expect(alert).toHaveTextContent("git remote add origin <url>");
   expect(screen.queryByRole("list")).not.toBeInTheDocument();
   expect(screen.queryByLabelText(/personal access token/i)).not.toBeInTheDocument();
+});
+
+function unavailable(
+  reason: PullRequestsUnavailable["reason"],
+  message: string,
+  url: string | null,
+  hint: string | null,
+): PullRequestsUnavailable {
+  return { kind: "pullRequestsUnavailable", reason, message, url, hint };
+}
+
+async function openFailingPullRequests(error: PullRequestsUnavailable) {
+  const user = userEvent.setup();
+  const api = createStubCoreApi({ [worktree]: sampleTab }, {}, {}, {}, github);
+  api.pullRequests = async () => {
+    throw error;
+  };
+  renderApp({ api, pickFolder: async () => worktree });
+  await user.click(screen.getByRole("button", { name: /open folder/i }));
+  await screen.findByRole("tab");
+  await user.click(screen.getByRole("button", { name: "Pull requests" }));
+}
+
+describe("when the pull requests cannot be shown", () => {
+  it.each([
+    [
+      "the remote is not on GitHub",
+      unavailable(
+        { kind: "notGithub", host: "gitlab.com" },
+        "The remote (gitlab.com) is not on GitHub.",
+        "https://gitlab.com/acme/widgets.git",
+        null,
+      ),
+    ],
+    [
+      "an SSH alias cannot be resolved",
+      unavailable(
+        { kind: "aliasUnresolved", alias: "github-personal", detail: "ssh is not available: not found" },
+        "Could not resolve the SSH host alias github-personal: ssh is not available: not found",
+        "git@github-personal:acme/widgets.git",
+        "Check the Host entry for github-personal in your SSH configuration.",
+      ),
+    ],
+    [
+      "the Repository is not visible to the token",
+      unavailable(
+        { kind: "repositoryNotVisible", repository: "acme/widgets" },
+        "GitHub has no Repository acme/widgets visible to this token.",
+        "https://github.com/acme/widgets.git",
+        "Check that the token can read this Repository.",
+      ),
+    ],
+    [
+      "GitHub cannot be reached",
+      unavailable(
+        { kind: "requestFailed", message: "could not reach GitHub: offline" },
+        "could not reach GitHub: offline",
+        "https://github.com/acme/widgets.git",
+        "Check your network connection and try again.",
+      ),
+    ],
+  ])("names the reason, the URL looked at and the hint when %s", async (_, error) => {
+    await openFailingPullRequests(error);
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent(error.message);
+    if (error.url) expect(alert).toHaveTextContent(error.url);
+    if (error.hint) expect(alert).toHaveTextContent(error.hint);
+  });
+
+  it("sets a command quoted in the hint in code style", async () => {
+    await openFailingPullRequests(
+      unavailable({ kind: "noRemotes" }, "This Repository has no remotes.", null, "Run `git remote add origin <url>`."),
+    );
+
+    expect(await screen.findByText("git remote add origin <url>", { selector: "code" })).toBeInTheDocument();
+  });
 });
 
 describe("when nobody is signed in", () => {
@@ -119,6 +196,28 @@ describe("when nobody is signed in", () => {
     expect(await screen.findByLabelText("Personal access token")).toBeInTheDocument();
     expect(screen.getByText(/gh auth login/)).toBeInTheDocument();
     expect(screen.queryByText("Add the widget cache")).not.toBeInTheDocument();
+  });
+
+  it("says why and which remote it looked at", async () => {
+    await openPullRequests(signedOut);
+
+    expect(await screen.findByText("You are not signed in to GitHub.")).toBeInTheDocument();
+    expect(screen.getByText("https://github.com/acme/widgets.git")).toBeInTheDocument();
+  });
+
+  it("explains when the token that was kept stopped working", async () => {
+    await openFailingPullRequests(
+      unavailable(
+        { kind: "tokenRejected" },
+        "GitHub did not accept the token.",
+        "https://github.com/acme/widgets.git",
+        "Run `gh auth login` again, or paste a new personal access token.",
+      ),
+    );
+
+    expect(await screen.findByText("GitHub did not accept the token.")).toBeInTheDocument();
+    expect(screen.getByText("https://github.com/acme/widgets.git")).toBeInTheDocument();
+    expect(screen.getByLabelText("Personal access token")).toBeInTheDocument();
   });
 
   it("lists the pull requests once a valid token is pasted", async () => {
@@ -179,7 +278,12 @@ it("reports a failure to reach GitHub", async () => {
   const user = userEvent.setup();
   const api = createStubCoreApi({ [worktree]: sampleTab }, {}, {}, {}, github);
   api.pullRequests = async () => {
-    throw { kind: "githubRequestFailed", message: "could not reach GitHub: offline" };
+    throw unavailable(
+      { kind: "requestFailed", message: "could not reach GitHub: offline" },
+      "could not reach GitHub: offline",
+      null,
+      null,
+    );
   };
   renderApp({ api, pickFolder: async () => worktree });
   await user.click(screen.getByRole("button", { name: /open folder/i }));

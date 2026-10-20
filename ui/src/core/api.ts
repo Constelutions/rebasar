@@ -19,11 +19,30 @@ export type ApiError =
   | { kind: "gitFailed"; message: string }
   /** `start..end` are character offsets into the query text. */
   | { kind: "invalidQuery"; message: string; start: number; end: number }
-  | { kind: "notGithub"; path: string }
-  | { kind: "githubNotSignedIn" }
+  | PullRequestsUnavailable
   | { kind: "githubTokenRejected" }
   | { kind: "githubRequestFailed"; message: string }
   | { kind: "unexpected"; message: string };
+
+/** Why the Pull requests of a Repository cannot be shown. */
+export type PullRequestsUnavailableReason =
+  | { kind: "noRemotes" }
+  | { kind: "notGithub"; host: string }
+  | { kind: "unexpectedPath"; path: string }
+  | { kind: "aliasUnresolved"; alias: string; detail: string }
+  | { kind: "noToken" }
+  | { kind: "tokenRejected" }
+  | { kind: "repositoryNotVisible"; repository: string }
+  | { kind: "requestFailed"; message: string };
+
+export interface PullRequestsUnavailable {
+  kind: "pullRequestsUnavailable";
+  reason: PullRequestsUnavailableReason;
+  message: string;
+  /** The remote that was looked at, when there was one. */
+  url: string | null;
+  hint: string | null;
+}
 
 /** A commit the command palette offers to jump to. */
 export interface CommitHit {

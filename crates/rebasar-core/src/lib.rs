@@ -51,6 +51,7 @@ pub use diff::{
 };
 pub use github::{
     CheckState, GitHubAuthStatus, GitHubRepository, PullRequest, PullRequestDetails, ReviewState, TokenSource,
+    UnavailableReason,
 };
 use github::{GitHub, GitHubServices};
 use identity::Scope;
@@ -153,10 +154,15 @@ pub enum ApiError {
     FolderNotFound { path: String },
     #[error("{path} is not a Git repository")]
     NotARepository { path: String },
-    #[error("{path} has no GitHub remote")]
-    NotGithub { path: String },
-    #[error("not signed in to GitHub")]
-    GithubNotSignedIn,
+    /// Every reason the Pull requests of a Repository cannot be shown, with the remote URL that
+    /// was looked at and what to do about it.
+    #[error("{message}")]
+    PullRequestsUnavailable {
+        reason: UnavailableReason,
+        message: String,
+        url: Option<String>,
+        hint: Option<String>,
+    },
     #[error("GitHub rejected the token")]
     GithubTokenRejected,
     #[error("{message}")]
@@ -590,7 +596,7 @@ impl Core {
 
     pub fn github_remote(&self, path: &Path) -> Result<Option<GitHubRepository>, ApiError> {
         let (_, repo) = open_worktree(path)?;
-        Ok(github::find_remote(&repo))
+        Ok(self.github.remote(&repo).ok().map(|remote| remote.repository))
     }
 
     pub fn github_auth_status(&self) -> Result<GitHubAuthStatus, ApiError> {
@@ -609,17 +615,19 @@ impl Core {
     }
 
     pub fn pull_requests(&self, path: &Path) -> Result<Vec<PullRequest>, ApiError> {
-        let (worktree_path, repo) = open_worktree(path)?;
-        let repository = github::find_remote(&repo).ok_or_else(|| ApiError::NotGithub {
-            path: worktree_path.to_string_lossy().into_owned(),
-        })?;
-        self.github.pull_requests(&repository)
+        let (_, repo) = open_worktree(path)?;
+        let remote = self.github.remote(&repo)?;
+        self.github
+            .pull_requests(&remote.repository)
+            .map_err(|error| remote.explain(error))
     }
 
     /// The open pull request for the branch the Worktree is on, if there is one.
     pub fn current_pull_request(&self, path: &Path) -> Result<Option<PullRequestDetails>, ApiError> {
-        let (repository, branch) = self.github_context(path)?;
-        self.github.pull_request_for_branch(&repository, &branch)
+        let (remote, branch) = self.github_context(path)?;
+        self.github
+            .pull_request_for_branch(&remote.repository, &branch)
+            .map_err(|error| remote.explain(error))
     }
 
     /// Opens a pull request from the current branch, which must be pushed already, against the
@@ -637,8 +645,10 @@ impl Core {
                 message: "a pull request needs a title".to_owned(),
             });
         }
-        let (repository, branch) = self.github_context(path)?;
-        self.github.create_pull_request(&repository, &branch, title, body, draft)
+        let (remote, branch) = self.github_context(path)?;
+        self.github
+            .create_pull_request(&remote.repository, &branch, title, body, draft)
+            .map_err(|error| remote.explain(error))
     }
 
     /// Changes the title and description of a pull request, as after a push.
@@ -655,8 +665,10 @@ impl Core {
                 message: "a pull request needs a title".to_owned(),
             });
         }
-        let (repository, _) = self.github_context(path)?;
-        self.github.update_pull_request(&repository, number, title, body)
+        let (remote, _) = self.github_context(path)?;
+        self.github
+            .update_pull_request(&remote.repository, number, title, body)
+            .map_err(|error| remote.explain(error))
     }
 
     pub fn mark_pull_request_ready(
@@ -664,8 +676,10 @@ impl Core {
         path: &Path,
         number: u64,
     ) -> Result<PullRequestDetails, ApiError> {
-        let (repository, _) = self.github_context(path)?;
-        self.github.mark_pull_request_ready(&repository, number)
+        let (remote, _) = self.github_context(path)?;
+        self.github
+            .mark_pull_request_ready(&remote.repository, number)
+            .map_err(|error| remote.explain(error))
     }
 
     /// Opens an `https` address in the user's browser.
@@ -673,11 +687,9 @@ impl Core {
         platform::open_in_browser(url).map_err(|message| ApiError::Unexpected { message })
     }
 
-    fn github_context(&self, path: &Path) -> Result<(GitHubRepository, String), ApiError> {
-        let (worktree_path, repo) = open_worktree(path)?;
-        let repository = github::find_remote(&repo).ok_or_else(|| ApiError::NotGithub {
-            path: worktree_path.to_string_lossy().into_owned(),
-        })?;
+    fn github_context(&self, path: &Path) -> Result<(github::Remote, String), ApiError> {
+        let (_, repo) = open_worktree(path)?;
+        let remote = self.github.remote(&repo)?;
         let branch = repo
             .head_name()
             .map_err(ApiError::unexpected)?
@@ -685,7 +697,7 @@ impl Core {
             .ok_or_else(|| ApiError::Unexpected {
                 message: "a detached HEAD has no branch to open a pull request from".to_owned(),
             })?;
-        Ok((repository, branch))
+        Ok((remote, branch))
     }
 
     pub fn worktree_status(&self, path: &Path) -> Result<WorktreeStatus, ApiError> {

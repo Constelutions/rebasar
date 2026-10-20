@@ -2,17 +2,17 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 use rebasar_core::github::{
-    GhCli, GitHubServices, HttpClient, HttpError, HttpRequest, HttpResponse,
+    GhCli, GitHubServices, HttpClient, HttpError, HttpRequest, HttpResponse, SshResolver, SystemSsh,
 };
 use rebasar_core::platform::{CredentialError, CredentialStore};
 use rebasar_core::{
     ApiError, CheckState, Core, GitHubAuthStatus, GitHubRepository, PullRequest, ReviewState,
-    TokenSource,
+    TokenSource, UnavailableReason,
 };
 use rebasar_testkit::TempRepo;
 
 fn core() -> Core {
-    Core::new(|_| {})
+    core_with(None, Arc::default(), FakeHttp::default())
 }
 
 struct FakeGhCli(Option<&'static str>);
@@ -21,6 +21,26 @@ impl GhCli for FakeGhCli {
     fn token(&self) -> Option<String> {
         self.0.map(str::to_owned)
     }
+}
+
+/// Answers `ssh -G` from a fixed table; an alias that is not in it fails like an unusable `ssh`.
+#[derive(Default)]
+struct FakeSsh(HashMap<&'static str, Result<&'static str, &'static str>>);
+
+impl SshResolver for FakeSsh {
+    fn hostname(&self, alias: &str) -> Result<String, String> {
+        match self.0.get(alias) {
+            Some(Ok(hostname)) => Ok((*hostname).to_owned()),
+            Some(Err(failure)) => Err((*failure).to_owned()),
+            None => Ok(alias.to_owned()),
+        }
+    }
+}
+
+fn ssh_aliases(
+    aliases: &[(&'static str, Result<&'static str, &'static str>)],
+) -> Arc<FakeSsh> {
+    Arc::new(FakeSsh(aliases.iter().cloned().collect()))
 }
 
 #[derive(Default)]
@@ -105,12 +125,22 @@ fn core_with(
     credentials: Arc<MemoryCredentials>,
     http: FakeHttp,
 ) -> Core {
+    core_with_ssh(gh_token, credentials, http, Arc::default())
+}
+
+fn core_with_ssh(
+    gh_token: Option<&'static str>,
+    credentials: Arc<MemoryCredentials>,
+    http: FakeHttp,
+    ssh: Arc<FakeSsh>,
+) -> Core {
     Core::with_github(
         |_| {},
         GitHubServices {
             http: Arc::new(http),
             credentials,
             gh_cli: Arc::new(FakeGhCli(gh_token)),
+            ssh,
         },
     )
 }
@@ -132,6 +162,17 @@ fn repo_with_remotes(remotes: &[(&str, &str)]) -> TempRepo {
     repo
 }
 
+fn unavailable(
+    result: Result<impl std::fmt::Debug, ApiError>,
+) -> (UnavailableReason, Option<String>, Option<String>) {
+    match result {
+        Err(ApiError::PullRequestsUnavailable {
+            reason, url, hint, ..
+        }) => (reason, url, hint),
+        other => panic!("expected pull requests to be unavailable, got {other:?}"),
+    }
+}
+
 fn github(owner: &str, name: &str) -> Option<GitHubRepository> {
     Some(GitHubRepository {
         owner: owner.to_owned(),
@@ -150,6 +191,9 @@ fn every_common_form_of_a_github_url_is_recognised() {
         "ssh://git@github.com/acme/widgets.git",
         "ssh://git@github.com:22/acme/widgets.git",
         "https://GitHub.com/acme/widgets.git",
+        "https://github.com:443/acme/widgets.git",
+        "https://octocat:secret@github.com:443/acme/widgets.git",
+        "ssh://git@ssh.github.com:443/acme/widgets.git",
     ];
 
     for url in urls {
@@ -159,6 +203,49 @@ fn every_common_form_of_a_github_url_is_recognised() {
 
         assert_eq!(found, github("acme", "widgets"), "for {url}");
     }
+}
+
+#[test]
+fn an_ssh_host_alias_that_resolves_to_github_is_a_github_remote() {
+    let repo = repo_with_remotes(&[("origin", "git@github-personal:acme/widgets.git")]);
+    let ssh = ssh_aliases(&[("github-personal", Ok("github.com"))]);
+    let http = FakeHttp::replying(vec![Ok((200, PULL_REQUESTS.to_owned()))]);
+    let core = core_with_ssh(Some("gh-token"), Arc::default(), http.clone(), ssh);
+
+    assert_eq!(core.github_remote(repo.path()), Ok(github("acme", "widgets")));
+    let pull_requests = core.pull_requests(repo.path()).expect("list");
+    assert_eq!(pull_requests.len(), 4);
+    let body: serde_json::Value = serde_json::from_str(&http.requests()[0].2).unwrap();
+    assert_eq!(
+        body["variables"],
+        serde_json::json!({ "owner": "acme", "name": "widgets" })
+    );
+}
+
+#[test]
+fn a_remote_rewritten_by_instead_of_is_read_as_git_reads_it() {
+    let repo = repo_with_remotes(&[("origin", "gh:acme/widgets.git")]);
+    repo.git(&["config", "url.https://github.com/.insteadOf", "gh:"]);
+
+    assert_eq!(core().github_remote(repo.path()), Ok(github("acme", "widgets")));
+}
+
+#[test]
+fn an_instead_of_rewrite_to_an_ssh_alias_is_resolved_too() {
+    let repo = repo_with_remotes(&[("origin", "https://github.com/acme/widgets.git")]);
+    repo.git(&["config", "url.git@gitlab-work:.insteadOf", "https://github.com/"]);
+    let ssh = ssh_aliases(&[("gitlab-work", Ok("gitlab.example.com"))]);
+    let core = core_with_ssh(None, Arc::default(), FakeHttp::default(), ssh);
+
+    let (reason, url, _) = unavailable(core.pull_requests(repo.path()));
+
+    assert_eq!(
+        reason,
+        UnavailableReason::NotGithub {
+            host: "gitlab.example.com".to_owned()
+        }
+    );
+    assert_eq!(url.as_deref(), Some("git@gitlab-work:acme/widgets.git"));
 }
 
 #[test]
@@ -443,15 +530,98 @@ fn pull_requests_are_asked_of_the_remote_repository_with_the_signed_in_token() {
 }
 
 #[test]
-fn pull_requests_of_a_repository_without_a_github_remote_are_refused_before_any_request() {
+fn pull_requests_of_a_repository_without_remotes_say_so_before_any_request() {
+    let repo = repo_with_remotes(&[]);
+    let http = FakeHttp::default();
+    let core = core_with(Some("gh-token"), Arc::default(), http.clone());
+
+    let (reason, url, hint) = unavailable(core.pull_requests(repo.path()));
+
+    assert_eq!(reason, UnavailableReason::NoRemotes);
+    assert_eq!(url, None);
+    assert!(hint.expect("a hint").contains("git remote add"));
+    assert!(http.requests().is_empty());
+}
+
+#[test]
+fn pull_requests_of_a_remote_on_another_host_name_the_host_and_the_url() {
     let repo = repo_with_remotes(&[("origin", "https://gitlab.com/acme/widgets.git")]);
     let http = FakeHttp::default();
     let core = core_with(Some("gh-token"), Arc::default(), http.clone());
 
-    let error = core.pull_requests(repo.path()).expect_err("not GitHub");
+    let (reason, url, _) = unavailable(core.pull_requests(repo.path()));
 
-    assert!(matches!(error, ApiError::NotGithub { .. }), "got {error:?}");
+    assert_eq!(
+        reason,
+        UnavailableReason::NotGithub {
+            host: "gitlab.com".to_owned()
+        }
+    );
+    assert_eq!(url.as_deref(), Some("https://gitlab.com/acme/widgets.git"));
     assert!(http.requests().is_empty());
+}
+
+#[test]
+fn an_ssh_alias_for_another_host_names_the_host_it_resolves_to() {
+    let repo = repo_with_remotes(&[("origin", "git@work:acme/widgets.git")]);
+    let ssh = ssh_aliases(&[("work", Ok("git.example.org"))]);
+    let core = core_with_ssh(Some("gh-token"), Arc::default(), FakeHttp::default(), ssh);
+
+    let (reason, url, _) = unavailable(core.pull_requests(repo.path()));
+
+    assert_eq!(
+        reason,
+        UnavailableReason::NotGithub {
+            host: "git.example.org".to_owned()
+        }
+    );
+    assert_eq!(url.as_deref(), Some("git@work:acme/widgets.git"));
+}
+
+#[test]
+fn an_ssh_alias_that_cannot_be_resolved_reports_the_ssh_failure() {
+    let repo = repo_with_remotes(&[("origin", "git@github-personal:acme/widgets.git")]);
+    let ssh = ssh_aliases(&[("github-personal", Err("ssh is not available: not found"))]);
+    let core = core_with_ssh(Some("gh-token"), Arc::default(), FakeHttp::default(), ssh);
+
+    let (reason, url, hint) = unavailable(core.pull_requests(repo.path()));
+
+    assert_eq!(
+        reason,
+        UnavailableReason::AliasUnresolved {
+            alias: "github-personal".to_owned(),
+            detail: "ssh is not available: not found".to_owned()
+        }
+    );
+    assert_eq!(url.as_deref(), Some("git@github-personal:acme/widgets.git"));
+    assert!(hint.expect("a hint").contains("ssh -G github-personal"));
+}
+
+#[test]
+fn credentials_in_a_remote_url_are_never_shown() {
+    let repo =
+        repo_with_remotes(&[("origin", "https://octocat:secret@gitlab.com/acme/widgets.git")]);
+
+    let (_, url, _) = unavailable(core().pull_requests(repo.path()));
+
+    assert_eq!(url.as_deref(), Some("https://gitlab.com/acme/widgets.git"));
+}
+
+#[test]
+fn an_unresolvable_alias_is_reported_ahead_of_a_remote_that_is_simply_not_github() {
+    let repo = repo_with_remotes(&[
+        ("origin", "https://gitlab.com/acme/widgets.git"),
+        ("mirror", "git@github-personal:acme/widgets.git"),
+    ]);
+    let ssh = ssh_aliases(&[("github-personal", Err("ssh -G failed"))]);
+    let core = core_with_ssh(None, Arc::default(), FakeHttp::default(), ssh);
+
+    let (reason, _, _) = unavailable(core.pull_requests(repo.path()));
+
+    assert!(
+        matches!(reason, UnavailableReason::AliasUnresolved { .. }),
+        "got {reason:?}"
+    );
 }
 
 #[test]
@@ -460,10 +630,11 @@ fn pull_requests_need_a_signed_in_user() {
     let http = FakeHttp::default();
     let core = core_with(None, Arc::default(), http.clone());
 
-    assert_eq!(
-        core.pull_requests(repo.path()),
-        Err(ApiError::GithubNotSignedIn)
-    );
+    let (reason, url, hint) = unavailable(core.pull_requests(repo.path()));
+
+    assert_eq!(reason, UnavailableReason::NoToken);
+    assert_eq!(url.as_deref(), Some("https://github.com/acme/widgets.git"));
+    assert!(hint.expect("a hint").contains("gh auth login"));
     assert!(http.requests().is_empty());
 }
 
@@ -473,10 +644,11 @@ fn a_token_that_stopped_working_is_reported_as_rejected() {
     let http = FakeHttp::replying(vec![Ok((401, "{}".to_owned()))]);
     let core = core_with(Some("expired"), Arc::default(), http);
 
-    assert_eq!(
-        core.pull_requests(repo.path()),
-        Err(ApiError::GithubTokenRejected)
-    );
+    let (reason, url, hint) = unavailable(core.pull_requests(repo.path()));
+
+    assert_eq!(reason, UnavailableReason::TokenRejected);
+    assert_eq!(url.as_deref(), Some("https://github.com/acme/widgets.git"));
+    assert!(hint.is_some());
 }
 
 #[test]
@@ -486,12 +658,15 @@ fn github_errors_are_reported_with_their_message() {
     let http = FakeHttp::replying(vec![Ok((200, body.to_owned()))]);
     let core = core_with(Some("gh-token"), Arc::default(), http);
 
+    let (reason, url, _) = unavailable(core.pull_requests(repo.path()));
+
     assert_eq!(
-        core.pull_requests(repo.path()),
-        Err(ApiError::GithubRequestFailed {
+        reason,
+        UnavailableReason::RequestFailed {
             message: "API rate limit exceeded".to_owned()
-        })
+        }
     );
+    assert_eq!(url.as_deref(), Some("https://github.com/acme/widgets.git"));
 }
 
 #[test]
@@ -503,12 +678,16 @@ fn a_repository_the_token_cannot_see_is_reported() {
     ))]);
     let core = core_with(Some("gh-token"), Arc::default(), http);
 
-    let error = core.pull_requests(repo.path()).expect_err("no access");
+    let (reason, url, hint) = unavailable(core.pull_requests(repo.path()));
 
-    assert!(
-        matches!(error, ApiError::GithubRequestFailed { ref message } if message.contains("acme/widgets")),
-        "got {error:?}"
+    assert_eq!(
+        reason,
+        UnavailableReason::RepositoryNotVisible {
+            repository: "acme/widgets".to_owned()
+        }
     );
+    assert_eq!(url.as_deref(), Some("https://github.com/acme/widgets.git"));
+    assert!(hint.is_some());
 }
 
 #[test]
@@ -517,10 +696,49 @@ fn an_unexpected_http_status_is_reported() {
     let http = FakeHttp::replying(vec![Ok((502, "<html>".to_owned()))]);
     let core = core_with(Some("gh-token"), Arc::default(), http);
 
+    let (reason, _, hint) = unavailable(core.pull_requests(repo.path()));
+
     assert_eq!(
-        core.pull_requests(repo.path()),
-        Err(ApiError::GithubRequestFailed {
+        reason,
+        UnavailableReason::RequestFailed {
             message: "GitHub answered HTTP 502".to_owned()
-        })
+        }
     );
+    assert!(hint.is_some());
+}
+
+#[test]
+fn a_network_failure_while_listing_is_reported_with_a_hint() {
+    let repo = github_repo();
+    let http = FakeHttp::replying(vec![Err("connection refused".to_owned())]);
+    let core = core_with(Some("gh-token"), Arc::default(), http);
+
+    let (reason, _, hint) = unavailable(core.pull_requests(repo.path()));
+
+    assert!(
+        matches!(reason, UnavailableReason::RequestFailed { ref message } if message.contains("connection refused")),
+        "got {reason:?}"
+    );
+    assert!(hint.is_some());
+}
+
+#[test]
+fn the_system_ssh_reports_the_hostname_that_ssh_g_prints() {
+    if std::process::Command::new("ssh").arg("-V").output().is_err() {
+        return;
+    }
+
+    assert_eq!(
+        SystemSsh.hostname("rebasar-test-host.invalid"),
+        Ok("rebasar-test-host.invalid".to_owned())
+    );
+}
+
+#[test]
+fn an_alias_that_ssh_would_read_as_an_option_is_never_passed_to_it() {
+    let failure = SystemSsh
+        .hostname("-oProxyCommand=calc")
+        .expect_err("refused");
+
+    assert!(failure.contains("-oProxyCommand=calc"), "got {failure}");
 }
