@@ -23,6 +23,8 @@ interface ShellCommandHandlers {
   /** Shows History narrowed by the filter `query`. */
   showCommits: (query: string) => void;
   addRepository: (kind: AddKind) => void;
+  sidebarCollapsed: boolean;
+  toggleSidebar: () => void;
 }
 
 /** Registers what the title bar, the sidebar and the Tab strip let the user do. */
@@ -38,6 +40,8 @@ export function useShellCommands({
   showView,
   showCommits,
   addRepository,
+  sidebarCollapsed,
+  toggleSidebar,
 }: ShellCommandHandlers) {
   const windowCommands = useMemo<PaletteCommand[]>(
     () => [
@@ -131,6 +135,19 @@ export function useShellCommands({
     [showView],
   );
 
+  const sidebarCommands = useMemo<PaletteCommand[]>(
+    () => [
+      {
+        id: "sidebar.toggle",
+        title: sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar",
+        group: "Navigate",
+        keywords: ["icons", "rail", "navigation"],
+        run: toggleSidebar,
+      },
+    ],
+    [sidebarCollapsed, toggleSidebar],
+  );
+
   const tabCommands = useMemo<PaletteCommand[]>(
     () => [
       {
@@ -192,6 +209,7 @@ export function useShellCommands({
   usePaletteCommands(windowCommands);
   usePaletteCommands(operationCommands);
   usePaletteCommands(viewCommands);
+  usePaletteCommands(sidebarCommands);
   usePaletteCommands(tabCommands);
   usePaletteCommands(branchCommands);
 }

@@ -540,7 +540,10 @@ fn settings_serialise_to_the_shape_the_ui_expects() {
             whitespace: WhitespaceMode::IgnoreAll,
             default_mode: DiffMode::SideBySide,
         },
-        appearance: AppearanceSettings { code_font_size: 13 },
+        appearance: AppearanceSettings {
+            code_font_size: 13,
+            sidebar_collapsed: true,
+        },
         sync: SyncSettings {
             auto_fetch: false,
             fetch_interval_minutes: 10,
@@ -555,7 +558,7 @@ fn settings_serialise_to_the_shape_the_ui_expects() {
         serde_json::to_value(settings).unwrap(),
         json!({
             "diff": { "whitespace": "ignoreAll", "defaultMode": "sideBySide" },
-            "appearance": { "codeFontSize": 13 },
+            "appearance": { "codeFontSize": 13, "sidebarCollapsed": true },
             "sync": { "autoFetch": false, "fetchIntervalMinutes": 10 },
             "tabs": { "confirmClose": "whenLost", "restoreOnLaunch": false },
         })

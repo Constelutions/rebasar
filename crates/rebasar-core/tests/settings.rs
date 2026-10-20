@@ -15,7 +15,10 @@ fn customised() -> Settings {
             whitespace: WhitespaceMode::IgnoreAll,
             default_mode: DiffMode::SideBySide,
         },
-        appearance: AppearanceSettings { code_font_size: 14 },
+        appearance: AppearanceSettings {
+            code_font_size: 14,
+            sidebar_collapsed: true,
+        },
         sync: SyncSettings {
             auto_fetch: false,
             fetch_interval_minutes: 15,
@@ -103,11 +106,17 @@ fn a_code_font_size_outside_the_supported_range_is_clamped() {
     let core = core_in(dir.path());
 
     let too_big = Settings {
-        appearance: AppearanceSettings { code_font_size: 40 },
+        appearance: AppearanceSettings {
+            code_font_size: 40,
+            ..AppearanceSettings::default()
+        },
         ..Settings::default()
     };
     let too_small = Settings {
-        appearance: AppearanceSettings { code_font_size: 2 },
+        appearance: AppearanceSettings {
+            code_font_size: 2,
+            ..AppearanceSettings::default()
+        },
         ..Settings::default()
     };
 

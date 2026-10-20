@@ -1,6 +1,7 @@
 export const viewGroups = [
-  ["Home", "History", "Changes", "Conflicts"],
-  ["Branches", "Stashes", "Worktrees", "Pull requests"],
+  ["Home"],
+  ["Changes", "Pull requests", "History", "Conflicts"],
+  ["Worktrees", "Branches", "Stashes"],
   ["Repositories", "Settings"],
 ] as const;
 

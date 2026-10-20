@@ -5,13 +5,13 @@ import { renderApp } from "./test-support";
 
 const viewNames = [
   "Home",
-  "History",
   "Changes",
+  "Pull requests",
+  "History",
   "Conflicts",
+  "Worktrees",
   "Branches",
   "Stashes",
-  "Worktrees",
-  "Pull requests",
   "Repositories",
   "Settings",
 ];

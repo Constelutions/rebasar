@@ -13,7 +13,7 @@ import { describeError } from "./core/describeError";
 import { type Highlighter, HighlighterProvider, defaultHighlighter } from "./highlight/highlighter";
 import { PaletteProvider } from "./palette/PaletteProvider";
 import type { PaletteContext } from "./palette/registry";
-import { SettingsProvider, useStoredSettings } from "./settings/SettingsContext";
+import { SettingsProvider, useSettings, useStoredSettings } from "./settings/SettingsContext";
 import type { AppWindow } from "./shell/appWindow";
 import { shortcuts, useShortcut } from "./shortcuts";
 import { useShellCommands } from "./shellCommands";
@@ -171,6 +171,16 @@ function Shell({
   onError,
 }: ShellProps) {
   const { requestClose, dialog: closeTabDialog } = useCloseTab(api, openTabs, commitDrafts, onError);
+  const { settings, update: updateSettings } = useSettings();
+  const sidebarCollapsed = settings.appearance.sidebarCollapsed;
+  const toggleSidebar = useCallback(
+    () =>
+      updateSettings({
+        ...settings,
+        appearance: { ...settings.appearance, sidebarCollapsed: !sidebarCollapsed },
+      }),
+    [settings, sidebarCollapsed, updateSettings],
+  );
 
   useShellCommands({
     api,
@@ -184,6 +194,8 @@ function Shell({
     showView,
     showCommits,
     addRepository: onAdd,
+    sidebarCollapsed,
+    toggleSidebar,
   });
 
   return (
@@ -231,7 +243,12 @@ function Shell({
             />
           )}
           <div className="app-body">
-            <Sidebar selected={view} onSelect={showView} />
+            <Sidebar
+              selected={view}
+              collapsed={sidebarCollapsed}
+              onSelect={showView}
+              onToggleCollapsed={toggleSidebar}
+            />
             <ViewPane
               view={view}
               api={api}

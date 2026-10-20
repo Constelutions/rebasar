@@ -78,6 +78,7 @@
   --diff-pick-width: 24px;
   --changes-files-width: 340px;
   --sidebar-width: 208px;
+  --sidebar-width-collapsed: 52px;
   --avatar-size: 22px;
   --status-dot-size: 8px;
   --tab-max-width: 260px;

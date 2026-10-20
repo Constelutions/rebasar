@@ -233,7 +233,7 @@ button {
   display: flex;
   flex: none;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: var(--space-2);
   box-sizing: border-box;
   width: var(--sidebar-width);
   padding: var(--space-3) var(--space-2);
@@ -242,20 +242,65 @@ button {
   border-radius: var(--radius-lg);
 }
 
+.sidebar[data-collapsed="true"] {
+  width: var(--sidebar-width-collapsed);
+}
+
+.sidebar nav {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-height: 0;
+  overflow-y: auto;
+}
+
 .sidebar-group {
   display: flex;
   flex-direction: column;
   gap: 2px;
 }
 
+.sidebar-separator {
+  flex: none;
+  width: 100%;
+  margin: 0;
+  border: 0;
+  border-top: 1px solid var(--color-border);
+}
+
 .sidebar-item {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
   padding: 7px var(--space-3);
+  white-space: nowrap;
   text-align: left;
   color: var(--color-text-muted);
   background: transparent;
   border: 0;
   border-radius: var(--radius-sm);
   cursor: pointer;
+}
+
+.sidebar[data-collapsed="true"] .sidebar-item {
+  justify-content: center;
+  padding-inline: 0;
+}
+
+.sidebar-icon {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.sidebar-toggle {
+  flex: none;
 }
 
 .sidebar-item:hover {

@@ -272,7 +272,7 @@ it("starts from the stored settings", async () => {
   const { user } = render({
     settings: {
       diff: { whitespace: "ignoreAll", defaultMode: "sideBySide" },
-      appearance: { codeFontSize: 14 },
+      appearance: { codeFontSize: 14, sidebarCollapsed: false },
       sync: { autoFetch: true, fetchIntervalMinutes: 5 },
       tabs: { confirmClose: "whenLost", restoreOnLaunch: true },
     },
@@ -351,7 +351,7 @@ it("applies the code font size to the diff", async () => {
 });
 
 it("applies the stored code font size at launch", async () => {
-  render({ settings: { ...defaultSettings, appearance: { codeFontSize: 13 } } });
+  render({ settings: { ...defaultSettings, appearance: { codeFontSize: 13, sidebarCollapsed: false } } });
 
   await waitFor(() =>
     expect(document.documentElement.style.getPropertyValue("--diff-font-size")).toBe("13px"),

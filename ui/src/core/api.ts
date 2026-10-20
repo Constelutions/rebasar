@@ -248,7 +248,7 @@ export type OutputStream = "stdout" | "stderr";
 
 export interface Settings {
   diff: { whitespace: WhitespaceMode; defaultMode: DiffMode };
-  appearance: { codeFontSize: number };
+  appearance: { codeFontSize: number; sidebarCollapsed: boolean };
   sync: { autoFetch: boolean; fetchIntervalMinutes: number };
   tabs: { confirmClose: ConfirmTabClose; restoreOnLaunch: boolean };
 }
@@ -263,7 +263,7 @@ export interface GitIdentity {
 
 export const defaultSettings: Settings = {
   diff: { whitespace: "show", defaultMode: "unified" },
-  appearance: { codeFontSize: 12 },
+  appearance: { codeFontSize: 12, sidebarCollapsed: false },
   sync: { autoFetch: true, fetchIntervalMinutes: 5 },
   tabs: { confirmClose: "whenLost", restoreOnLaunch: true },
 };

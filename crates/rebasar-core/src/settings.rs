@@ -86,6 +86,7 @@ impl Default for SyncSettings {
 #[serde(default, rename_all = "camelCase")]
 pub struct AppearanceSettings {
     pub code_font_size: u8,
+    pub sidebar_collapsed: bool,
 }
 
 impl AppearanceSettings {
@@ -96,7 +97,10 @@ impl AppearanceSettings {
 
 impl Default for AppearanceSettings {
     fn default() -> Self {
-        Self { code_font_size: 12 }
+        Self {
+            code_font_size: 12,
+            sidebar_collapsed: false,
+        }
     }
 }
 
