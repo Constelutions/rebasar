@@ -14,6 +14,7 @@ import type {
 import { describeError } from "../core/describeError";
 import { useSettings } from "../settings/SettingsContext";
 import { useConfirmation } from "../useConfirmation";
+import type { CommitDrafts } from "../useCommitDrafts";
 import { Button } from "./Button";
 import { type ChangeGroup, type GroupTree, buildGroupTrees, firstFile } from "./changeTree";
 import { CommitComposer } from "./CommitComposer";
@@ -26,9 +27,10 @@ interface ChangesViewProps {
   worktreePath: string;
   status: WorktreeStatus | null;
   error: string | null;
+  commitDrafts: CommitDrafts;
 }
 
-export function ChangesView({ api, worktreePath, status, error }: ChangesViewProps) {
+export function ChangesView({ api, worktreePath, status, error, commitDrafts }: ChangesViewProps) {
   const [picked, setPicked] = useState<FileSelection<ChangeList> | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [pushedPullRequest, setPushedPullRequest] = useState<PullRequestDetails | null>(null);
@@ -169,6 +171,8 @@ export function ChangesView({ api, worktreePath, status, error }: ChangesViewPro
         />
       )}
       <CommitComposer
+        draft={commitDrafts.draftOf(worktreePath)}
+        onDraftChange={(draft) => commitDrafts.setDraft(worktreePath, draft)}
         hasStagedFiles={status.staged.length > 0}
         outgoing={outgoing}
         outgoingError={outgoingError}

@@ -15,6 +15,34 @@ pub struct Settings {
     pub diff: DiffSettings,
     pub appearance: AppearanceSettings,
     pub sync: SyncSettings,
+    pub tabs: TabSettings,
+}
+
+/// When closing a Tab asks first.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum ConfirmTabClose {
+    Always,
+    /// An unsent commit message or an Operation in progress.
+    #[default]
+    WhenLost,
+    Never,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, rename_all = "camelCase")]
+pub struct TabSettings {
+    pub confirm_close: ConfirmTabClose,
+    pub restore_on_launch: bool,
+}
+
+impl Default for TabSettings {
+    fn default() -> Self {
+        Self {
+            confirm_close: ConfirmTabClose::default(),
+            restore_on_launch: true,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]

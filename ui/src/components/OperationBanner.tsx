@@ -6,7 +6,7 @@ import { Button } from "./Button";
 import { RebaseEditor } from "./RebaseEditor";
 import { useConfirmation } from "../useConfirmation";
 
-const names: Record<OperationKind, string> = {
+export const operationNames: Record<OperationKind, string> = {
   merge: "Merge",
   rebase: "Rebase",
   cherryPick: "Cherry-pick",
@@ -24,7 +24,7 @@ export function OperationBanner({ api, worktreePath, operation }: OperationBanne
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
   const { confirm, dialog } = useConfirmation(api, worktreePath);
-  const name = names[operation.kind];
+  const name = operationNames[operation.kind];
 
   function run(action: () => Promise<unknown>) {
     setError(null);

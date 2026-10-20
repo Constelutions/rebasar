@@ -952,6 +952,10 @@ export function createStubCoreApi(
       watched.add(path);
       active = path;
     },
+    async closeTab(path) {
+      watched.delete(path);
+      if (openTabs.delete(path)) emit({ type: "tabClosed", worktreePath: path });
+    },
     async refreshTab(path) {
       return known(path);
     },

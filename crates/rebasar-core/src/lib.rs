@@ -62,7 +62,9 @@ pub use operation::{OperationInProgress, OperationKind, OperationStep};
 pub use outgoing::OutgoingCommit;
 pub use identity::GitIdentity;
 pub use safety::{Assessment, Loss, MutationKind};
-pub use settings::{AppearanceSettings, DiffMode, DiffSettings, Settings, SyncSettings};
+pub use settings::{
+    AppearanceSettings, ConfirmTabClose, DiffMode, DiffSettings, Settings, SyncSettings, TabSettings,
+};
 use registry::RegistryStore;
 use staging::Direction;
 pub use staging::LineSelection;

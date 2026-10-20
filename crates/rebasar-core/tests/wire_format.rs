@@ -1,11 +1,12 @@
 use rebasar_core::{
+    ConfirmTabClose,
     ApiError, AppearanceSettings, Assessment, ChangeKind, ChangeList, CheckState, CommitDetail,
     CommitDiffRequest, CommitHit, CommitOptions, CommitParent, CoreEvent, DiffContent, DiffLine,
     DiffMode, DiffRequest, DiffSettings, Edge, EdgeKind, FileChange, FileDiff, GitHubAuthStatus,
     GitHubRepository, GitIdentity, GitSetup, Group, Head, HistoryCount, HistoryFilter,
     HistoryPage, HistoryRow, Hunk, LineKind, Loss, ModeChange, MutationId, MutationInfo,
     MutationKind, MutationOutcome, OutgoingCommit, OutputStream, PullRequest, RefKind, RefLabel,
-    RepositoryEntry, RepositoryList, ReviewState, Session, Settings, SyncSettings, Tab, TokenSource,
+    RepositoryEntry, RepositoryList, ReviewState, Session, Settings, SyncSettings, Tab, TabSettings, TokenSource,
     UnavailableReason, WhitespaceMode, WorktreeEntry, WorktreeStatus,
 };
 use serde_json::json;
@@ -544,6 +545,10 @@ fn settings_serialise_to_the_shape_the_ui_expects() {
             auto_fetch: false,
             fetch_interval_minutes: 10,
         },
+        tabs: TabSettings {
+            confirm_close: ConfirmTabClose::WhenLost,
+            restore_on_launch: false,
+        },
     };
 
     assert_eq!(
@@ -552,6 +557,7 @@ fn settings_serialise_to_the_shape_the_ui_expects() {
             "diff": { "whitespace": "ignoreAll", "defaultMode": "sideBySide" },
             "appearance": { "codeFontSize": 13 },
             "sync": { "autoFetch": false, "fetchIntervalMinutes": 10 },
+            "tabs": { "confirmClose": "whenLost", "restoreOnLaunch": false },
         })
     );
 }

@@ -1,6 +1,7 @@
 import type { CoreApi } from "../core/api";
 import { HistoryView } from "../history/HistoryView";
 import type { ViewName } from "../views";
+import type { CommitDrafts } from "../useCommitDrafts";
 import type { OpenTab } from "../useOpenTabs";
 import type { AddKind } from "./AddRepositoryDialog";
 import { BranchesView } from "./BranchesView";
@@ -30,6 +31,7 @@ interface ViewPaneProps {
   /** Changes whenever Repositories were added, so the Repositories view reads them again. */
   repositoriesVersion: number;
   onNavigate: (view: ViewName) => void;
+  commitDrafts: CommitDrafts;
 }
 
 export function ViewPane(props: ViewPaneProps) {
@@ -51,6 +53,7 @@ function ViewContent({
   onAddRepository,
   repositoriesVersion,
   onNavigate,
+  commitDrafts,
 }: ViewPaneProps) {
   if (view === "Home") {
     if (!tab) return <p className="placeholder">Open a folder to see its overview.</p>;
@@ -74,6 +77,7 @@ function ViewContent({
         worktreePath={tab.tab.worktreePath}
         status={tab.status}
         error={tab.error}
+        commitDrafts={commitDrafts}
       />
     );
   }

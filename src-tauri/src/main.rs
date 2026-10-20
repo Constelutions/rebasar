@@ -352,6 +352,14 @@ async fn restore_session(core: State<'_, Arc<Core>>) -> Result<Session, ApiError
 }
 
 #[tauri::command]
+async fn close_tab(core: State<'_, Arc<Core>>, path: PathBuf) -> Result<(), ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.close_tab(&path))
+        .await
+        .map_err(ApiError::unexpected)
+}
+
+#[tauri::command]
 async fn watch_background_tab(core: State<'_, Arc<Core>>, path: PathBuf) -> Result<(), ApiError> {
     let core = Arc::clone(&core);
     tauri::async_runtime::spawn_blocking(move || core.watch_background_tab(&path))
@@ -1271,6 +1279,7 @@ fn main() {
             find_commits,
             list_branches,
             activate_tab,
+            close_tab,
             refresh_tab,
             github_remote,
             github_auth_status,

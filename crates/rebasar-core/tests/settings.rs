@@ -1,8 +1,8 @@
 use std::fs;
 
 use rebasar_core::{
-    ApiError, AppearanceSettings, Core, DiffMode, DiffSettings, Settings, SyncSettings,
-    WhitespaceMode,
+    ApiError, AppearanceSettings, ConfirmTabClose, Core, DiffMode, DiffSettings, Settings,
+    SyncSettings, TabSettings, WhitespaceMode,
 };
 
 fn core_in(dir: &std::path::Path) -> Core {
@@ -20,6 +20,10 @@ fn customised() -> Settings {
             auto_fetch: false,
             fetch_interval_minutes: 15,
         },
+        tabs: TabSettings {
+            confirm_close: ConfirmTabClose::Never,
+            restore_on_launch: false,
+        },
     }
 }
 
@@ -32,6 +36,14 @@ fn settings_start_with_the_defaults() {
     assert_eq!(settings, Settings::default());
     assert_eq!(settings.diff.whitespace, WhitespaceMode::Show);
     assert_eq!(settings.diff.default_mode, DiffMode::Unified);
+}
+
+#[test]
+fn closing_a_tab_asks_only_when_something_would_be_lost_and_tabs_are_restored_by_default() {
+    let tabs = Settings::default().tabs;
+
+    assert_eq!(tabs.confirm_close, ConfirmTabClose::WhenLost);
+    assert!(tabs.restore_on_launch);
 }
 
 #[test]

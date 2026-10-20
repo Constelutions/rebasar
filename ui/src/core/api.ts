@@ -250,7 +250,10 @@ export interface Settings {
   diff: { whitespace: WhitespaceMode; defaultMode: DiffMode };
   appearance: { codeFontSize: number };
   sync: { autoFetch: boolean; fetchIntervalMinutes: number };
+  tabs: { confirmClose: ConfirmTabClose; restoreOnLaunch: boolean };
 }
+
+export type ConfirmTabClose = "always" | "whenLost" | "never";
 
 /** `null` is a value that is not set in the Git configuration. */
 export interface GitIdentity {
@@ -262,6 +265,7 @@ export const defaultSettings: Settings = {
   diff: { whitespace: "show", defaultMode: "unified" },
   appearance: { codeFontSize: 12 },
   sync: { autoFetch: true, fetchIntervalMinutes: 5 },
+  tabs: { confirmClose: "whenLost", restoreOnLaunch: true },
 };
 
 export interface Group {
@@ -578,6 +582,8 @@ export interface CoreApi {
   compareFileDiff(worktreePath: string, request: WorktreeDiffRequest): Promise<FileDiff>;
   /** Makes the Tab the most recently used one, so it keeps its caches and a live watcher. */
   activateTab(path: string): Promise<void>;
+  /** Closes the Tab, announcing it with a `tabClosed` event; its Repository stays listed. */
+  closeTab(path: string): Promise<void>;
   /** Reads the Tab again, so that a branch switched outside the app shows. */
   refreshTab(path: string): Promise<Tab>;
   /** `null` when none of the Repository's remotes is on GitHub. */

@@ -64,6 +64,7 @@ export const tauriCoreApi: CoreApi = {
   commitFileDiff: (worktreePath, request: CommitDiffRequest) =>
     invoke<FileDiff>("commit_file_diff", { worktreePath, request }),
   activateTab: (path) => invoke<void>("activate_tab", { path }),
+  closeTab: (path) => invoke<void>("close_tab", { path }),
   refreshTab: (path) => invoke<Tab>("refresh_tab", { path }),
   githubRemote: (path) => invoke<GitHubRepository | null>("github_remote", { path }),
   githubAuthStatus: () => invoke<GitHubAuthStatus>("github_auth_status"),

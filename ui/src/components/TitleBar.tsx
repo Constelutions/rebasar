@@ -14,6 +14,7 @@ interface TitleBarProps {
   activePath: string | undefined;
   appWindow: AppWindow;
   onSelectTab: (path: string) => void;
+  onCloseTab: (path: string) => void;
   onOpenFolder: () => void;
   /** Shown beside the search box, for what belongs to the Tab in front. */
   actions?: ReactNode;
@@ -24,6 +25,7 @@ export function TitleBar({
   activePath,
   appWindow,
   onSelectTab,
+  onCloseTab,
   onOpenFolder,
   actions,
 }: TitleBarProps) {
@@ -32,7 +34,7 @@ export function TitleBar({
   return (
     <header className="title-bar" data-tauri-drag-region>
       <RepositorySwitcher tabs={tabs} activePath={activePath} onSelect={onSelectTab} />
-      <TabStrip tabs={tabs} activePath={activePath} onSelect={onSelectTab} />
+      <TabStrip tabs={tabs} activePath={activePath} onSelect={onSelectTab} onClose={onCloseTab} />
       <Button
         variant="plain"
         type="button"

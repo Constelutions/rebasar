@@ -3,7 +3,8 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
 use rebasar_core::{
-    ApiError, CacheKind, Core, CoreEvent, Group, Head, RepositoryEntry, WindowBounds, WorktreeEntry,
+    ApiError, CacheKind, Core, CoreEvent, Group, Head, RepositoryEntry, Settings, TabSettings,
+    WindowBounds, WorktreeEntry,
 };
 use rebasar_testkit::TempRepo;
 use serde_json::{json, Map, Value};
@@ -690,4 +691,66 @@ fn a_restored_tab_watched_in_the_background_does_not_take_the_place_of_the_activ
 
     assert!(core.store_cache(active.path(), CacheKind::Graph, 1_u8));
     assert!(!core.store_cache(background.path(), CacheKind::Graph, 1_u8));
+}
+
+#[test]
+fn closing_a_tab_forgets_it_and_announces_it_but_keeps_the_repository() {
+    let config = Config::new();
+    let repo = sample("sample");
+    let other = sample("other");
+    let (core, events) = config.launch_recording_events();
+    let tab = core.open_folder(repo.path()).expect("open");
+    core.open_folder(other.path()).expect("open other");
+    events.lock().unwrap().clear();
+
+    core.close_tab(repo.path());
+
+    assert_eq!(
+        *events.lock().unwrap(),
+        vec![CoreEvent::TabClosed {
+            worktree_path: tab.worktree_path
+        }]
+    );
+    let session = config.launch().restore_session();
+    assert_eq!(session.tabs.len(), 1);
+    assert_eq!(session.tabs[0].repository_name, "other");
+    assert_eq!(names(&config.launch()), vec!["sample", "other"]);
+}
+
+#[test]
+fn closing_a_tab_that_is_not_open_does_nothing() {
+    let config = Config::new();
+    let repo = sample("sample");
+    let (core, events) = config.launch_recording_events();
+    events.lock().unwrap().clear();
+
+    core.close_tab(repo.path());
+
+    assert!(events.lock().unwrap().is_empty());
+}
+
+#[test]
+fn tabs_are_not_restored_when_restoring_them_is_turned_off() {
+    let config = Config::new();
+    let repo = sample("sample");
+    let core = config.launch();
+    core.open_folder(repo.path()).expect("open");
+    core.save_view("History");
+    let launch = || config.launch().with_config_dir(config.dir.path().join("settings"));
+    launch()
+        .update_settings(&Settings {
+            tabs: TabSettings {
+                restore_on_launch: false,
+                ..TabSettings::default()
+            },
+            ..Settings::default()
+        })
+        .expect("update");
+
+    let session = launch().restore_session();
+
+    assert!(session.tabs.is_empty());
+    assert_eq!(session.active, None);
+    assert_eq!(session.view.as_deref(), Some("History"));
+    assert!(config.launch().restore_session().tabs.is_empty());
 }

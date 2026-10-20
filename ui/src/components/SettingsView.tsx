@@ -1,6 +1,14 @@
 import { type FormEvent, useEffect, useId, useState } from "react";
 
-import type { CoreApi, DiffMode, GitIdentity, Settings, Tab, WhitespaceMode } from "../core/api";
+import type {
+  ConfirmTabClose,
+  CoreApi,
+  DiffMode,
+  GitIdentity,
+  Settings,
+  Tab,
+  WhitespaceMode,
+} from "../core/api";
 import { describeError } from "../core/describeError";
 import { useSettings } from "../settings/SettingsContext";
 import { Button } from "./Button";
@@ -49,6 +57,7 @@ function GlobalSettings({ api }: { api: CoreApi }) {
       <IdentitySection api={api} />
       <DiffSection settings={settings} update={update} />
       <SyncSection settings={settings} update={update} />
+      <TabsSection settings={settings} update={update} />
       <AppearanceSection settings={settings} update={update} />
       {error && (
         <p role="alert" className="error">
@@ -266,6 +275,55 @@ function SyncSection({ settings, update }: SectionProps) {
               update({ ...settings, sync: { ...sync, fetchIntervalMinutes: minutes } });
             }
           }}
+        />
+      </div>
+    </section>
+  );
+}
+
+const confirmCloseOptions: { value: ConfirmTabClose; label: string }[] = [
+  { value: "always", label: "Always" },
+  { value: "whenLost", label: "When something would be lost" },
+  { value: "never", label: "Never" },
+];
+
+function TabsSection({ settings, update }: SectionProps) {
+  const confirmId = useId();
+  const restoreId = useId();
+  const { tabs } = settings;
+
+  return (
+    <section className="settings-section" aria-labelledby={`${confirmId}-title`}>
+      <h2 id={`${confirmId}-title`}>Tabs</h2>
+      <div className="settings-field">
+        <label htmlFor={confirmId}>Confirm before closing a Tab</label>
+        <select
+          id={confirmId}
+          className="select"
+          value={tabs.confirmClose}
+          onChange={(event) =>
+            update({
+              ...settings,
+              tabs: { ...tabs, confirmClose: event.target.value as ConfirmTabClose },
+            })
+          }
+        >
+          {confirmCloseOptions.map(({ value, label }) => (
+            <option key={value} value={value}>
+              {label}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className="settings-field">
+        <label htmlFor={restoreId}>Restore Tabs on launch</label>
+        <input
+          id={restoreId}
+          type="checkbox"
+          checked={tabs.restoreOnLaunch}
+          onChange={(event) =>
+            update({ ...settings, tabs: { ...tabs, restoreOnLaunch: event.target.checked } })
+          }
         />
       </div>
     </section>

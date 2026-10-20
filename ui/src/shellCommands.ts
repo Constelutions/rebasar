@@ -18,6 +18,7 @@ interface ShellCommandHandlers {
   view: ViewName;
   openFolder: () => void;
   selectTab: (worktreePath: string) => void;
+  closeTab: (worktreePath: string) => void;
   showView: (view: ViewName) => void;
   /** Shows History narrowed by the filter `query`. */
   showCommits: (query: string) => void;
@@ -33,6 +34,7 @@ export function useShellCommands({
   view,
   openFolder,
   selectTab,
+  closeTab,
   showView,
   showCommits,
   addRepository,
@@ -130,8 +132,18 @@ export function useShellCommands({
   );
 
   const tabCommands = useMemo<PaletteCommand[]>(
-    () =>
-      openTabs.map(({ tab }) => ({
+    () => [
+      {
+        id: "tab.close",
+        title: "Close Tab",
+        group: "Tabs",
+        keywords: ["worktree"],
+        when: (context) => context.activeTab !== undefined,
+        run: ({ activeTab }) => {
+          if (activeTab) closeTab(activeTab.tab.worktreePath);
+        },
+      },
+      ...openTabs.map(({ tab }): PaletteCommand => ({
         id: `tab.${tab.worktreePath}`,
         title: `Go to Tab ${tab.repositoryName} · ${describeHead(tab.head)}`,
         group: "Tabs",
@@ -139,7 +151,8 @@ export function useShellCommands({
         when: (context) => context.activeTab?.tab.worktreePath !== tab.worktreePath,
         run: () => selectTab(tab.worktreePath),
       })),
-    [openTabs, selectTab],
+    ],
+    [openTabs, selectTab, closeTab],
   );
 
   const branches = useBranches(api, activeTab?.tab.worktreePath);

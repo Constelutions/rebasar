@@ -1,6 +1,7 @@
 import { type FormEvent, useId, useState } from "react";
 
 import type { CommitOptions, OutgoingCommit } from "../core/api";
+import { type CommitDraft, emptyDraft } from "../useCommitDrafts";
 import { Button } from "./Button";
 import {
   COMMIT_TYPES,
@@ -11,6 +12,8 @@ import {
 } from "./conventionalCommit";
 
 interface CommitComposerProps {
+  draft: CommitDraft;
+  onDraftChange: (draft: CommitDraft) => void;
   hasStagedFiles: boolean;
   outgoing: OutgoingCommit[];
   outgoingError: string | null;
@@ -21,6 +24,8 @@ interface CommitComposerProps {
 }
 
 export function CommitComposer({
+  draft,
+  onDraftChange,
   hasStagedFiles,
   outgoing,
   outgoingError,
@@ -28,8 +33,7 @@ export function CommitComposer({
   onPush,
   onFailure,
 }: CommitComposerProps) {
-  const [subject, setSubject] = useState("");
-  const [body, setBody] = useState("");
+  const { subject, body } = draft;
   const [amend, setAmend] = useState(false);
   const [signOff, setSignOff] = useState(false);
   const [pushAfter, setPushAfter] = useState(false);
@@ -49,8 +53,7 @@ export function CommitComposer({
     try {
       const outcome = await onCommit(messageOf(subject, body), { amend, signOff });
       if (outcome.kind === "succeeded") {
-        setSubject("");
-        setBody("");
+        onDraftChange(emptyDraft);
         setAmend(false);
         if (pushAfter) await onPush();
       }
@@ -72,7 +75,10 @@ export function CommitComposer({
               type="button"
               className="type-chip"
               aria-pressed={selectedType === type}
-              onClick={() => setSubject(withType(subject, selectedType === type ? undefined : type))}
+              onClick={() => onDraftChange({
+                  ...draft,
+                  subject: withType(subject, selectedType === type ? undefined : type),
+                })}
             >
               {type}
             </Button>
@@ -95,7 +101,7 @@ export function CommitComposer({
           value={subject}
           aria-describedby={counterId}
           placeholder={amend ? "Leave empty to keep the previous message" : undefined}
-          onChange={(event) => setSubject(event.target.value)}
+          onChange={(event) => onDraftChange({ ...draft, subject: event.target.value })}
         />
 
         <label htmlFor={bodyId}>Body</label>
@@ -103,7 +109,7 @@ export function CommitComposer({
           id={bodyId}
           rows={5}
           value={body}
-          onChange={(event) => setBody(event.target.value)}
+          onChange={(event) => onDraftChange({ ...draft, body: event.target.value })}
         />
 
         <label className="option">
