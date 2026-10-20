@@ -255,8 +255,15 @@ export interface Settings {
   sync: { autoFetch: boolean; fetchIntervalMinutes: number };
   copy: { onSelect: boolean };
   tabs: { confirmClose: ConfirmTabClose; restoreOnLaunch: boolean };
-  /** The filters History opens with. */
-  history: { mine: boolean; merges: boolean; allBranches: boolean };
+  /** The filters History opens with, and the layout it keeps. */
+  history: {
+    mine: boolean;
+    merges: boolean;
+    allBranches: boolean;
+    /** Horizontal never combines with the Linear graph style; the core stores Tree instead. */
+    orientation: "vertical" | "horizontal";
+    graphStyle: "tree" | "linear";
+  };
 }
 
 export type ConfirmTabClose = "always" | "whenLost" | "never";
@@ -273,7 +280,7 @@ export const defaultSettings: Settings = {
   sync: { autoFetch: true, fetchIntervalMinutes: 5 },
   copy: { onSelect: true },
   tabs: { confirmClose: "whenLost", restoreOnLaunch: true },
-  history: { mine: false, merges: false, allBranches: true },
+  history: { mine: false, merges: false, allBranches: true, orientation: "vertical", graphStyle: "tree" },
 };
 
 export interface Group {

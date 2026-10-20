@@ -336,12 +336,14 @@ function HistorySection({ settings, update }: SectionProps) {
   const mineId = useId();
   const mergesId = useId();
   const branchesId = useId();
+  const orientationId = useId();
+  const graphStyleId = useId();
   const { history } = settings;
 
   return (
     <section className="settings-section" aria-labelledby={`${mineId}-title`}>
-      <h2 id={`${mineId}-title`}>History filters</h2>
-      <p className="settings-hint">What History shows when you open it.</p>
+      <h2 id={`${mineId}-title`}>History</h2>
+      <p className="settings-hint">What History shows, and how it is laid out, when you open it.</p>
       <div className="settings-field">
         <label htmlFor={mineId}>Show only my commits</label>
         <input
@@ -372,6 +374,39 @@ function HistorySection({ settings, update }: SectionProps) {
         >
           <option value="all">All branches</option>
           <option value="current">Current branch</option>
+        </select>
+      </div>
+      <div className="settings-field">
+        <label htmlFor={orientationId}>Orientation</label>
+        <select
+          id={orientationId}
+          className="select"
+          value={history.orientation}
+          onChange={(event) => {
+            const orientation = event.target.value === "horizontal" ? "horizontal" : "vertical";
+            const graphStyle = orientation === "horizontal" ? "tree" : history.graphStyle;
+            update({ ...settings, history: { ...history, orientation, graphStyle } });
+          }}
+        >
+          <option value="vertical">Vertical</option>
+          <option value="horizontal">Horizontal</option>
+        </select>
+      </div>
+      <div className="settings-field">
+        <label htmlFor={graphStyleId}>Graph style</label>
+        <select
+          id={graphStyleId}
+          className="select"
+          value={history.orientation === "horizontal" ? "tree" : history.graphStyle}
+          onChange={(event) => {
+            const graphStyle = event.target.value === "linear" ? "linear" : "tree";
+            update({ ...settings, history: { ...history, graphStyle } });
+          }}
+        >
+          <option value="tree">Tree</option>
+          <option value="linear" disabled={history.orientation === "horizontal"}>
+            Linear
+          </option>
         </select>
       </div>
     </section>

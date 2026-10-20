@@ -17,7 +17,7 @@ import { defaultChips, useHistoryCommands } from "./historyCommands";
 import { MY_COMMITS, addTerm } from "./historyQuery";
 import { useAuthorNames, useBranchNames } from "./useFilterChoices";
 import { RefBadge } from "./RefBadge";
-import { type GraphStyle, type Orientation, itemSize } from "./geometry";
+import { type GraphStyle, type Orientation, itemSize, minimumHeight } from "./geometry";
 import { type HistoryItem, formatTime } from "./items";
 import { useHistory, useHistoryCount } from "./useHistory";
 import { useHistoryLayout } from "./useHistoryLayout";
@@ -203,7 +203,10 @@ function FilteredHistory({
         />
         <SegmentedControl
           label="Graph style"
-          options={graphStyles}
+          options={graphStyles.map((option) => ({
+            ...option,
+            disabled: option.value === "linear" && orientation === "horizontal",
+          }))}
           value={style}
           onChange={(value) => changeLayout({ style: value })}
         />
@@ -340,7 +343,11 @@ function HistoryList({
         aria-label="Commit history"
         className="history-list"
         data-orientation={orientation}
-        style={horizontal ? { width: items.length * size } : { height: items.length * size }}
+        style={
+          horizontal
+            ? { width: items.length * size, minHeight: minimumHeight(laneCount) }
+            : { height: items.length * size }
+        }
       >
         {items.slice(first, last).map((item, offset) => {
           const index = first + offset;

@@ -29,6 +29,8 @@ pub struct HistorySettings {
     pub merges: bool,
     /// Off starts with the commits reachable from HEAD only.
     pub all_branches: bool,
+    pub orientation: HistoryOrientation,
+    pub graph_style: GraphStyle,
 }
 
 impl Default for HistorySettings {
@@ -37,8 +39,26 @@ impl Default for HistorySettings {
             mine: false,
             merges: false,
             all_branches: true,
+            orientation: HistoryOrientation::default(),
+            graph_style: GraphStyle::default(),
         }
     }
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum HistoryOrientation {
+    #[default]
+    Vertical,
+    Horizontal,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum GraphStyle {
+    #[default]
+    Tree,
+    Linear,
 }
 
 /// When closing a Tab asks first.
@@ -151,6 +171,10 @@ impl Settings {
             SyncSettings::MIN_FETCH_INTERVAL_MINUTES,
             SyncSettings::MAX_FETCH_INTERVAL_MINUTES,
         );
+        // A single line of commits has no lanes to lay out across a horizontal history.
+        if self.history.orientation == HistoryOrientation::Horizontal {
+            self.history.graph_style = GraphStyle::Tree;
+        }
         self
     }
 }

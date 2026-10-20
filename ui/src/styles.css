@@ -563,7 +563,7 @@ button {
 
 .history-scroller[data-orientation="horizontal"] {
   display: flex;
-  overflow: auto hidden;
+  overflow: auto;
 }
 
 .history-list[data-orientation="horizontal"] {

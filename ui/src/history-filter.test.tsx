@@ -258,7 +258,7 @@ it("combines the selects with the Merges chip and the typed query", async () => 
 it("starts with the filters the settings ask for", async () => {
   const settings: Settings = {
     ...defaultSettings,
-    history: { mine: true, merges: true, allBranches: false },
+    history: { ...defaultSettings.history, mine: true, merges: true, allBranches: false },
   };
 
   await showHistory(filteringApi([], settings));

@@ -2,7 +2,8 @@ use std::fs;
 
 use rebasar_core::{
     ApiError, AppearanceSettings, ConfirmTabClose, Core, CopySettings, DiffMode, DiffSettings,
-    HistorySettings, Settings, SyncSettings, TabSettings, WhitespaceMode,
+    GraphStyle, HistoryOrientation, HistorySettings, Settings, SyncSettings, TabSettings,
+    WhitespaceMode,
 };
 
 fn core_in(dir: &std::path::Path) -> Core {
@@ -34,6 +35,8 @@ fn customised() -> Settings {
             mine: true,
             merges: true,
             all_branches: false,
+            orientation: HistoryOrientation::Horizontal,
+            graph_style: GraphStyle::Tree,
         },
     }
 }
@@ -64,6 +67,53 @@ fn history_starts_showing_every_branch_and_everyone() {
     assert!(history.all_branches);
     assert!(!history.mine);
     assert!(!history.merges);
+}
+
+#[test]
+fn history_starts_vertical_as_a_tree() {
+    let history = Settings::default().history;
+
+    assert_eq!(history.orientation, HistoryOrientation::Vertical);
+    assert_eq!(history.graph_style, GraphStyle::Tree);
+}
+
+#[test]
+fn a_stored_horizontal_linear_history_becomes_horizontal_tree() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::write(
+        dir.path().join("settings.json"),
+        r#"{ "history": { "orientation": "horizontal", "graphStyle": "linear" } }"#,
+    )
+    .unwrap();
+
+    let history = core_in(dir.path()).settings().expect("settings").history;
+
+    assert_eq!(history.orientation, HistoryOrientation::Horizontal);
+    assert_eq!(history.graph_style, GraphStyle::Tree);
+}
+
+#[test]
+fn saving_horizontal_linear_history_stores_horizontal_tree() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut settings = Settings::default();
+    settings.history.orientation = HistoryOrientation::Horizontal;
+    settings.history.graph_style = GraphStyle::Linear;
+
+    let saved = core_in(dir.path()).update_settings(&settings).expect("update");
+
+    assert_eq!(saved.history.graph_style, GraphStyle::Tree);
+}
+
+#[test]
+fn vertical_linear_history_is_kept() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut settings = Settings::default();
+    settings.history.graph_style = GraphStyle::Linear;
+
+    let saved = core_in(dir.path()).update_settings(&settings).expect("update");
+
+    assert_eq!(saved.history.orientation, HistoryOrientation::Vertical);
+    assert_eq!(saved.history.graph_style, GraphStyle::Linear);
 }
 
 #[test]

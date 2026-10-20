@@ -1,5 +1,5 @@
 use rebasar_core::{
-    ConfirmTabClose, CopySettings, HistorySettings,
+    ConfirmTabClose, CopySettings, GraphStyle, HistoryOrientation, HistorySettings,
     ApiError, AppearanceSettings, Assessment, ChangeKind, ChangeList, CheckState, CommitDetail,
     CommitDiffRequest, CommitHit, CommitOptions, CommitParent, CoreEvent, DiffContent, DiffLine,
     DiffMode, DiffRequest, DiffSettings, Edge, EdgeKind, FileChange, FileDiff, GitHubAuthStatus,
@@ -561,6 +561,8 @@ fn settings_serialise_to_the_shape_the_ui_expects() {
             mine: true,
             merges: false,
             all_branches: false,
+            orientation: HistoryOrientation::Horizontal,
+            graph_style: GraphStyle::Tree,
         },
     };
 
@@ -572,7 +574,13 @@ fn settings_serialise_to_the_shape_the_ui_expects() {
             "sync": { "autoFetch": false, "fetchIntervalMinutes": 10 },
             "copy": { "onSelect": false },
             "tabs": { "confirmClose": "whenLost", "restoreOnLaunch": false },
-            "history": { "mine": true, "merges": false, "allBranches": false },
+            "history": {
+                "mine": true,
+                "merges": false,
+                "allBranches": false,
+                "orientation": "horizontal",
+                "graphStyle": "tree",
+            },
         })
     );
 }

@@ -276,7 +276,7 @@ it("starts from the stored settings", async () => {
       sync: { autoFetch: true, fetchIntervalMinutes: 5 },
       copy: { onSelect: true },
       tabs: { confirmClose: "whenLost", restoreOnLaunch: true },
-      history: { mine: false, merges: false, allBranches: true },
+      history: { ...defaultSettings.history },
     },
   });
   await openSettings(user);
@@ -299,8 +299,34 @@ it("stores the History filters it opens with as soon as they are picked", async 
   await user.selectOptions(screen.getByLabelText("Branches"), "current");
 
   await waitFor(async () =>
-    expect((await api.settings()).history).toEqual({ mine: true, merges: true, allBranches: false }),
+    expect((await api.settings()).history).toMatchObject({ mine: true, merges: true, allBranches: false }),
   );
+});
+
+it("stores the History orientation and graph style it opens with as soon as they are picked", async () => {
+  const { user, api } = render();
+  await openSettings(user);
+
+  expect(screen.getByLabelText("Orientation")).toHaveValue("vertical");
+  expect(screen.getByLabelText("Graph style")).toHaveValue("tree");
+
+  await user.selectOptions(screen.getByLabelText("Graph style"), "linear");
+  await waitFor(async () => expect((await api.settings()).history.graphStyle).toBe("linear"));
+
+  await user.selectOptions(screen.getByLabelText("Orientation"), "horizontal");
+  await waitFor(async () =>
+    expect((await api.settings()).history).toMatchObject({ orientation: "horizontal", graphStyle: "tree" }),
+  );
+});
+
+it("does not offer a Linear graph style for a Horizontal History", async () => {
+  const { user } = render();
+  await openSettings(user);
+
+  await user.selectOptions(screen.getByLabelText("Orientation"), "horizontal");
+
+  expect(screen.getByRole("option", { name: "Linear" })).toBeDisabled();
+  expect(screen.getByRole("option", { name: "Tree" })).toBeEnabled();
 });
 
 it("stores a changed diff option as soon as it is picked", async () => {
