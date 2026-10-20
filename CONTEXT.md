@@ -12,6 +12,14 @@ _Avoid_: Project, folder
 A checked-out working directory of a Repository, either its main one or a linked one.
 _Avoid_: Working copy, checkout
 
+**Branch**:
+A named line of work in a Repository. One Branch is one entry however many places it exists: locally, on one or more remotes, or both.
+_Avoid_: Local branch / remote branch as separate things (they are the two sides of one Branch)
+
+**Scope**:
+Where a setting applies: Global (every Repository) or Repository (one Repository and all its Worktrees, not a single Worktree). A Repository-scoped value overrides the Global one and falls back to it when unset.
+_Avoid_: Level, context
+
 **Tab**:
 One open Worktree. It is the unit that holds the live status, graph and diff the user is looking at.
 _Avoid_: Workspace, window, session
