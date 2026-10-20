@@ -984,14 +984,43 @@ button {
 }
 
 .switcher-button {
-  width: var(--control-height);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  box-sizing: border-box;
+  min-width: var(--control-height);
+  max-width: var(--switcher-button-max-width);
   height: var(--control-height);
-  padding: 0;
+  padding: 0 var(--space-2);
   color: var(--color-text-subtle);
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   cursor: pointer;
+}
+
+.switcher-names {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  text-align: left;
+  line-height: 1.2;
+}
+
+.switcher-worktree,
+.switcher-head {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.switcher-worktree {
+  font: var(--text-xs) var(--font-ui);
+}
+
+.switcher-head {
+  font: var(--text-xs) var(--font-mono);
+  color: var(--color-accent);
 }
 
 .switcher-button:hover,

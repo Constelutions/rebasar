@@ -7,10 +7,15 @@ import { describeHead } from "./TabStrip";
 
 interface RepositorySwitcherProps {
   tabs: OpenTab[];
+  activePath: string | undefined;
   onSelect: (path: string) => void;
 }
 
-export function RepositorySwitcher({ tabs, onSelect }: RepositorySwitcherProps) {
+function worktreeName(path: string): string {
+  return path.split(/[/\\]/).filter(Boolean).pop() ?? path;
+}
+
+export function RepositorySwitcher({ tabs, activePath, onSelect }: RepositorySwitcherProps) {
   const [open, setOpen] = useState(false);
   const [filter, setFilter] = useState("");
   const container = useRef<HTMLDivElement>(null);
@@ -31,6 +36,7 @@ export function RepositorySwitcher({ tabs, onSelect }: RepositorySwitcherProps) 
     };
   }, [open]);
 
+  const active = tabs.find(({ tab }) => tab.worktreePath === activePath)?.tab;
   const needle = filter.trim().toLowerCase();
   const matches = tabs.filter(({ tab }) =>
     `${tab.repositoryName} ${describeHead(tab.head)}`.toLowerCase().includes(needle),
@@ -53,7 +59,17 @@ export function RepositorySwitcher({ tabs, onSelect }: RepositorySwitcherProps) 
         className="switcher-button"
         onClick={toggle}
       >
-        ⇅
+        <span aria-hidden="true">⇅</span>
+        {active && (
+          <span className="switcher-names">
+            <span className="switcher-worktree" title={worktreeName(active.worktreePath)}>
+              {worktreeName(active.worktreePath)}
+            </span>
+            <span className="switcher-head" title={describeHead(active.head)}>
+              {describeHead(active.head)}
+            </span>
+          </span>
+        )}
       </Button>
       {open && (
         <div className="switcher-popover">

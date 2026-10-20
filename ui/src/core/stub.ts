@@ -181,7 +181,7 @@ export interface StubCoreApi extends CoreApi {
   readonly assessedMutations: readonly MutationKind[];
   readonly discards: readonly { worktreePath: string; paths: string[] }[];
   /** The lines the UI staged or unstaged, in order. */
-  /** The Repositories the UI cloned, initialised or imported, in order. */
+  /** The Repositories the UI cloned, initialized or imported, in order. */
   readonly added: readonly { how: "clone" | "init" | "import"; source: string; groupId: string | null }[];
   /** Every commit action the UI ran, in order. */
   readonly commitActions: readonly CommitActionCall[];

@@ -31,7 +31,7 @@ export function TitleBar({
 
   return (
     <header className="title-bar" data-tauri-drag-region>
-      <RepositorySwitcher tabs={tabs} onSelect={onSelectTab} />
+      <RepositorySwitcher tabs={tabs} activePath={activePath} onSelect={onSelectTab} />
       <TabStrip tabs={tabs} activePath={activePath} onSelect={onSelectTab} />
       <Button
         variant="plain"

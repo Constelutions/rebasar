@@ -56,7 +56,7 @@ export function useShellCommands({
       },
       {
         id: "shell.init-repository",
-        title: "Initialise repository…",
+        title: "Initialize repository…",
         group: "Repository",
         keywords: ["add", "new", "git init"],
         run: () => addRepository("init"),

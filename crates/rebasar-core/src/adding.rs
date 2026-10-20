@@ -75,7 +75,7 @@ impl Core {
     }
 
     /// Turns `folder` into a Repository and opens it as a Tab. Returns `None` when the
-    /// initialisation was cancelled while it waited its turn.
+    /// initialization was cancelled while it waited its turn.
     pub fn init_repository(
         &self,
         folder: &Path,
@@ -92,7 +92,7 @@ impl Core {
         let run = self.mutations.run_creating(
             &folder,
             folder.clone(),
-            Mutation::new(format!("Initialise {}", folder_name(&folder)), ["init"]),
+            Mutation::new(format!("Initialize {}", folder_name(&folder)), ["init"]),
         );
 
         match run.outcome {

@@ -99,7 +99,7 @@ pub struct TempRepo {
 }
 
 impl TempRepo {
-    /// Creates an initialised repository on branch `main` inside a folder called `name`.
+    /// Creates an initialized repository on branch `main` inside a folder called `name`.
     pub fn init(name: &str) -> Self {
         let root = tempfile::tempdir().expect("create temp dir");
         let path = root.path().join(name);

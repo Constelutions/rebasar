@@ -19,7 +19,7 @@ interface AddRepositoryDialogProps {
 
 const titles: Record<AddKind, string> = {
   clone: "Clone a Repository",
-  init: "Initialise a Repository",
+  init: "Initialize a Repository",
   scan: "Scan a folder for Repositories",
 };
 
@@ -173,7 +173,7 @@ function InitForm({
     <form className="add-form" onSubmit={submit}>
       <FolderField label="Folder" folder={folder} pickFolder={pickFolder} onPick={setFolder} />
       <GroupField groups={groups} groupId={groupId} onChange={onGroupChange} />
-      <FormActions submitLabel="Initialise" canSubmit={folder !== null && !busy} onCancel={onCancel} />
+      <FormActions submitLabel="Initialize" canSubmit={folder !== null && !busy} onCancel={onCancel} />
     </form>
   );
 }
