@@ -53,6 +53,7 @@ pub use github::{
     CheckState, GitHubAuthStatus, GitHubRepository, PullRequest, PullRequestDetails, ReviewState, TokenSource,
 };
 use github::{GitHub, GitHubServices};
+use identity::Scope;
 pub use git_setup::{GitSetup, GitVersion, MINIMUM_GIT_VERSION};
 use mutation::{Mutation, MutationRunner};
 pub use mutation::{MutationId, MutationInfo, MutationOutcome, OutputStream};
@@ -462,12 +463,27 @@ impl Core {
 
     /// The identity in the user's global Git configuration.
     pub fn git_identity(&self) -> Result<GitIdentity, ApiError> {
-        identity::read()
+        identity::read(Scope::Global)
     }
 
     /// Writes the identity to the global Git configuration; a blank value removes it.
     pub fn set_git_identity(&self, new_identity: &GitIdentity) -> Result<GitIdentity, ApiError> {
-        identity::write(new_identity)
+        identity::write(Scope::Global, new_identity)
+    }
+
+    /// The identity set in the Repository's own Git configuration, which overrides the global one
+    /// for every Worktree. A value that is not set there falls back to the global identity.
+    pub fn repository_git_identity(&self, worktree_path: &Path) -> Result<GitIdentity, ApiError> {
+        identity::read(Scope::Repository(worktree_path))
+    }
+
+    /// Writes the identity to the Repository's Git configuration; a blank value removes it.
+    pub fn set_repository_git_identity(
+        &self,
+        worktree_path: &Path,
+        new_identity: &GitIdentity,
+    ) -> Result<GitIdentity, ApiError> {
+        identity::write(Scope::Repository(worktree_path), new_identity)
     }
 
     fn config_dir(&self) -> Result<&Path, ApiError> {

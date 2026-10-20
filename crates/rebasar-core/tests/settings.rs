@@ -1,7 +1,8 @@
 use std::fs;
 
 use rebasar_core::{
-    ApiError, AppearanceSettings, Core, DiffMode, DiffSettings, Settings, WhitespaceMode,
+    ApiError, AppearanceSettings, Core, DiffMode, DiffSettings, Settings, SyncSettings,
+    WhitespaceMode,
 };
 
 fn core_in(dir: &std::path::Path) -> Core {
@@ -15,6 +16,10 @@ fn customised() -> Settings {
             default_mode: DiffMode::SideBySide,
         },
         appearance: AppearanceSettings { code_font_size: 14 },
+        sync: SyncSettings {
+            auto_fetch: false,
+            fetch_interval_minutes: 15,
+        },
     }
 }
 

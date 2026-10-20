@@ -1,17 +1,51 @@
 import { type FormEvent, useEffect, useId, useState } from "react";
 
-import type { CoreApi, DiffMode, Settings, WhitespaceMode } from "../core/api";
+import type { CoreApi, DiffMode, GitIdentity, Settings, Tab, WhitespaceMode } from "../core/api";
 import { describeError } from "../core/describeError";
 import { useSettings } from "../settings/SettingsContext";
 import { Button } from "./Button";
+import { SegmentedControl } from "./SegmentedControl";
 
 const codeFontSizes = [11, 12, 13, 14];
 
-export function SettingsView({ api }: { api: CoreApi }) {
-  const { settings, error, update } = useSettings();
+type SettingsScope = "global" | "repository";
+
+interface SettingsViewProps {
+  api: CoreApi;
+  /** The Tab in front; the Repository Scope is its Repository, shared by all its Worktrees. */
+  tab: Tab | undefined;
+}
+
+export function SettingsView({ api, tab }: SettingsViewProps) {
+  const [scope, setScope] = useState<SettingsScope>("global");
+  const showing = scope === "repository" && tab ? "repository" : "global";
 
   return (
     <div className="settings">
+      <SegmentedControl
+        label="Scope"
+        options={[
+          { value: "global", label: "Global" },
+          { value: "repository", label: "Repository", disabled: !tab },
+        ]}
+        value={showing}
+        onChange={setScope}
+      />
+      {showing === "repository" && tab ? (
+        <RepositorySettings api={api} tab={tab} />
+      ) : (
+        <GlobalSettings api={api} />
+      )}
+    </div>
+  );
+}
+
+/** Each Scope is a list of sections; a new setting adds its section or row to the Scope it belongs to. */
+function GlobalSettings({ api }: { api: CoreApi }) {
+  const { settings, error, update } = useSettings();
+
+  return (
+    <>
       <IdentitySection api={api} />
       <DiffSection settings={settings} update={update} />
       <SyncSection settings={settings} update={update} />
@@ -21,43 +55,69 @@ export function SettingsView({ api }: { api: CoreApi }) {
           {error}
         </p>
       )}
-    </div>
+    </>
+  );
+}
+
+function RepositorySettings({ api, tab }: { api: CoreApi; tab: Tab }) {
+  return (
+    <>
+      <p className="settings-hint">
+        These settings belong to {tab.repositoryName} and apply to all of its Worktrees.
+      </p>
+      <IdentitySection key={tab.worktreePath} api={api} worktreePath={tab.worktreePath} />
+    </>
   );
 }
 
 type SectionProps = { settings: Settings; update: (settings: Settings) => void };
 
-function IdentitySection({ api }: { api: CoreApi }) {
+const noIdentity: GitIdentity = { name: null, email: null };
+
+/** The Git identity at the Global Scope, or at the Repository Scope when given a Worktree of it. */
+function IdentitySection({ api, worktreePath }: { api: CoreApi; worktreePath?: string }) {
   const nameId = useId();
   const emailId = useId();
+  const [stored, setStored] = useState<GitIdentity>(noIdentity);
+  const [global, setGlobal] = useState<GitIdentity>(noIdentity);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  function show(identity: GitIdentity) {
+    setStored(identity);
+    setName(identity.name ?? "");
+    setEmail(identity.email ?? "");
+  }
+
   useEffect(() => {
     let current = true;
-    api
-      .gitIdentity()
-      .then((identity) => {
+    const loading = worktreePath
+      ? Promise.all([api.repositoryGitIdentity(worktreePath), api.gitIdentity()])
+      : api.gitIdentity().then((identity) => [identity, noIdentity] as const);
+    loading
+      .then(([identity, inherited]) => {
         if (!current) return;
-        setName(identity.name ?? "");
-        setEmail(identity.email ?? "");
+        show(identity);
+        setGlobal(inherited);
       })
       .catch((failure) => current && setError(describeError(failure)));
     return () => {
       current = false;
     };
-  }, [api]);
+  }, [api, worktreePath]);
 
   async function save(event: FormEvent) {
     event.preventDefault();
     setSaved(false);
     setError(null);
     try {
-      const stored = await api.setGitIdentity({ name, email });
-      setName(stored.name ?? "");
-      setEmail(stored.email ?? "");
+      show(
+        worktreePath
+          ? await api.setRepositoryGitIdentity(worktreePath, { name, email })
+          : await api.setGitIdentity({ name, email }),
+      );
       setSaved(true);
     } catch (failure) {
       setError(describeError(failure));
@@ -69,18 +129,36 @@ function IdentitySection({ api }: { api: CoreApi }) {
     setSaved(false);
   }
 
+  function inheritance(field: "name" | "email") {
+    if (!worktreePath) return null;
+    const applies = global[field] ?? "not set";
+    return (
+      <p className="settings-hint">
+        {stored[field] === null
+          ? `Inherits the global ${field}: ${applies}`
+          : `Overrides the global ${field}: ${applies}`}
+      </p>
+    );
+  }
+
   return (
     <form className="settings-section" aria-label="Git identity" onSubmit={save}>
       <h2>Git identity</h2>
-      <p className="settings-hint">Written to your global Git configuration.</p>
+      <p className="settings-hint">
+        {worktreePath
+          ? "Written to this Repository's Git configuration. Leave a value empty to use the global one."
+          : "Written to your global Git configuration."}
+      </p>
       <div className="settings-field">
         <label htmlFor={nameId}>Name</label>
         <input
           id={nameId}
           className="text-input"
           value={name}
+          placeholder={worktreePath ? (global.name ?? "") : undefined}
           onChange={(event) => edit(() => setName(event.target.value))}
         />
+        {inheritance("name")}
       </div>
       <div className="settings-field">
         <label htmlFor={emailId}>Email</label>
@@ -89,8 +167,10 @@ function IdentitySection({ api }: { api: CoreApi }) {
           type="email"
           className="text-input"
           value={email}
+          placeholder={worktreePath ? (global.email ?? "") : undefined}
           onChange={(event) => edit(() => setEmail(event.target.value))}
         />
+        {inheritance("email")}
       </div>
       <div className="settings-actions">
         <Button variant="primary" type="submit">

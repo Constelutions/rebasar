@@ -97,6 +97,8 @@ export interface StubCoreState {
   registry?: RepositoryEntry[];
   settings?: Settings;
   identity?: GitIdentity;
+  /** What every Repository's own Git configuration holds, before anything is saved to it. */
+  repositoryIdentity?: GitIdentity;
 }
 
 export function commitKey(commit: string, parent: number) {
@@ -280,6 +282,7 @@ export function createStubCoreApi(
   let savedView: string | null = null;
   let settings = state.settings ?? defaultSettings;
   let identity = state.identity ?? { name: null, email: null };
+  const repositoryIdentities = new Map<string, GitIdentity>();
   const emit = (event: CoreEvent) => handlers.forEach((handler) => handler(event));
   let active: string | null = null;
   let held: Promise<void> | null = null;
@@ -1116,6 +1119,19 @@ export function createStubCoreApi(
     async setGitIdentity(updated) {
       identity = { name: blankToNull(updated.name), email: blankToNull(updated.email) };
       return identity;
+    },
+    async repositoryGitIdentity(worktreePath) {
+      const { repositoryName } = known(worktreePath);
+      return (
+        repositoryIdentities.get(repositoryName) ??
+        state.repositoryIdentity ?? { name: null, email: null }
+      );
+    },
+    async setRepositoryGitIdentity(worktreePath, updated) {
+      const { repositoryName } = known(worktreePath);
+      const stored = { name: blankToNull(updated.name), email: blankToNull(updated.email) };
+      repositoryIdentities.set(repositoryName, stored);
+      return stored;
     },
     async onEvent(handler) {
       handlers.add(handler);

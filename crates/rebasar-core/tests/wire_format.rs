@@ -5,7 +5,7 @@ use rebasar_core::{
     GitHubRepository, GitIdentity, GitSetup, Group, Head, HistoryCount, HistoryFilter,
     HistoryPage, HistoryRow, Hunk, LineKind, Loss, ModeChange, MutationId, MutationInfo,
     MutationKind, MutationOutcome, OutgoingCommit, OutputStream, PullRequest, RefKind, RefLabel,
-    RepositoryEntry, RepositoryList, ReviewState, Session, Settings, Tab, TokenSource,
+    RepositoryEntry, RepositoryList, ReviewState, Session, Settings, SyncSettings, Tab, TokenSource,
     WhitespaceMode, WorktreeEntry, WorktreeStatus,
 };
 use serde_json::json;
@@ -525,6 +525,10 @@ fn settings_serialise_to_the_shape_the_ui_expects() {
             default_mode: DiffMode::SideBySide,
         },
         appearance: AppearanceSettings { code_font_size: 13 },
+        sync: SyncSettings {
+            auto_fetch: false,
+            fetch_interval_minutes: 10,
+        },
     };
 
     assert_eq!(
@@ -532,6 +536,7 @@ fn settings_serialise_to_the_shape_the_ui_expects() {
         json!({
             "diff": { "whitespace": "ignoreAll", "defaultMode": "sideBySide" },
             "appearance": { "codeFontSize": 13 },
+            "sync": { "autoFetch": false, "fetchIntervalMinutes": 10 },
         })
     );
 }

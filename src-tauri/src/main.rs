@@ -268,6 +268,31 @@ async fn set_git_identity(
 }
 
 #[tauri::command]
+async fn repository_git_identity(
+    core: State<'_, Arc<Core>>,
+    worktree_path: PathBuf,
+) -> Result<GitIdentity, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.repository_git_identity(&worktree_path))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn set_repository_git_identity(
+    core: State<'_, Arc<Core>>,
+    worktree_path: PathBuf,
+    identity: GitIdentity,
+) -> Result<GitIdentity, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || {
+        core.set_repository_git_identity(&worktree_path, &identity)
+    })
+    .await
+    .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
 async fn commit_detail(
     core: State<'_, Arc<Core>>,
     worktree_path: PathBuf,
@@ -1266,6 +1291,8 @@ fn main() {
             update_settings,
             git_identity,
             set_git_identity,
+            repository_git_identity,
+            set_repository_git_identity,
             commit_detail,
             commit_file_diff,
             restore_session,

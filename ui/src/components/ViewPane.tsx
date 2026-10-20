@@ -66,7 +66,7 @@ function ViewContent({
       />
     );
   }
-  if (view === "Settings") return <SettingsView api={api} />;
+  if (view === "Settings") return <SettingsView api={api} tab={tab?.tab} />;
   if (view === "Changes" && tab) {
     return (
       <ChangesView

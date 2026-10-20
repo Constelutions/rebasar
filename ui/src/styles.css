@@ -449,6 +449,11 @@ button {
   background: var(--color-accent-surface);
 }
 
+.segment[data-disabled] {
+  color: var(--color-text-subtle);
+  cursor: not-allowed;
+}
+
 .segment:has(:focus-visible) {
   outline: 2px solid var(--color-accent);
 }
@@ -1388,6 +1393,10 @@ button {
   overflow: auto;
 }
 
+.settings > .segmented {
+  align-self: flex-start;
+}
+
 .settings-section {
   display: flex;
   flex-direction: column;
@@ -1410,6 +1419,10 @@ button {
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
+}
+
+.settings-field .settings-hint {
+  font-size: var(--text-sm);
 }
 
 .settings-actions {

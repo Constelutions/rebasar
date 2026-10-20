@@ -169,6 +169,10 @@ export const tauriCoreApi: CoreApi = {
   updateSettings: (settings) => invoke<Settings>("update_settings", { settings }),
   gitIdentity: () => invoke<GitIdentity>("git_identity"),
   setGitIdentity: (identity) => invoke<GitIdentity>("set_git_identity", { identity }),
+  repositoryGitIdentity: (worktreePath) =>
+    invoke<GitIdentity>("repository_git_identity", { worktreePath }),
+  setRepositoryGitIdentity: (worktreePath, identity) =>
+    invoke<GitIdentity>("set_repository_git_identity", { worktreePath, identity }),
   restoreSession: () => invoke<Session>("restore_session"),
   watchBackgroundTab: (path) => invoke<void>("watch_background_tab", { path }),
   saveView: (view) => invoke<void>("save_view", { view }),

@@ -714,6 +714,10 @@ export interface CoreApi {
   gitIdentity(): Promise<GitIdentity>;
   /** Writes to the global Git configuration; a blank value removes it. */
   setGitIdentity(identity: GitIdentity): Promise<GitIdentity>;
+  /** The identity in the Repository's own Git configuration; `null` values fall back to the global one. */
+  repositoryGitIdentity(worktreePath: string): Promise<GitIdentity>;
+  /** Writes to the Repository's local Git configuration, shared by all its Worktrees; a blank value removes it. */
+  setRepositoryGitIdentity(worktreePath: string, identity: GitIdentity): Promise<GitIdentity>;
   /** The Tabs and view to show on launch; Tabs whose folders are gone are already left out. */
   restoreSession(): Promise<Session>;
   /** Watches a restored Tab without making it the most recently used one. */

@@ -23,10 +23,11 @@ const status: WorktreeStatus = { conflicts: [], staged: [], unstaged: [change] }
 interface Options {
   settings?: Settings;
   identity?: { name: string | null; email: string | null };
+  repositoryIdentity?: { name: string | null; email: string | null };
   wrap?: (api: CoreApi) => CoreApi;
 }
 
-function render({ settings, identity, wrap = (api) => api }: Options = {}) {
+function render({ settings, identity, repositoryIdentity, wrap = (api) => api }: Options = {}) {
   const stub = createStubCoreApi(
     { [sampleTab.worktreePath]: sampleTab },
     { [sampleTab.worktreePath]: status },
@@ -56,7 +57,7 @@ function render({ settings, identity, wrap = (api) => api }: Options = {}) {
     },
     {},
     undefined,
-    { settings, identity },
+    { settings, identity, repositoryIdentity },
   );
   const api = wrap(stub);
   const user = userEvent.setup();
@@ -67,6 +68,18 @@ function render({ settings, identity, wrap = (api) => api }: Options = {}) {
 async function openSettings(user: ReturnType<typeof userEvent.setup>) {
   await user.click(screen.getByRole("button", { name: "Settings" }));
   return screen.findByRole("form", { name: "Git identity" });
+}
+
+function scopeSwitch() {
+  return within(screen.getByRole("radiogroup", { name: "Scope" }));
+}
+
+async function openRepositorySettings(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByRole("button", { name: /open folder/i }));
+  await screen.findByRole("tab");
+  await openSettings(user);
+  await user.click(scopeSwitch().getByLabelText("Repository"));
+  return within(await screen.findByRole("form", { name: "Git identity" }));
 }
 
 async function openChanges(user: ReturnType<typeof userEvent.setup>) {
@@ -134,6 +147,125 @@ it("explains why the identity could not be saved", async () => {
 
   expect(await screen.findByRole("alert")).toHaveTextContent("permission denied");
   expect(form.queryByText("Saved")).not.toBeInTheDocument();
+});
+
+describe("Scope", () => {
+  it("starts at the Global Scope, with a Repository one to switch to", async () => {
+    const { user } = render();
+    await user.click(screen.getByRole("button", { name: /open folder/i }));
+    await screen.findByRole("tab");
+    await openSettings(user);
+
+    expect(scopeSwitch().getByLabelText("Global")).toBeChecked();
+    expect(scopeSwitch().getByLabelText("Repository")).toBeEnabled();
+    expect(screen.getByLabelText("Whitespace")).toBeInTheDocument();
+  });
+
+  it("offers no Repository Scope while no Tab is open", async () => {
+    const { user } = render();
+    await openSettings(user);
+
+    expect(scopeSwitch().getByLabelText("Repository")).toBeDisabled();
+  });
+
+  it("keeps the other settings at the Global Scope only", async () => {
+    const { user } = render();
+    await openRepositorySettings(user);
+
+    expect(screen.queryByLabelText("Whitespace")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Code font size")).not.toBeInTheDocument();
+  });
+
+  it("says an unset Repository identity inherits the Global one and which value applies", async () => {
+    const { user } = render({ identity: { name: "Ada Lovelace", email: "ada@example.com" } });
+
+    const form = await openRepositorySettings(user);
+
+    expect(await form.findByText("Inherits the global name: Ada Lovelace")).toBeInTheDocument();
+    expect(form.getByText("Inherits the global email: ada@example.com")).toBeInTheDocument();
+    expect(form.getByLabelText("Name")).toHaveValue("");
+    expect(form.getByLabelText("Name")).toHaveAttribute("placeholder", "Ada Lovelace");
+  });
+
+  it("says a Repository value overrides the Global one", async () => {
+    const { user } = render({
+      identity: { name: "Ada Lovelace", email: "ada@example.com" },
+      repositoryIdentity: { name: "Ada at Work", email: null },
+    });
+
+    const form = await openRepositorySettings(user);
+
+    await waitFor(() => expect(form.getByLabelText("Name")).toHaveValue("Ada at Work"));
+    expect(form.getByText("Overrides the global name: Ada Lovelace")).toBeInTheDocument();
+    expect(form.getByText("Inherits the global email: ada@example.com")).toBeInTheDocument();
+  });
+
+  it("saves the identity to the Repository and leaves the Global one untouched", async () => {
+    const { user, api } = render({ identity: { name: "Ada Lovelace", email: "ada@example.com" } });
+    const form = await openRepositorySettings(user);
+    await form.findByText("Inherits the global name: Ada Lovelace");
+
+    await user.type(form.getByLabelText("Name"), "Ada at Work");
+    await user.type(form.getByLabelText("Email"), "ada@work.example");
+    await user.click(form.getByRole("button", { name: "Save identity" }));
+
+    expect(await form.findByText("Saved")).toBeInTheDocument();
+    expect(await api.repositoryGitIdentity(sampleTab.worktreePath)).toEqual({
+      name: "Ada at Work",
+      email: "ada@work.example",
+    });
+    expect(await api.gitIdentity()).toEqual({ name: "Ada Lovelace", email: "ada@example.com" });
+    expect(form.getByText("Overrides the global name: Ada Lovelace")).toBeInTheDocument();
+  });
+
+  it("falls back to the Global identity when the Repository one is cleared", async () => {
+    const { user, api } = render({
+      identity: { name: "Ada Lovelace", email: "ada@example.com" },
+      repositoryIdentity: { name: "Ada at Work", email: "ada@work.example" },
+    });
+    const form = await openRepositorySettings(user);
+    await waitFor(() => expect(form.getByLabelText("Name")).toHaveValue("Ada at Work"));
+
+    await user.clear(form.getByLabelText("Name"));
+    await user.clear(form.getByLabelText("Email"));
+    await user.click(form.getByRole("button", { name: "Save identity" }));
+
+    expect(await form.findByText("Inherits the global name: Ada Lovelace")).toBeInTheDocument();
+    expect(form.getByText("Inherits the global email: ada@example.com")).toBeInTheDocument();
+    expect(await api.repositoryGitIdentity(sampleTab.worktreePath)).toEqual({
+      name: null,
+      email: null,
+    });
+  });
+
+  it("shows the Global identity again, unchanged, when switching back", async () => {
+    const { user } = render({ identity: { name: "Ada Lovelace", email: "ada@example.com" } });
+    const repositoryForm = await openRepositorySettings(user);
+    await user.type(repositoryForm.getByLabelText("Name"), "Ada at Work");
+    await user.click(repositoryForm.getByRole("button", { name: "Save identity" }));
+    await repositoryForm.findByText("Saved");
+
+    await user.click(scopeSwitch().getByLabelText("Global"));
+
+    const globalForm = within(await screen.findByRole("form", { name: "Git identity" }));
+    await waitFor(() => expect(globalForm.getByLabelText("Name")).toHaveValue("Ada Lovelace"));
+  });
+
+  it("explains why the Repository identity could not be saved", async () => {
+    const { user } = render({
+      wrap: (api) => ({
+        ...api,
+        setRepositoryGitIdentity: async () => {
+          throw { kind: "unexpected", message: "git config failed: permission denied" };
+        },
+      }),
+    });
+    const form = await openRepositorySettings(user);
+
+    await user.click(form.getByRole("button", { name: "Save identity" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("permission denied");
+  });
 });
 
 it("starts from the stored settings", async () => {
