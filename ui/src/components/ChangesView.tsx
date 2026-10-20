@@ -7,6 +7,7 @@ import type {
   FileChange,
   FileDiff,
   OutgoingCommit,
+  PullRequestDetails,
   WhitespaceMode,
   WorktreeStatus,
 } from "../core/api";
@@ -15,7 +16,8 @@ import { useSettings } from "../settings/SettingsContext";
 import { useConfirmation } from "../useConfirmation";
 import { type ChangeGroup, type GroupTree, buildGroupTrees, firstFile } from "./changeTree";
 import { CommitComposer } from "./CommitComposer";
-import { DiffView } from "./DiffView";
+import { DiffView, type LineStaging } from "./DiffView";
+import { PullRequestDialog } from "./PullRequestDialog";
 import { type FileAction, FileTree, type FileSelection } from "./FileTree";
 
 interface ChangesViewProps {
@@ -28,6 +30,8 @@ interface ChangesViewProps {
 export function ChangesView({ api, worktreePath, status, error }: ChangesViewProps) {
   const [picked, setPicked] = useState<FileSelection<ChangeList> | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [pushedPullRequest, setPushedPullRequest] = useState<PullRequestDetails | null>(null);
+  const [editingPullRequest, setEditingPullRequest] = useState(false);
   const { outgoing, outgoingError } = useOutgoingCommits(api, worktreePath);
   const { confirm, dialog } = useConfirmation(api, worktreePath);
   const { settings, ready } = useSettings();
@@ -77,6 +81,26 @@ export function ChangesView({ api, worktreePath, status, error }: ChangesViewPro
     destructive: true,
     run: (change) => discard([change.path]),
   };
+  const staging: LineStaging | undefined =
+    selected && selected.list !== "conflicts"
+      ? {
+          label: selected.list === "staged" ? "Unstage" : "Stage",
+          apply: (lines) => {
+            // The file also appears in the other list once partly staged; stay on this one.
+            setPicked({ list: selected.list, path: selected.change.path });
+            const selection = {
+              path: selected.change.path,
+              originalPath: selected.change.originalPath,
+              lines,
+            };
+            void report(
+              selected.list === "staged"
+                ? api.unstageLines(worktreePath, selection)
+                : api.stageLines(worktreePath, selection),
+            );
+          },
+        }
+      : undefined;
   const actionsFor = (list: ChangeList): FileAction[] =>
     list === "unstaged" ? [stage, discardFile] : list === "staged" ? [unstage] : [];
   const groupActionFor = (list: ChangeList) =>
@@ -118,6 +142,7 @@ export function ChangesView({ api, worktreePath, status, error }: ChangesViewPro
                   mode={mode}
                   onModeChange={setPickedMode}
                   onLoadLarge={diff.loadLarge}
+                  staging={staging}
                 />
               )}
             </div>
@@ -125,11 +150,36 @@ export function ChangesView({ api, worktreePath, status, error }: ChangesViewPro
         )}
       </div>
       {dialog}
+      {pushedPullRequest && (
+        <p role="status" className="pull-request-offer">
+          Pushed. Pull request #{pushedPullRequest.number} is open for this branch.{" "}
+          <button type="button" onClick={() => setEditingPullRequest(true)}>
+            Update pull request
+          </button>
+        </p>
+      )}
+      {editingPullRequest && (
+        <PullRequestDialog
+          api={api}
+          worktreePath={worktreePath}
+          existing={pushedPullRequest}
+          onClose={() => setEditingPullRequest(false)}
+          onSaved={setPushedPullRequest}
+        />
+      )}
       <CommitComposer
         hasStagedFiles={status.staged.length > 0}
         outgoing={outgoing}
         outgoingError={outgoingError}
         onCommit={(message, options) => api.commit(worktreePath, message, options)}
+        onPush={async () => {
+          const outcome = await api.push(worktreePath, false);
+          if (outcome.kind === "succeeded") {
+            // Not signed in, or not a GitHub remote: there is simply no pull request to offer.
+            setPushedPullRequest(await api.currentPullRequest(worktreePath).catch(() => null));
+          }
+          return outcome;
+        }}
         onFailure={(failure) => setActionError(describeError(failure))}
       />
     </div>

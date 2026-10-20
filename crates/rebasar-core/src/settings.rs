@@ -14,6 +14,7 @@ const FILE_NAME: &str = "settings.json";
 pub struct Settings {
     pub diff: DiffSettings,
     pub appearance: AppearanceSettings,
+    pub sync: SyncSettings,
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -29,6 +30,28 @@ pub enum DiffMode {
     #[default]
     Unified,
     SideBySide,
+}
+
+/// How the Tab in front keeps up with its remote.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, rename_all = "camelCase")]
+pub struct SyncSettings {
+    pub auto_fetch: bool,
+    pub fetch_interval_minutes: u32,
+}
+
+impl SyncSettings {
+    pub const MIN_FETCH_INTERVAL_MINUTES: u32 = 1;
+    pub const MAX_FETCH_INTERVAL_MINUTES: u32 = 120;
+}
+
+impl Default for SyncSettings {
+    fn default() -> Self {
+        Self {
+            auto_fetch: true,
+            fetch_interval_minutes: 5,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -54,6 +77,10 @@ impl Settings {
         self.appearance.code_font_size = self.appearance.code_font_size.clamp(
             AppearanceSettings::MIN_CODE_FONT_SIZE,
             AppearanceSettings::MAX_CODE_FONT_SIZE,
+        );
+        self.sync.fetch_interval_minutes = self.sync.fetch_interval_minutes.clamp(
+            SyncSettings::MIN_FETCH_INTERVAL_MINUTES,
+            SyncSettings::MAX_FETCH_INTERVAL_MINUTES,
         );
         self
     }

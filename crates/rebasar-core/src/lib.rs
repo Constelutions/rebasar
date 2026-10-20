@@ -6,47 +6,72 @@ use std::time::Duration;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+mod adding;
+mod branches;
 mod commit;
+mod conflicts;
+mod commit_actions;
+mod compare;
 mod diff;
 mod git_setup;
 pub mod github;
 mod history;
 mod identity;
 mod mutation;
+mod operation;
 mod outgoing;
 pub mod platform;
 mod poll;
 pub mod query;
+mod rebase_plan;
 mod safety;
 mod registry;
 mod repositories;
 mod session;
 mod settings;
+mod staging;
+mod stash;
 mod status;
+mod sync;
 mod tabs;
+mod tags_remotes;
 mod watch;
+mod worktrees;
 
+pub use adding::FoundRepository;
+pub use branches::{BranchInfo, BranchKind, MergeMode};
 pub use commit::{CommitDetail, CommitParent};
+pub use rebase_plan::{PlanAction, RebasePlan, RebasePlanEntry};
+pub use conflicts::{ConflictFile, ConflictKind, ConflictSegment, ConflictSide};
+pub use commit_actions::ResetMode;
+pub use compare::WorktreeDiffRequest;
 pub use diff::{
     ChangeList, CommitDiffRequest, DiffContent, DiffLine, DiffRequest, FileDiff, Hunk, LineKind,
     ModeChange, WhitespaceMode,
 };
 pub use github::{
-    CheckState, GitHubAuthStatus, GitHubRepository, PullRequest, ReviewState, TokenSource,
+    CheckState, GitHubAuthStatus, GitHubRepository, PullRequest, PullRequestDetails, ReviewState, TokenSource,
 };
 use github::{GitHub, GitHubServices};
 pub use git_setup::{GitSetup, GitVersion, MINIMUM_GIT_VERSION};
 use mutation::{Mutation, MutationRunner};
 pub use mutation::{MutationId, MutationInfo, MutationOutcome, OutputStream};
+pub use operation::{OperationInProgress, OperationKind, OperationStep};
 pub use outgoing::OutgoingCommit;
 pub use identity::GitIdentity;
 pub use safety::{Assessment, Loss, MutationKind};
-pub use settings::{AppearanceSettings, DiffMode, DiffSettings, Settings};
+pub use settings::{AppearanceSettings, DiffMode, DiffSettings, Settings, SyncSettings};
 use registry::RegistryStore;
+use staging::Direction;
+pub use staging::LineSelection;
 pub use registry::{Group, WindowBounds};
 pub use repositories::{RepositoryEntry, RepositoryList, WorktreeEntry};
 pub use session::Session;
 pub use status::{ChangeKind, FileChange, WorktreeStatus};
+pub use stash::{StashInfo, StashPreview};
+pub use tags_remotes::{RemoteInfo, TagInfo};
+pub use worktrees::{WorktreeDetail, WorktreeStart};
+pub use sync::{PullStrategy, SyncStatus};
 pub use tabs::CacheKind;
 use tabs::Registry;
 
@@ -147,6 +172,12 @@ pub enum ApiError {
     RepositoryNotFound { path: String },
     #[error("a Group needs a name")]
     InvalidGroupName,
+    #[error("{path} is already a Git repository")]
+    AlreadyARepository { path: String },
+    #[error("cannot tell the name of a Repository from {url:?}")]
+    InvalidRepositoryUrl { url: String },
+    #[error("{message}")]
+    GitFailed { message: String },
     #[error("{message}")]
     Unexpected { message: String },
 }
@@ -271,6 +302,51 @@ impl Core {
             .chain(paths.iter().map(String::as_str));
         self.mutations
             .run(worktree, Mutation::new(files_title("Unstage", paths), args))
+    }
+
+    /// Stages only the lines picked in the diff of the file. Fails without changing anything when
+    /// the file no longer matches the diff the lines were picked from.
+    pub fn stage_lines(
+        &self,
+        worktree: &Path,
+        selection: &LineSelection,
+    ) -> Result<MutationOutcome, ApiError> {
+        self.apply_lines(worktree, selection, Direction::Stage)
+    }
+
+    /// Takes only the lines picked in the diff of the staged file out of the index again.
+    pub fn unstage_lines(
+        &self,
+        worktree: &Path,
+        selection: &LineSelection,
+    ) -> Result<MutationOutcome, ApiError> {
+        self.apply_lines(worktree, selection, Direction::Unstage)
+    }
+
+    fn apply_lines(
+        &self,
+        worktree: &Path,
+        selection: &LineSelection,
+        direction: Direction,
+    ) -> Result<MutationOutcome, ApiError> {
+        let (_, repo) = open_worktree(worktree)?;
+        let Some(patch) = staging::patch_for(&repo, selection, direction)? else {
+            return Ok(MutationOutcome::Succeeded);
+        };
+        drop(repo);
+
+        let verb = match direction {
+            Direction::Stage => "Stage",
+            Direction::Unstage => "Unstage",
+        };
+        let title = format!(
+            "{verb} {} of {}",
+            lines_title(selection.lines.len()),
+            selection.path
+        );
+        let args = ["apply", "--cached", "--whitespace=nowarn", "--", "-"];
+        self.mutations
+            .run(worktree, Mutation::new(title, args).with_stdin(patch))
     }
 
     /// An amend with an empty `message` keeps the previous commit's message.
@@ -524,6 +600,78 @@ impl Core {
         self.github.pull_requests(&repository)
     }
 
+    /// The open pull request for the branch the Worktree is on, if there is one.
+    pub fn current_pull_request(&self, path: &Path) -> Result<Option<PullRequestDetails>, ApiError> {
+        let (repository, branch) = self.github_context(path)?;
+        self.github.pull_request_for_branch(&repository, &branch)
+    }
+
+    /// Opens a pull request from the current branch, which must be pushed already, against the
+    /// repository's default branch.
+    pub fn create_pull_request(
+        &self,
+        path: &Path,
+        title: &str,
+        body: &str,
+        draft: bool,
+    ) -> Result<PullRequestDetails, ApiError> {
+        let title = title.trim();
+        if title.is_empty() {
+            return Err(ApiError::Unexpected {
+                message: "a pull request needs a title".to_owned(),
+            });
+        }
+        let (repository, branch) = self.github_context(path)?;
+        self.github.create_pull_request(&repository, &branch, title, body, draft)
+    }
+
+    /// Changes the title and description of a pull request, as after a push.
+    pub fn update_pull_request(
+        &self,
+        path: &Path,
+        number: u64,
+        title: &str,
+        body: &str,
+    ) -> Result<PullRequestDetails, ApiError> {
+        let title = title.trim();
+        if title.is_empty() {
+            return Err(ApiError::Unexpected {
+                message: "a pull request needs a title".to_owned(),
+            });
+        }
+        let (repository, _) = self.github_context(path)?;
+        self.github.update_pull_request(&repository, number, title, body)
+    }
+
+    pub fn mark_pull_request_ready(
+        &self,
+        path: &Path,
+        number: u64,
+    ) -> Result<PullRequestDetails, ApiError> {
+        let (repository, _) = self.github_context(path)?;
+        self.github.mark_pull_request_ready(&repository, number)
+    }
+
+    /// Opens an `https` address in the user's browser.
+    pub fn open_in_browser(&self, url: &str) -> Result<(), ApiError> {
+        platform::open_in_browser(url).map_err(|message| ApiError::Unexpected { message })
+    }
+
+    fn github_context(&self, path: &Path) -> Result<(GitHubRepository, String), ApiError> {
+        let (worktree_path, repo) = open_worktree(path)?;
+        let repository = github::find_remote(&repo).ok_or_else(|| ApiError::NotGithub {
+            path: worktree_path.to_string_lossy().into_owned(),
+        })?;
+        let branch = repo
+            .head_name()
+            .map_err(ApiError::unexpected)?
+            .map(|name| name.shorten().to_string())
+            .ok_or_else(|| ApiError::Unexpected {
+                message: "a detached HEAD has no branch to open a pull request from".to_owned(),
+            })?;
+        Ok((repository, branch))
+    }
+
     pub fn worktree_status(&self, path: &Path) -> Result<WorktreeStatus, ApiError> {
         let (_, repo) = open_worktree(path)?;
         status::read(&repo)
@@ -548,7 +696,7 @@ impl Core {
         let tab = read_tab(&repo, &worktree_path)?;
         let repository = repository_folder(&repo)?.to_string_lossy().into_owned();
         self.registry.remember(|data| {
-            data.register_repository(&repository, &tab.repository_name);
+            data.register_repository(&repository, &tab.repository_name, None);
             data.remember_tab(&tab, &repository);
         });
         (self.on_event)(CoreEvent::TabOpened { tab: tab.clone() });
@@ -558,10 +706,7 @@ impl Core {
 
 fn read_tab(repo: &gix::Repository, worktree_path: &Path) -> Result<Tab, ApiError> {
     Ok(Tab {
-        repository_name: repository_folder(repo)?
-            .file_name()
-            .map(|name| name.to_string_lossy().into_owned())
-            .unwrap_or_default(),
+        repository_name: folder_name(&repository_folder(repo)?),
         worktree_path: worktree_path.to_string_lossy().into_owned(),
         head: read_head(repo)?,
     })
@@ -612,6 +757,13 @@ fn files_title(verb: &str, paths: &[String]) -> String {
     }
 }
 
+fn lines_title(count: usize) -> String {
+    match count {
+        1 => "1 line".to_owned(),
+        _ => format!("{count} lines"),
+    }
+}
+
 /// The folder of the main Worktree, however the Repository was reached.
 fn repository_folder(repo: &gix::Repository) -> Result<PathBuf, ApiError> {
     let common_dir = platform::canonical(repo.common_dir()).map_err(ApiError::unexpected)?;
@@ -621,6 +773,13 @@ fn repository_folder(repo: &gix::Repository) -> Result<PathBuf, ApiError> {
         .ok_or_else(|| ApiError::NotARepository {
             path: common_dir.to_string_lossy().into_owned(),
         })
+}
+
+fn folder_name(folder: &Path) -> String {
+    folder
+        .file_name()
+        .map(|name| name.to_string_lossy().into_owned())
+        .unwrap_or_default()
 }
 
 fn is_repository_folder(path: &Path) -> bool {

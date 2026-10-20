@@ -23,6 +23,37 @@ pub enum MutationKind {
     DiscardChanges {
         paths: Vec<String>,
     },
+    /// Gives up the merge, rebase, cherry-pick or revert Git is paused in.
+    AbortOperation,
+    /// Replaces the remote branch with the local one, dropping commits only the remote has.
+    ForcePush,
+    /// Deletes a local branch, with the commits only it holds.
+    DeleteBranch {
+        name: String,
+    },
+    /// Moves the current branch to a commit; may drop commits and, when hard, uncommitted work.
+    /// Throws a stash away, with the work parked in it.
+    DropStash {
+        stash: String,
+    },
+    /// Removes a linked Worktree with whatever is uncommitted in it.
+    RemoveWorktree {
+        path: String,
+    },
+    /// Deletes a tag here, with the commits only it reaches.
+    DeleteTag {
+        name: String,
+    },
+    /// Deletes a tag on a remote. Nothing local is lost, so this is safe to run; it is still a
+    /// kind of its own so the UI can ask the question the user would expect.
+    DeleteRemoteTag {
+        name: String,
+        remote: String,
+    },
+    Reset {
+        commit: String,
+        mode: crate::commit_actions::ResetMode,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -56,6 +87,16 @@ impl Loss {
 
 pub(crate) fn assess(repo: &gix::Repository, kind: &MutationKind) -> Result<Assessment, ApiError> {
     let loss = match kind {
+        MutationKind::AbortOperation => crate::operation::abort_loss(repo)?,
+        MutationKind::ForcePush => crate::sync::force_push_loss(repo)?,
+        MutationKind::DeleteBranch { name } => crate::branches::delete_loss(repo, name)?,
+        MutationKind::DeleteTag { name } => crate::tags_remotes::delete_tag_loss(repo, name)?,
+        MutationKind::DeleteRemoteTag { .. } => return Ok(Assessment::Safe),
+        MutationKind::RemoveWorktree { path } => crate::worktrees::remove_loss(path)?,
+        MutationKind::DropStash { stash } => crate::stash::drop_loss(repo, stash)?,
+        MutationKind::Reset { commit, mode } => {
+            crate::commit_actions::reset_loss(repo, commit, *mode)?
+        }
         MutationKind::Stage | MutationKind::Unstage | MutationKind::Commit => {
             return Ok(Assessment::Safe);
         }

@@ -1,22 +1,61 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 
 import type { DiffLine, DiffMode, FileDiff, Hunk } from "../core/api";
 import { useSyntaxTokens } from "../highlight/useSyntaxTokens";
 import type { Token } from "../highlight/tokens";
-import { type DiffRow, sideBySideRows, unifiedRows } from "./diffRows";
+import {
+  type DiffRow,
+  changedLines,
+  isChanged,
+  lineKey,
+  sideBySideRows,
+  unifiedRows,
+} from "./diffRows";
 import { VirtualList } from "./VirtualList";
 
 export const DIFF_ROW_HEIGHT = 20;
+
+/** What picking hunks and lines in the diff does: stage them, or unstage them. */
+export interface LineStaging {
+  label: "Stage" | "Unstage";
+  apply: (lines: DiffLine[]) => void;
+}
 
 interface DiffViewProps {
   diff: FileDiff;
   mode: DiffMode;
   onModeChange: (mode: DiffMode) => void;
   onLoadLarge: () => void;
+  staging?: LineStaging;
 }
 
-export function DiffView({ diff, mode, onModeChange, onLoadLarge }: DiffViewProps) {
+export function DiffView({ diff, mode, onModeChange, onLoadLarge, staging }: DiffViewProps) {
   const { content } = diff;
+  const [pickedKeys, setPickedKeys] = useState<ReadonlySet<string>>(new Set());
+  const picked = useMemo(
+    () =>
+      content.kind === "text"
+        ? content.hunks.flatMap(changedLines).filter((line) => pickedKeys.has(lineKey(line)))
+        : [],
+    [content, pickedKeys],
+  );
+
+  function togglePick(line: DiffLine) {
+    setPickedKeys((current) => {
+      const next = new Set(current);
+      if (!next.delete(lineKey(line))) next.add(lineKey(line));
+      return next;
+    });
+  }
+
+  const applying: LineStaging | undefined = staging && {
+    label: staging.label,
+    apply: (lines) => {
+      setPickedKeys(new Set());
+      staging.apply(lines);
+    },
+  };
+
   return (
     <section className="diff-view" aria-label={`Diff of ${diff.path}`}>
       <header className="diff-header">
@@ -30,12 +69,31 @@ export function DiffView({ diff, mode, onModeChange, onLoadLarge }: DiffViewProp
           )}
         </div>
         {content.kind === "text" && content.hunks.length > 0 && (
-          <ModeToggle mode={mode} onChange={onModeChange} />
+          <div className="diff-controls">
+            {applying && (
+              <button
+                type="button"
+                className="button"
+                disabled={picked.length === 0}
+                onClick={() => applying.apply(picked)}
+              >
+                {applying.label} selected lines
+              </button>
+            )}
+            <ModeToggle mode={mode} onChange={onModeChange} />
+          </div>
         )}
       </header>
       {content.kind === "text" &&
         (content.hunks.length > 0 ? (
-          <TextDiff path={diff.path} hunks={content.hunks} mode={mode} />
+          <TextDiff
+            path={diff.path}
+            hunks={content.hunks}
+            mode={mode}
+            staging={applying}
+            picked={pickedKeys}
+            onTogglePick={togglePick}
+          />
         ) : (
           <p className="placeholder diff-note">No content changes.</p>
         ))}
@@ -81,12 +139,26 @@ function ModeToggle({ mode, onChange }: { mode: DiffMode; onChange: (mode: DiffM
   );
 }
 
-function TextDiff({ path, hunks, mode }: { path: string; hunks: Hunk[]; mode: DiffMode }) {
+interface RowContext {
+  tokens: ReadonlyMap<DiffLine, Token[]>;
+  staging: LineStaging | undefined;
+  picked: ReadonlySet<string>;
+  onTogglePick: (line: DiffLine) => void;
+}
+
+interface TextDiffProps extends Omit<RowContext, "tokens"> {
+  path: string;
+  hunks: Hunk[];
+  mode: DiffMode;
+}
+
+function TextDiff({ path, hunks, mode, staging, picked, onTogglePick }: TextDiffProps) {
   const tokens = useSyntaxTokens(path, hunks);
   const rows = useMemo(
     () => (mode === "unified" ? unifiedRows(hunks) : sideBySideRows(hunks)),
     [hunks, mode],
   );
+  const context: RowContext = { tokens, staging, picked, onTogglePick };
 
   return (
     <VirtualList
@@ -95,47 +167,77 @@ function TextDiff({ path, hunks, mode }: { path: string; hunks: Hunk[]; mode: Di
       items={rows}
       rowHeight={DIFF_ROW_HEIGHT}
       getKey={(row) => row.key}
-      renderRow={(row) => <DiffRowView row={row} tokens={tokens} />}
+      renderRow={(row) => <DiffRowView row={row} {...context} />}
     />
   );
 }
 
-function DiffRowView({ row, tokens }: { row: DiffRow; tokens: ReadonlyMap<DiffLine, Token[]> }) {
+function DiffRowView({ row, ...context }: { row: DiffRow } & RowContext) {
+  const { staging } = context;
   if (row.type === "hunk") {
-    return <div className="diff-hunk-header">{row.header}</div>;
+    return (
+      <div className="diff-hunk-header">
+        <span>{row.header}</span>
+        {staging && (
+          <button
+            type="button"
+            className="hunk-action"
+            aria-label={`${staging.label} hunk ${row.header}`}
+            onClick={() => staging.apply(changedLines(row.hunk))}
+          >
+            {staging.label} hunk
+          </button>
+        )}
+      </div>
+    );
   }
   if (row.type === "line") {
     return (
       <div className={`diff-line diff-${row.line.kind}`}>
+        <LinePick line={row.line} {...context} />
         <span className="diff-number">{row.line.oldNumber}</span>
         <span className="diff-number">{row.line.newNumber}</span>
         <span className="diff-sign">{signOf(row.line)}</span>
-        <LineText line={row.line} tokens={tokens} />
+        <LineText line={row.line} tokens={context.tokens} />
       </div>
     );
   }
   return (
     <div className="diff-pair">
-      <Half line={row.left} number="oldNumber" tokens={tokens} />
-      <Half line={row.right} number="newNumber" tokens={tokens} />
+      <Half line={row.left} number="oldNumber" {...context} />
+      <Half line={row.right} number="newNumber" {...context} />
     </div>
   );
 }
 
-interface HalfProps {
-  line: DiffLine | null;
-  number: "oldNumber" | "newNumber";
-  tokens: ReadonlyMap<DiffLine, Token[]>;
-}
-
-function Half({ line, number, tokens }: HalfProps) {
+function Half({
+  line,
+  number,
+  ...context
+}: { line: DiffLine | null; number: "oldNumber" | "newNumber" } & RowContext) {
   if (!line) return <div className="diff-line diff-empty" />;
   return (
     <div className={`diff-line diff-${line.kind}`}>
+      <LinePick line={line} {...context} />
       <span className="diff-number">{line[number]}</span>
       <span className="diff-sign">{signOf(line)}</span>
-      <LineText line={line} tokens={tokens} />
+      <LineText line={line} tokens={context.tokens} />
     </div>
+  );
+}
+
+function LinePick({ line, staging, picked, onTogglePick }: { line: DiffLine } & RowContext) {
+  if (!staging || !isChanged(line)) return <span className="diff-pick" />;
+  const number = line.kind === "added" ? line.newNumber : line.oldNumber;
+  return (
+    <span className="diff-pick">
+      <input
+        type="checkbox"
+        aria-label={`Select ${line.kind} line ${number}`}
+        checked={picked.has(lineKey(line))}
+        onChange={() => onTogglePick(line)}
+      />
+    </span>
   );
 }
 

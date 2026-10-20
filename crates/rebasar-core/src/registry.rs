@@ -63,15 +63,22 @@ pub struct WindowBounds {
 }
 
 impl RegistryData {
-    pub(crate) fn register_repository(&mut self, path: &str, name: &str) {
+    /// Returns `false`, changing nothing, when the Repository is already known.
+    pub(crate) fn register_repository(
+        &mut self,
+        path: &str,
+        name: &str,
+        group_id: Option<&str>,
+    ) -> bool {
         if self.repositories.iter().any(|record| record.path == path) {
-            return;
+            return false;
         }
         self.repositories.push(RepositoryRecord {
             path: path.to_owned(),
             name: name.to_owned(),
-            group_id: None,
+            group_id: group_id.map(str::to_owned),
         });
+        true
     }
 
     pub(crate) fn remember_tab(&mut self, tab: &Tab, repository: &str) {

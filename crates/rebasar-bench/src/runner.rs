@@ -151,7 +151,7 @@ pub fn run(cache: &FixtureCache, scale: &Scale, scenarios: &[Scenario]) -> io::R
     let mut results = Vec::new();
     for scenario in scenarios {
         let fail = |error: ApiError| io::Error::other(format!("{}: {error}", scenario.name));
-        let (elapsed_ms, measurements) = match scenario.run {
+        let (elapsed_ms, measurements): (f64, Vec<Measurement>) = match scenario.run {
             Run::Timed(action) => {
                 if scenario.warm_up {
                     action(&core, &fixtures).map_err(fail)?;
@@ -169,17 +169,28 @@ pub fn run(cache: &FixtureCache, scale: &Scale, scenarios: &[Scenario]) -> io::R
             scenario: scenario.name.to_owned(),
             elapsed_ms,
             threshold: scenario.threshold.map(|threshold| threshold.id),
-            verdict: verdict(elapsed_ms, scenario.threshold),
+            verdict: verdict(elapsed_ms, &measurements, scenario.threshold),
             measurements,
         });
     }
     Ok(Report::new(*scale, results))
 }
 
-fn verdict(elapsed_ms: f64, threshold: Option<&Threshold>) -> Verdict {
+/// A time limit is compared with the scenario's elapsed time, a memory limit with the figure it
+/// recorded in megabytes.
+pub(crate) fn verdict(
+    elapsed_ms: f64,
+    measurements: &[Measurement],
+    threshold: Option<&Threshold>,
+) -> Verdict {
     match threshold.map(|threshold| threshold.limit) {
         Some(Limit::Milliseconds(limit)) if elapsed_ms <= limit as f64 => Verdict::Within,
         Some(Limit::Milliseconds(_)) => Verdict::Exceeded,
-        Some(Limit::Megabytes(_)) | None => Verdict::Unchecked,
+        Some(Limit::Megabytes(limit)) => match measurements.iter().find(|m| m.unit == "MB") {
+            Some(memory) if memory.value <= limit as f64 => Verdict::Within,
+            Some(_) => Verdict::Exceeded,
+            None => Verdict::Unchecked,
+        },
+        None => Verdict::Unchecked,
     }
 }

@@ -13,6 +13,7 @@ export function SettingsView({ api }: { api: CoreApi }) {
     <div className="settings">
       <IdentitySection api={api} />
       <DiffSection settings={settings} update={update} />
+      <SyncSection settings={settings} update={update} />
       <AppearanceSection settings={settings} update={update} />
       {error && (
         <p role="alert" className="error">
@@ -146,6 +147,45 @@ function DiffSection({ settings, update }: SectionProps) {
           <option value="unified">Unified</option>
           <option value="sideBySide">Side by side</option>
         </select>
+      </div>
+    </section>
+  );
+}
+
+function SyncSection({ settings, update }: SectionProps) {
+  const autoId = useId();
+  const intervalId = useId();
+  const { sync } = settings;
+
+  return (
+    <section className="settings-section" aria-labelledby={`${autoId}-title`}>
+      <h2 id={`${autoId}-title`}>Sync</h2>
+      <div className="settings-field">
+        <label htmlFor={autoId}>Fetch the open Tab automatically</label>
+        <input
+          id={autoId}
+          type="checkbox"
+          checked={sync.autoFetch}
+          onChange={(event) => update({ ...settings, sync: { ...sync, autoFetch: event.target.checked } })}
+        />
+      </div>
+      <div className="settings-field">
+        <label htmlFor={intervalId}>Fetch every (minutes)</label>
+        <input
+          id={intervalId}
+          type="number"
+          min={1}
+          max={120}
+          className="text-input"
+          disabled={!sync.autoFetch}
+          value={sync.fetchIntervalMinutes}
+          onChange={(event) => {
+            const minutes = Number(event.target.value);
+            if (Number.isInteger(minutes) && minutes >= 1) {
+              update({ ...settings, sync: { ...sync, fetchIntervalMinutes: minutes } });
+            }
+          }}
+        />
       </div>
     </section>
   );

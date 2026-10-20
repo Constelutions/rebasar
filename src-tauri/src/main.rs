@@ -4,11 +4,11 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use rebasar_core::{
-    ApiError, Assessment, CommitDetail, CommitDiffRequest, CommitHit, CommitOptions, Core,
-    DiffRequest, FileDiff, GitHubAuthStatus, GitHubRepository, GitIdentity, GitSetup, Group,
-    HistoryCount, HistoryFilter, HistoryPage, MutationId, MutationKind, MutationOutcome,
-    OutgoingCommit, PullRequest, RefLabel, RepositoryList, Session, Settings, Tab, WindowBounds,
-    WorktreeStatus,
+    ApiError, Assessment, BranchInfo, ConflictFile, ConflictSide, CommitDetail, CommitDiffRequest, CommitHit, CommitOptions, Core,
+    DiffRequest, FileChange, FileDiff, FoundRepository, GitHubAuthStatus, GitHubRepository, GitIdentity, GitSetup, Group,
+    HistoryCount, HistoryFilter, HistoryPage, LineSelection, MutationId, MergeMode, MutationKind, ResetMode, StashInfo, StashPreview, RemoteInfo, TagInfo, WorktreeDetail, WorktreeStart, RebasePlan, MutationOutcome, OperationInProgress, PullStrategy,
+    OutgoingCommit, PullRequest, PullRequestDetails, RefLabel, RepositoryList, Session, Settings, Tab, WindowBounds,
+    SyncStatus, WorktreeDiffRequest, WorktreeStatus,
 };
 use tauri::{Emitter, Manager, PhysicalSize, State, WebviewWindow, WindowEvent};
 
@@ -172,6 +172,30 @@ async fn unstage_files(
 ) -> Result<MutationOutcome, ApiError> {
     let core = Arc::clone(&core);
     tauri::async_runtime::spawn_blocking(move || core.unstage(&path, &paths))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn stage_lines(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+    selection: LineSelection,
+) -> Result<MutationOutcome, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.stage_lines(&path, &selection))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn unstage_lines(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+    selection: LineSelection,
+) -> Result<MutationOutcome, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.unstage_lines(&path, &selection))
         .await
         .map_err(ApiError::unexpected)?
 }
@@ -386,6 +410,755 @@ async fn remove_repository(core: State<'_, Arc<Core>>, path: PathBuf) -> Result<
         .map_err(ApiError::unexpected)?
 }
 
+#[tauri::command]
+async fn clone_repository(
+    core: State<'_, Arc<Core>>,
+    url: String,
+    parent: PathBuf,
+    group_id: Option<String>,
+) -> Result<Option<Tab>, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || {
+        core.clone_repository(&url, &parent, group_id.as_deref())
+    })
+    .await
+    .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn init_repository(
+    core: State<'_, Arc<Core>>,
+    folder: PathBuf,
+    group_id: Option<String>,
+) -> Result<Option<Tab>, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.init_repository(&folder, group_id.as_deref()))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn scan_folder(
+    core: State<'_, Arc<Core>>,
+    parent: PathBuf,
+) -> Result<Vec<FoundRepository>, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.scan_folder(&parent))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn import_repositories(
+    core: State<'_, Arc<Core>>,
+    paths: Vec<PathBuf>,
+    group_id: Option<String>,
+) -> Result<(), ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || {
+        core.import_repositories(&paths, group_id.as_deref())
+    })
+    .await
+    .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn checkout_commit(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+    commit: String,
+) -> Result<MutationOutcome, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.checkout_commit(&path, &commit))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn create_branch(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+    name: String,
+    commit: String,
+) -> Result<MutationOutcome, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.create_branch(&path, &name, &commit))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn create_tag(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+    name: String,
+    commit: String,
+) -> Result<MutationOutcome, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.create_tag(&path, &name, &commit))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn reword_latest_commit(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+    commit: String,
+    message: String,
+) -> Result<MutationOutcome, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || {
+        core.reword_latest_commit(&path, &commit, &message)
+    })
+    .await
+    .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn compare_with_worktree(
+    core: State<'_, Arc<Core>>,
+    worktree_path: PathBuf,
+    commit: String,
+) -> Result<Vec<FileChange>, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.compare_with_worktree(&worktree_path, &commit))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn compare_file_diff(
+    core: State<'_, Arc<Core>>,
+    worktree_path: PathBuf,
+    request: WorktreeDiffRequest,
+) -> Result<FileDiff, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.compare_file_diff(&worktree_path, &request))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn operation_in_progress(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+) -> Result<Option<OperationInProgress>, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.operation_in_progress(&path))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn continue_operation(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+) -> Result<MutationOutcome, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.continue_operation(&path))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn skip_operation(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+) -> Result<MutationOutcome, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.skip_operation(&path))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn abort_operation(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+) -> Result<MutationOutcome, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.abort_operation(&path))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn sync_status(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+) -> Result<SyncStatus, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.sync_status(&path))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn fetch_remotes(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+) -> Result<MutationOutcome, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.fetch(&path))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn pull_needs_strategy(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+) -> Result<bool, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.pull_needs_strategy(&path))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn pull(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+    strategy: Option<PullStrategy>,
+    remember: bool,
+) -> Result<MutationOutcome, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.pull(&path, strategy, remember))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn push(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+    force: bool,
+) -> Result<MutationOutcome, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.push(&path, force))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn list_branch_details(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+) -> Result<Vec<BranchInfo>, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.list_branch_details(&path))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn create_branch_here(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+    name: String,
+    switch: bool,
+) -> Result<MutationOutcome, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.create_branch_here(&path, &name, switch))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn checkout_branch(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+    name: String,
+    remote: bool,
+) -> Result<MutationOutcome, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.checkout_branch(&path, &name, remote))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn rename_branch(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+    name: String,
+    new_name: String,
+) -> Result<MutationOutcome, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.rename_branch(&path, &name, &new_name))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn delete_branch(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+    name: String,
+) -> Result<MutationOutcome, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.delete_branch(&path, &name))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn set_branch_upstream(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+    name: String,
+    upstream: Option<String>,
+) -> Result<MutationOutcome, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.set_branch_upstream(&path, &name, upstream.as_deref()))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn merge_branch(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+    branch: String,
+    mode: MergeMode,
+) -> Result<MutationOutcome, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.merge_branch(&path, &branch, mode))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn rebase_onto(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+    onto: String,
+) -> Result<MutationOutcome, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.rebase_onto(&path, &onto))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn conflict_file(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+    file: String,
+) -> Result<ConflictFile, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.conflict_file(&path, &file))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn resolve_conflict_file(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+    file: String,
+    contents: String,
+) -> Result<MutationOutcome, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.resolve_conflict_file(&path, &file, &contents))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn resolve_conflict_with_side(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+    file: String,
+    side: ConflictSide,
+) -> Result<MutationOutcome, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.resolve_conflict_with_side(&path, &file, side))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn open_merge_tool(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+    file: String,
+) -> Result<MutationOutcome, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.open_merge_tool(&path, &file))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn rebase_plan(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+    from: Option<String>,
+) -> Result<RebasePlan, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.rebase_plan(&path, from.as_deref()))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn apply_rebase_plan(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+    plan: RebasePlan,
+) -> Result<MutationOutcome, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.apply_rebase_plan(&path, &plan))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn cherry_pick_commit(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+    commit: String,
+) -> Result<MutationOutcome, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.cherry_pick_commit(&path, &commit))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn revert_commit(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+    commit: String,
+) -> Result<MutationOutcome, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.revert_commit(&path, &commit))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn reset_to_commit(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+    commit: String,
+    mode: ResetMode,
+) -> Result<MutationOutcome, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.reset_to_commit(&path, &commit, mode))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn list_stashes(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+) -> Result<Vec<StashInfo>, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.list_stashes(&path))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn stash_preview(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+    stash: String,
+) -> Result<StashPreview, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.stash_preview(&path, &stash))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn stash_changes(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+    message: Option<String>,
+    include_untracked: bool,
+) -> Result<MutationOutcome, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.stash_changes(&path, message.as_deref(), include_untracked))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn apply_stash(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+    stash: String,
+) -> Result<MutationOutcome, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.apply_stash(&path, &stash))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn pop_stash(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+    stash: String,
+) -> Result<MutationOutcome, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.pop_stash(&path, &stash))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn drop_stash(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+    stash: String,
+) -> Result<MutationOutcome, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.drop_stash(&path, &stash))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn list_worktree_details(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+) -> Result<Vec<WorktreeDetail>, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.list_worktree_details(&path))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn create_worktree(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+    target: PathBuf,
+    from: WorktreeStart,
+    new_branch: Option<String>,
+) -> Result<MutationOutcome, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.create_worktree(&path, &target, &from, new_branch.as_deref()))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn remove_worktree(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+    target: PathBuf,
+    force: bool,
+) -> Result<MutationOutcome, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.remove_worktree(&path, &target, force))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn prune_worktrees(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+) -> Result<MutationOutcome, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.prune_worktrees(&path))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn list_tags(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+) -> Result<Vec<TagInfo>, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.list_tags(&path))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn create_tag_here(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+    name: String,
+    message: Option<String>,
+) -> Result<MutationOutcome, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.create_tag_here(&path, &name, message.as_deref()))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn delete_tag(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+    name: String,
+) -> Result<MutationOutcome, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.delete_tag(&path, &name))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn push_tag(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+    name: String,
+    remote: String,
+) -> Result<MutationOutcome, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.push_tag(&path, &name, &remote))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn delete_remote_tag(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+    name: String,
+    remote: String,
+) -> Result<MutationOutcome, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.delete_remote_tag(&path, &name, &remote))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn list_remotes(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+) -> Result<Vec<RemoteInfo>, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.list_remotes(&path))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn add_remote(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+    name: String,
+    url: String,
+) -> Result<MutationOutcome, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.add_remote(&path, &name, &url))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn rename_remote(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+    name: String,
+    new_name: String,
+) -> Result<MutationOutcome, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.rename_remote(&path, &name, &new_name))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn set_remote_url(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+    name: String,
+    url: String,
+) -> Result<MutationOutcome, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.set_remote_url(&path, &name, &url))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn remove_remote(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+    name: String,
+) -> Result<MutationOutcome, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.remove_remote(&path, &name))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn current_pull_request(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+) -> Result<Option<PullRequestDetails>, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.current_pull_request(&path))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn create_pull_request(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+    title: String,
+    body: String,
+    draft: bool,
+) -> Result<PullRequestDetails, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.create_pull_request(&path, &title, &body, draft))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn update_pull_request(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+    number: u64,
+    title: String,
+    body: String,
+) -> Result<PullRequestDetails, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.update_pull_request(&path, number, &title, &body))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn mark_pull_request_ready(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+    number: u64,
+) -> Result<PullRequestDetails, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.mark_pull_request_ready(&path, number))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn open_in_browser(
+    core: State<'_, Arc<Core>>,
+    url: String,
+) -> Result<(), ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.open_in_browser(&url))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
 fn restore_window(window: &WebviewWindow, bounds: WindowBounds) {
     if let Err(error) = window.set_size(PhysicalSize::new(bounds.width, bounds.height)) {
         eprintln!("failed to restore the window size: {error}");
@@ -421,6 +1194,15 @@ async fn discard_changes(
         .map_err(ApiError::unexpected)?
 }
 
+/// `REBASAR_CONFIG_DIR` keeps a test run, such as the smoke run, away from the user's own
+/// registry and settings.
+fn config_dir_of(app: &tauri::App) -> tauri::Result<PathBuf> {
+    match std::env::var_os("REBASAR_CONFIG_DIR") {
+        Some(folder) => Ok(PathBuf::from(folder)),
+        None => app.path().app_config_dir(),
+    }
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
@@ -431,13 +1213,13 @@ fn main() {
                     eprintln!("failed to emit core event: {error}");
                 }
             })
-            .with_registry_file(app.path().app_config_dir()?.join("registry.json"));
+            .with_registry_file(config_dir_of(app)?.join("registry.json"));
             if let (Some(window), Some(bounds)) =
                 (app.get_webview_window("main"), core.window_bounds())
             {
                 restore_window(&window, bounds);
             }
-            let config_dir = app.path().app_config_dir()?;
+            let config_dir = config_dir_of(app)?;
             app.manage(Arc::new(core.with_config_dir(config_dir)));
             Ok(())
         })
@@ -473,6 +1255,8 @@ fn main() {
             check_git,
             stage_files,
             unstage_files,
+            stage_lines,
+            unstage_lines,
             commit,
             assess_mutation,
             discard_changes,
@@ -493,7 +1277,68 @@ fn main() {
             move_group,
             move_repository,
             locate_repository,
-            remove_repository
+            remove_repository,
+            clone_repository,
+            init_repository,
+            scan_folder,
+            import_repositories,
+            checkout_commit,
+            create_branch,
+            create_tag,
+            reword_latest_commit,
+            compare_with_worktree,
+            compare_file_diff,
+            operation_in_progress,
+            continue_operation,
+            skip_operation,
+            abort_operation,
+            sync_status,
+            fetch_remotes,
+            pull_needs_strategy,
+            pull,
+            push,
+            list_branch_details,
+            create_branch_here,
+            checkout_branch,
+            rename_branch,
+            delete_branch,
+            set_branch_upstream,
+            merge_branch,
+            rebase_onto,
+            conflict_file,
+            resolve_conflict_file,
+            resolve_conflict_with_side,
+            open_merge_tool,
+            rebase_plan,
+            apply_rebase_plan,
+            cherry_pick_commit,
+            revert_commit,
+            reset_to_commit,
+            list_stashes,
+            stash_preview,
+            stash_changes,
+            apply_stash,
+            pop_stash,
+            drop_stash,
+            list_worktree_details,
+            create_worktree,
+            remove_worktree,
+            prune_worktrees,
+            list_tags,
+            create_tag_here,
+            delete_tag,
+            push_tag,
+            delete_remote_tag,
+            list_remotes,
+            add_remote,
+            rename_remote,
+            set_remote_url,
+            remove_remote,
+            current_pull_request,
+            create_pull_request,
+            update_pull_request,
+            mark_pull_request_ready,
+            open_in_browser
         ])
         .run(tauri::generate_context!())
         .expect("failed to run Rebasar");

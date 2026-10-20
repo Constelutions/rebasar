@@ -103,7 +103,7 @@ pub struct Hunk {
     pub lines: Vec<DiffLine>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DiffLine {
     pub kind: LineKind,
@@ -112,7 +112,7 @@ pub struct DiffLine {
     pub text: String,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum LineKind {
     Context,
@@ -139,6 +139,40 @@ pub(crate) fn read(repo: &gix::Repository, request: &DiffRequest) -> Result<File
         request.load_large,
         request.whitespace,
     )
+}
+
+/// One side of a file exactly as stored, line endings included.
+pub(crate) struct RawSide {
+    pub bytes: Vec<u8>,
+    pub mode: Option<u32>,
+}
+
+impl RawSide {
+    pub fn exists(&self) -> bool {
+        self.mode.is_some()
+    }
+}
+
+/// The two sides of the diff for `request`, for building a patch from them. Binary files and
+/// symlinks have no lines to pick, so they are refused.
+pub(crate) fn read_sides(
+    repo: &gix::Repository,
+    request: &DiffRequest,
+) -> Result<(RawSide, RawSide), ApiError> {
+    let work_dir = repo.workdir().ok_or_else(|| ApiError::Unexpected {
+        message: "the repository has no working tree".to_owned(),
+    })?;
+    ensure_inside_worktree(&request.path)?;
+    if let Some(original) = &request.original_path {
+        ensure_inside_worktree(original)?;
+    }
+
+    let reader = Reader { repo, work_dir };
+    let (old, new) = reader.sides(request)?;
+    Ok((
+        reader.raw_side(old, &request.path)?,
+        reader.raw_side(new, &request.path)?,
+    ))
 }
 
 /// One file of a commit, diffed against the commit's `parent`-th parent.
@@ -185,7 +219,7 @@ pub(crate) fn read_in_commit(
     )
 }
 
-fn ensure_inside_worktree(path: &str) -> Result<(), ApiError> {
+pub(crate) fn ensure_inside_worktree(path: &str) -> Result<(), ApiError> {
     let inside = Path::new(path)
         .components()
         .all(|component| matches!(component, Component::Normal(_)));
@@ -197,14 +231,14 @@ fn ensure_inside_worktree(path: &str) -> Result<(), ApiError> {
     })
 }
 
-enum Source {
+pub(crate) enum Source {
     Missing,
     Blob(gix::ObjectId),
     WorktreeFile(PathBuf),
 }
 
-struct Side {
-    mode: Option<u32>,
+pub(crate) struct Side {
+    pub(crate) mode: Option<u32>,
     source: Source,
 }
 
@@ -232,9 +266,9 @@ impl Loaded {
     }
 }
 
-struct Reader<'repo> {
-    repo: &'repo gix::Repository,
-    work_dir: &'repo Path,
+pub(crate) struct Reader<'repo> {
+    pub(crate) repo: &'repo gix::Repository,
+    pub(crate) work_dir: &'repo Path,
 }
 
 impl Reader<'_> {
@@ -261,7 +295,7 @@ impl Reader<'_> {
         })
     }
 
-    fn diff_between(
+    pub(crate) fn diff_between(
         &self,
         path: &str,
         original_path: Option<&str>,
@@ -299,7 +333,7 @@ impl Reader<'_> {
         self.tree_side(&tree, path)
     }
 
-    fn tree_side(&self, tree: &gix::Tree<'_>, path: &str) -> Result<Side, ApiError> {
+    pub(crate) fn tree_side(&self, tree: &gix::Tree<'_>, path: &str) -> Result<Side, ApiError> {
         let entry = tree
             .lookup_entry_by_path(path)
             .map_err(ApiError::unexpected)?;
@@ -309,7 +343,7 @@ impl Reader<'_> {
         }))
     }
 
-    fn index_side(&self, path: &str, stage: Stage) -> Result<Side, ApiError> {
+    pub(crate) fn index_side(&self, path: &str, stage: Stage) -> Result<Side, ApiError> {
         let index = self.repo.index_or_empty().map_err(ApiError::unexpected)?;
         let entry = index.entry_by_path_and_stage(BStr::new(path), stage);
         Ok(entry.map_or(Side::MISSING, |entry| Side {
@@ -318,7 +352,7 @@ impl Reader<'_> {
         }))
     }
 
-    fn worktree_side(&self, path: &str, indexed_mode: Option<u32>) -> Result<Side, ApiError> {
+    pub(crate) fn worktree_side(&self, path: &str, indexed_mode: Option<u32>) -> Result<Side, ApiError> {
         let file = self.work_dir.join(path);
         let Ok(metadata) = fs::symlink_metadata(&file) else {
             return Ok(Side::MISSING);
@@ -338,6 +372,23 @@ impl Reader<'_> {
         })
     }
 
+    fn raw_side(&self, side: Side, path: &str) -> Result<RawSide, ApiError> {
+        if side.mode == Some(SYMLINK_MODE) {
+            return Err(unsupported(path, "a symbolic link"));
+        }
+        let bytes = match self.load(&side.source, true)? {
+            Loaded::Missing => Vec::new(),
+            Loaded::Text(data) => data,
+            Loaded::Binary(_) | Loaded::TooLarge(_) => {
+                return Err(unsupported(path, "a binary file"))
+            }
+        };
+        Ok(RawSide {
+            bytes,
+            mode: side.mode,
+        })
+    }
+
     fn load(&self, source: &Source, load_large: bool) -> Result<Loaded, ApiError> {
         match source {
             Source::Missing => Ok(Loaded::Missing),
@@ -352,6 +403,12 @@ impl Reader<'_> {
             }
             Source::WorktreeFile(file) => read_worktree_file(file, load_large),
         }
+    }
+}
+
+fn unsupported(path: &str, what: &str) -> ApiError {
+    ApiError::Unexpected {
+        message: format!("{path} is {what}, so single lines cannot be staged"),
     }
 }
 
@@ -439,6 +496,10 @@ fn text_of(loaded: Loaded) -> Vec<u8> {
     let Loaded::Text(data) = loaded else {
         return Vec::new();
     };
+    normalise_line_endings(&data)
+}
+
+fn normalise_line_endings(data: &[u8]) -> Vec<u8> {
     let mut normalised = Vec::with_capacity(data.len());
     for (index, &byte) in data.iter().enumerate() {
         let before_newline = data.get(index + 1) == Some(&b'\n');
@@ -453,27 +514,40 @@ fn count_lines(bytes: &[u8]) -> usize {
     split_lines(bytes).count()
 }
 
-fn split_lines(bytes: &[u8]) -> impl Iterator<Item = &[u8]> {
+pub(crate) fn split_lines(bytes: &[u8]) -> impl Iterator<Item = &[u8]> {
     bytes.split_inclusive(|&byte| byte == b'\n')
 }
 
-struct Change {
-    before: Range<u32>,
-    after: Range<u32>,
+pub(crate) struct Change {
+    pub before: Range<u32>,
+    pub after: Range<u32>,
 }
 
-fn hunks_between(old: &[u8], new: &[u8], whitespace: WhitespaceMode) -> Vec<Hunk> {
+pub(crate) fn changes_between(old: &[u8], new: &[u8]) -> Vec<Change> {
+    changes_by(old, new, WhitespaceMode::Show)
+}
+
+/// The same changes the diff view shows, found with line endings normalised, as ranges of
+/// the raw lines of both sides.
+pub(crate) fn displayed_changes(old: &[u8], new: &[u8]) -> Vec<Change> {
+    changes_between(&normalise_line_endings(old), &normalise_line_endings(new))
+}
+
+fn changes_by(old: &[u8], new: &[u8], whitespace: WhitespaceMode) -> Vec<Change> {
     let mut input = InternedInput::default();
     input.update_before(comparable_lines(old, whitespace));
     input.update_after(comparable_lines(new, whitespace));
-    let diff = Diff::compute(Algorithm::Histogram, &input);
-    let changes: Vec<Change> = diff
+    Diff::compute(Algorithm::Histogram, &input)
         .hunks()
         .map(|hunk| Change {
             before: hunk.before,
             after: hunk.after,
         })
-        .collect();
+        .collect()
+}
+
+fn hunks_between(old: &[u8], new: &[u8], whitespace: WhitespaceMode) -> Vec<Hunk> {
+    let changes = changes_by(old, new, whitespace);
     if changes.is_empty() {
         return Vec::new();
     }
@@ -603,6 +677,11 @@ fn context_lines<'a>(
         new_number: Some(new_first + offset + 1),
         text: line_text(old_lines[(old_first + offset) as usize]),
     })
+}
+
+/// A line as the diff view shows it, with a CRLF ending read as LF.
+pub(crate) fn displayed_text(line: &[u8]) -> String {
+    line_text(&normalise_line_endings(line))
 }
 
 fn line_text(line: &[u8]) -> String {

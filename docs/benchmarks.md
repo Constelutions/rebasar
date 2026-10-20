@@ -45,10 +45,21 @@ Defined once, in `crates/rebasar-bench/src/thresholds.rs`: cold start, commit gr
 
 ## Adding a scenario
 
-Add a `Scenario` to `scenarios()` in `crates/rebasar-bench/src/runner.rs`: a name and a function over `&Core` and the fixture paths, optionally `.against(&THRESHOLD)`. Call `.after_warm_up()` for an operation the app repeats on a warm file cache: the action then runs once untimed before the timed run. The `status-worktree` scenario does this and is measured against the 100k-file status threshold; `status-changeset` times the same read on the changeset fixture without a threshold. The `first-changeset-file` scenario lists the changeset's changes and diffs the first one, the core part of showing the first file; rendering it is the UI's share and is not measured. The placeholder `open-folder-*` scenarios have no threshold; they exist to prove the pipeline. Scenarios are timed as wall-clock durations; a memory scenario will need the runner extended to measure memory.
+Add a `Scenario` to `scenarios()` in `crates/rebasar-bench/src/runner.rs`: a name and a function over `&Core` and the fixture paths, optionally `.against(&THRESHOLD)`. Call `.after_warm_up()` for an operation the app repeats on a warm file cache: the action then runs once untimed before the timed run. The `status-worktree` scenario does this and is measured against the 100k-file status threshold; `status-changeset` times the same read on the changeset fixture without a threshold. The `first-changeset-file` scenario lists the changeset's changes and diffs the first one, the core part of showing the first file; rendering it is the UI's share and is not measured. The placeholder `open-folder-*` scenarios have no threshold; they exist to prove the pipeline. Scenarios are timed as wall-clock durations.
 
 ## Tabs at scale
 
 The `tabs-at-scale` scenario opens every Worktree of the `tabs` fixture as a Tab (open, activate, read its status for the live dot), stays idle for two seconds, then switches between the Tabs twice over, keeping an 8 MB cache for the active one each time. It records, as measurements printed under the scenario and in the JSON: time, memory and CPU of opening everything; CPU and file-watcher events while idle; memory after switching (it must not grow with the number of Tabs, because only the active Tab keeps its caches); and the median and slowest `activate_tab` call, which is what the **Tab switch** threshold is compared with. The status read that refreshes a Tab after a switch is reported separately.
 
-What is measured is the core's share of the app: the webview's memory and the time React takes to paint a Tab are not included, so **Idle memory** stays "not measured yet" until the app itself can be sampled.
+What is measured there is the core's share of the app: the webview's memory and the time React takes to paint a Tab are not included.
+
+## Cold start and idle memory
+
+These two only the running app can answer, so `pnpm bench:app` (`e2e/app-benchmark.mjs`) launches the app through the Tauri WebDriver, with the same setup as the [smoke run](smoke-run.md). **Cold start** is the time from launching the app until a click on its sidebar is answered; the WebDriver attaching to the page is part of it, so the figure is a ceiling. **Idle memory** is the sum of the working sets of the app and every process it started (the WebView2 ones included), after a Repository is open and eight seconds of idleness. Set `REBASAR_RELEASE=1` to measure the release build, which is what the alpha report uses.
+
+```sh
+pnpm bench:app --output app.json --open <folder of a Repository>
+pnpm bench --app-results app.json
+```
+
+`--app-results` adds the two measured scenarios (`app-cold-start`, `app-idle-memory`) to the report, so every threshold is measured. The alpha results are in [benchmark-report.md](benchmark-report.md).

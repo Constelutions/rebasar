@@ -57,7 +57,7 @@ fn upstream_tip(repo: &gix::Repository, head: &gix::Head<'_>) -> Option<gix::Obj
     Some(reference.peel_to_id().ok()?.detach())
 }
 
-fn remote_tips(repo: &gix::Repository) -> Result<Vec<gix::ObjectId>, ApiError> {
+pub(crate) fn remote_tips(repo: &gix::Repository) -> Result<Vec<gix::ObjectId>, ApiError> {
     let references = repo.references().map_err(ApiError::unexpected)?;
     let remote_branches = references
         .prefixed("refs/remotes/")

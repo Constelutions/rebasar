@@ -338,3 +338,50 @@ impl TempRepo {
             .expect("run git")
     }
 }
+
+/// A plain folder to build several repositories in, side by side or nested.
+pub struct Workspace {
+    root: TempDir,
+}
+
+impl Workspace {
+    pub fn new() -> Self {
+        Self {
+            root: tempfile::tempdir().expect("create temp dir"),
+        }
+    }
+
+    pub fn path(&self) -> &Path {
+        self.root.path()
+    }
+
+    /// Creates the folder, and the ones above it, without making it a repository.
+    pub fn create_folder(&self, relative_path: &str) -> PathBuf {
+        let folder = self.root.path().join(relative_path);
+        fs::create_dir_all(&folder).expect("create folder");
+        folder
+    }
+
+    pub fn init_repository(&self, relative_path: &str) -> PathBuf {
+        let folder = self.create_folder(relative_path);
+        let output = Command::new("git")
+            .args(["init", "--initial-branch=main"])
+            .current_dir(&folder)
+            .env("GIT_CONFIG_GLOBAL", self.root.path().join("empty.gitconfig"))
+            .env("GIT_CONFIG_NOSYSTEM", "1")
+            .output()
+            .expect("run git");
+        assert!(
+            output.status.success(),
+            "git init failed: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        folder
+    }
+}
+
+impl Default for Workspace {
+    fn default() -> Self {
+        Self::new()
+    }
+}

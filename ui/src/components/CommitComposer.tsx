@@ -14,6 +14,8 @@ interface CommitComposerProps {
   outgoing: OutgoingCommit[];
   outgoingError: string | null;
   onCommit: (message: string, options: CommitOptions) => Promise<{ kind: string }>;
+  /** Publishes the new commit; runs only after the commit succeeded. */
+  onPush: () => Promise<{ kind: string }>;
   onFailure: (failure: unknown) => void;
 }
 
@@ -22,12 +24,14 @@ export function CommitComposer({
   outgoing,
   outgoingError,
   onCommit,
+  onPush,
   onFailure,
 }: CommitComposerProps) {
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
   const [amend, setAmend] = useState(false);
   const [signOff, setSignOff] = useState(false);
+  const [pushAfter, setPushAfter] = useState(false);
   const [committing, setCommitting] = useState(false);
   const subjectId = useId();
   const counterId = useId();
@@ -47,6 +51,7 @@ export function CommitComposer({
         setSubject("");
         setBody("");
         setAmend(false);
+        if (pushAfter) await onPush();
       }
     } catch (failure) {
       onFailure(failure);
@@ -110,6 +115,14 @@ export function CommitComposer({
             onChange={(event) => setSignOff(event.target.checked)}
           />
           Sign off
+        </label>
+        <label className="option">
+          <input
+            type="checkbox"
+            checked={pushAfter}
+            onChange={(event) => setPushAfter(event.target.checked)}
+          />
+          Push after commit
         </label>
 
         <button type="submit" disabled={!canCommit}>

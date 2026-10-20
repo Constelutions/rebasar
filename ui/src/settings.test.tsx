@@ -141,6 +141,7 @@ it("starts from the stored settings", async () => {
     settings: {
       diff: { whitespace: "ignoreAll", defaultMode: "sideBySide" },
       appearance: { codeFontSize: 14 },
+      sync: { autoFetch: true, fetchIntervalMinutes: 5 },
     },
   });
   await openSettings(user);

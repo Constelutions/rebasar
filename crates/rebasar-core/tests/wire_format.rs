@@ -827,3 +827,68 @@ fn an_assessment_serialises_to_the_shape_the_ui_expects() {
         })
     );
 }
+
+#[test]
+fn a_worktree_diff_request_deserialises_from_the_shape_the_ui_sends() {
+    let request: rebasar_core::WorktreeDiffRequest = serde_json::from_value(serde_json::json!({
+        "commit": "abc1234def",
+        "path": "src/new.rs",
+        "loadLarge": true,
+    }))
+    .unwrap();
+
+    assert_eq!(
+        request,
+        rebasar_core::WorktreeDiffRequest {
+            commit: "abc1234def".to_owned(),
+            path: "src/new.rs".to_owned(),
+            load_large: true,
+        }
+    );
+}
+
+#[test]
+fn an_operation_in_progress_serialises_to_the_shape_the_ui_expects() {
+    let operation = rebasar_core::OperationInProgress {
+        kind: rebasar_core::OperationKind::CherryPick,
+        step: Some(rebasar_core::OperationStep { current: 2, total: 5 }),
+        conflicts: 3,
+        can_skip: true,
+    };
+
+    assert_eq!(
+        serde_json::to_value(operation).unwrap(),
+        serde_json::json!({
+            "kind": "cherryPick",
+            "step": { "current": 2, "total": 5 },
+            "conflicts": 3,
+            "canSkip": true,
+        })
+    );
+}
+
+#[test]
+fn aborting_an_operation_deserialises_as_a_mutation_kind() {
+    let kind: rebasar_core::MutationKind =
+        serde_json::from_value(serde_json::json!({ "kind": "abortOperation" })).unwrap();
+
+    assert_eq!(kind, rebasar_core::MutationKind::AbortOperation);
+}
+
+#[test]
+fn a_reset_deserialises_as_a_mutation_kind() {
+    let kind: rebasar_core::MutationKind = serde_json::from_value(serde_json::json!({
+        "kind": "reset",
+        "commit": "abc1234def",
+        "mode": "hard",
+    }))
+    .unwrap();
+
+    assert_eq!(
+        kind,
+        rebasar_core::MutationKind::Reset {
+            commit: "abc1234def".to_owned(),
+            mode: rebasar_core::ResetMode::Hard,
+        }
+    );
+}

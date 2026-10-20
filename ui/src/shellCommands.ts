@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 
 import type { CoreApi, RefLabel } from "./core/api";
+import type { AddKind } from "./components/AddRepositoryDialog";
 import { describeHead } from "./components/TabStrip";
 import { usePalette, usePaletteCommands } from "./palette/PaletteProvider";
-import type { PaletteCommand } from "./palette/registry";
+import type { PaletteCommand, PaletteContext } from "./palette/registry";
 import type { AppWindow } from "./shell/appWindow";
 import { shortcuts } from "./shortcuts";
 import type { OpenTab } from "./useOpenTabs";
@@ -20,6 +21,7 @@ interface ShellCommandHandlers {
   showView: (view: ViewName) => void;
   /** Shows History narrowed by the filter `query`. */
   showCommits: (query: string) => void;
+  addRepository: (kind: AddKind) => void;
 }
 
 /** Registers what the title bar, the sidebar and the Tab strip let the user do. */
@@ -33,6 +35,7 @@ export function useShellCommands({
   selectTab,
   showView,
   showCommits,
+  addRepository,
 }: ShellCommandHandlers) {
   const windowCommands = useMemo<PaletteCommand[]>(
     () => [
@@ -43,6 +46,27 @@ export function useShellCommands({
         keywords: ["add", "repository", "worktree"],
         shortcut: shortcuts.openFolder.label,
         run: openFolder,
+      },
+      {
+        id: "shell.clone-repository",
+        title: "Clone repository…",
+        group: "Repository",
+        keywords: ["add", "url", "git clone"],
+        run: () => addRepository("clone"),
+      },
+      {
+        id: "shell.init-repository",
+        title: "Initialise repository…",
+        group: "Repository",
+        keywords: ["add", "new", "git init"],
+        run: () => addRepository("init"),
+      },
+      {
+        id: "shell.scan-folder",
+        title: "Scan folder for repositories…",
+        group: "Repository",
+        keywords: ["add", "import", "find"],
+        run: () => addRepository("scan"),
       },
       {
         id: "window.minimize",
@@ -64,7 +88,33 @@ export function useShellCommands({
         run: () => appWindow.close(),
       },
     ],
-    [appWindow, openFolder],
+    [appWindow, openFolder, addRepository],
+  );
+
+  const operationCommands = useMemo<PaletteCommand[]>(
+    () => [
+      {
+        id: "operation.continue",
+        title: "Continue the operation in progress",
+        group: "Operation",
+        keywords: ["merge", "rebase", "cherry-pick", "revert"],
+        when: (context) => context.activeTab?.operation?.conflicts === 0,
+        run: ({ activeTab }) => {
+          if (activeTab) void api.continueOperation(activeTab.tab.worktreePath);
+        },
+      },
+      {
+        id: "operation.skip",
+        title: "Skip the current commit of the operation in progress",
+        group: "Operation",
+        keywords: ["rebase", "cherry-pick", "revert"],
+        when: (context) => context.activeTab?.operation?.canSkip === true,
+        run: ({ activeTab }) => {
+          if (activeTab) void api.skipOperation(activeTab.tab.worktreePath);
+        },
+      },
+    ],
+    [api],
   );
 
   const viewCommands = useMemo<PaletteCommand[]>(
@@ -95,17 +145,39 @@ export function useShellCommands({
   const branches = useBranches(api, activeTab?.tab.worktreePath);
   const branchCommands = useMemo<PaletteCommand[]>(
     () =>
-      branches.map(({ name }) => ({
-        id: `branch.${name}`,
-        title: `Show branch ${name}`,
-        group: "Branches",
-        keywords: ["history", "checkout"],
-        run: () => showCommits(`branch:${name}`),
-      })),
-    [branches, showCommits],
+      branches.flatMap(({ name, kind }) => [
+        {
+          id: `branch.${name}`,
+          title: `Show branch ${name}`,
+          group: "Branches",
+          keywords: ["history", "checkout"],
+          run: () => showCommits(`branch:${name}`),
+        },
+        ...(kind === "localBranch" || kind === "remoteBranch"
+          ? [
+              {
+                id: `branch.checkout.${name}`,
+                title: `Check out branch ${name}`,
+                group: "Branches",
+                keywords: ["switch", "checkout"],
+                run: ({ activeTab }: PaletteContext) => {
+                  if (activeTab) {
+                    void api.checkoutBranch(
+                      activeTab.tab.worktreePath,
+                      name,
+                      kind === "remoteBranch",
+                    );
+                  }
+                },
+              },
+            ]
+          : []),
+      ]),
+    [api, branches, showCommits],
   );
 
   usePaletteCommands(windowCommands);
+  usePaletteCommands(operationCommands);
   usePaletteCommands(viewCommands);
   usePaletteCommands(tabCommands);
   usePaletteCommands(branchCommands);

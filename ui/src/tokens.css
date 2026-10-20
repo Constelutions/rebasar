@@ -72,6 +72,7 @@
   --diff-row-height: 20px;
   --diff-font-size: var(--text-sm);
   --diff-number-width: 44px;
+  --diff-pick-width: 24px;
   --changes-files-width: 340px;
   --sidebar-width: 208px;
   --avatar-size: 22px;

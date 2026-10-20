@@ -5,12 +5,14 @@ use serde::Serialize;
 use crate::platform::{self, CredentialStore};
 use crate::ApiError;
 
+mod actions;
 mod gh_cli;
 mod graphql;
 mod http;
 mod pull_requests;
 mod remote;
 
+pub use actions::PullRequestDetails;
 pub use gh_cli::{GhCli, SystemGhCli};
 pub use http::{HttpClient, HttpError, HttpRequest, HttpResponse, UreqHttpClient};
 pub use pull_requests::{CheckState, PullRequest, ReviewState};
@@ -97,6 +99,47 @@ impl GitHub {
     ) -> Result<Vec<PullRequest>, ApiError> {
         let (_, token) = self.token()?.ok_or(ApiError::GithubNotSignedIn)?;
         pull_requests::list(self.services.http.as_ref(), &token, repository)
+    }
+
+    pub fn pull_request_for_branch(
+        &self,
+        repository: &GitHubRepository,
+        branch: &str,
+    ) -> Result<Option<PullRequestDetails>, ApiError> {
+        let (_, token) = self.token()?.ok_or(ApiError::GithubNotSignedIn)?;
+        actions::find_for_branch(self.services.http.as_ref(), &token, repository, branch)
+    }
+
+    pub fn create_pull_request(
+        &self,
+        repository: &GitHubRepository,
+        head: &str,
+        title: &str,
+        body: &str,
+        draft: bool,
+    ) -> Result<PullRequestDetails, ApiError> {
+        let (_, token) = self.token()?.ok_or(ApiError::GithubNotSignedIn)?;
+        actions::create(self.services.http.as_ref(), &token, repository, head, title, body, draft)
+    }
+
+    pub fn update_pull_request(
+        &self,
+        repository: &GitHubRepository,
+        number: u64,
+        title: &str,
+        body: &str,
+    ) -> Result<PullRequestDetails, ApiError> {
+        let (_, token) = self.token()?.ok_or(ApiError::GithubNotSignedIn)?;
+        actions::update(self.services.http.as_ref(), &token, repository, number, title, body)
+    }
+
+    pub fn mark_pull_request_ready(
+        &self,
+        repository: &GitHubRepository,
+        number: u64,
+    ) -> Result<PullRequestDetails, ApiError> {
+        let (_, token) = self.token()?.ok_or(ApiError::GithubNotSignedIn)?;
+        actions::mark_ready(self.services.http.as_ref(), &token, repository, number)
     }
 
     fn token(&self) -> Result<Option<(TokenSource, String)>, ApiError> {
