@@ -1,5 +1,5 @@
 use rebasar_core::{
-    ConfirmTabClose, CopySettings, GraphStyle, HistoryOrientation, HistorySettings,
+    ChangesSettings, ConfirmTabClose, CopySettings, FilesView, GraphStyle, HistoryOrientation, HistorySettings,
     ApiError, AppearanceSettings, Assessment, ChangeKind, ChangeList, CheckState, CommitDetail,
     CommitDiffRequest, CommitHit, CommitOptions, CommitParent, CoreEvent, DiffContent, DiffLine,
     DiffMode, DiffRequest, DiffSettings, Edge, EdgeKind, FileChange, FileDiff, GitHubAuthStatus,
@@ -563,6 +563,10 @@ fn settings_serialise_to_the_shape_the_ui_expects() {
             all_branches: false,
             orientation: HistoryOrientation::Horizontal,
             graph_style: GraphStyle::Tree,
+            files_view: FilesView::Flat,
+        },
+        changes: ChangesSettings {
+            files_view: FilesView::Flat,
         },
     };
 
@@ -580,7 +584,9 @@ fn settings_serialise_to_the_shape_the_ui_expects() {
                 "allBranches": false,
                 "orientation": "horizontal",
                 "graphStyle": "tree",
+                "filesView": "flat",
             },
+            "changes": { "filesView": "flat" },
         })
     );
 }

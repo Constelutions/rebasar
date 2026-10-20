@@ -4,7 +4,7 @@ import { Button } from "../components/Button";
 import { DiffView } from "../components/DiffView";
 import { FileTree } from "../components/FileTree";
 import { type GroupTree, buildGroupTrees, firstFile } from "../components/changeTree";
-import type { CommitDetail, CoreApi, DiffMode, FileChange } from "../core/api";
+import type { CommitDetail, CoreApi, DiffMode, FileChange, FilesView } from "../core/api";
 import { describeError } from "../core/describeError";
 import { useSettings } from "../settings/SettingsContext";
 import { formatDateTime } from "./items";
@@ -87,7 +87,8 @@ function CommitBody({
   onParentChange,
 }: CommitBodyProps) {
   const [pickedPath, setPickedPath] = useState<string | null>(null);
-  const { settings } = useSettings();
+  const { settings, update } = useSettings();
+  const filesView = settings.history.filesView;
   const [pickedMode, setPickedMode] = useState<DiffMode | null>(null);
   const mode = pickedMode ?? settings.diff.defaultMode;
   const [subject, ...bodyLines] = detail.message.split("\n");
@@ -108,7 +109,7 @@ function CommitBody({
       ),
     [files, comparing],
   );
-  const selected = resolveSelection(files, pickedPath, trees);
+  const selected = resolveSelection(files, pickedPath, trees, filesView);
   const diff = useCommitFileDiff(api, worktreePath, detail.id, base, selected);
 
   return (
@@ -178,6 +179,10 @@ function CommitBody({
               trees={trees}
               selected={selected && { list: "commit", path: selected.path }}
               onSelect={(_, change) => setPickedPath(change.path)}
+              view={filesView}
+              onViewChange={(view) =>
+                update({ ...settings, history: { ...settings.history, filesView: view } })
+              }
             />
           </div>
           <div className="changes-diff">
@@ -207,8 +212,9 @@ function resolveSelection(
   files: FileChange[],
   pickedPath: string | null,
   trees: GroupTree<"commit">[],
+  view: FilesView,
 ): FileChange | null {
-  return files.find((file) => file.path === pickedPath) ?? firstFile(trees)?.change ?? null;
+  return files.find((file) => file.path === pickedPath) ?? firstFile(trees, view)?.change ?? null;
 }
 
 function useCommitDetail(api: CoreApi, worktreePath: string, commitId: string, parent: number) {

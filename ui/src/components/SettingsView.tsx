@@ -4,6 +4,7 @@ import type {
   ConfirmTabClose,
   CoreApi,
   DiffMode,
+  FilesView,
   GitIdentity,
   Settings,
   Tab,
@@ -59,6 +60,7 @@ function GlobalSettings({ api }: { api: CoreApi }) {
       <SyncSection settings={settings} update={update} />
       <TabsSection settings={settings} update={update} />
       <HistorySection settings={settings} update={update} />
+      <ChangesSection settings={settings} update={update} />
       <CopySection settings={settings} update={update} />
       <AppearanceSection settings={settings} update={update} />
       {error && (
@@ -338,6 +340,7 @@ function HistorySection({ settings, update }: SectionProps) {
   const branchesId = useId();
   const orientationId = useId();
   const graphStyleId = useId();
+  const filesViewId = useId();
   const { history } = settings;
 
   return (
@@ -409,7 +412,56 @@ function HistorySection({ settings, update }: SectionProps) {
           </option>
         </select>
       </div>
+      <div className="settings-field">
+        <label htmlFor={filesViewId}>Changed files of a commit</label>
+        <FilesViewSelect
+          id={filesViewId}
+          value={history.filesView}
+          onChange={(filesView) => update({ ...settings, history: { ...history, filesView } })}
+        />
+      </div>
     </section>
+  );
+}
+
+function ChangesSection({ settings, update }: SectionProps) {
+  const filesViewId = useId();
+
+  return (
+    <section className="settings-section" aria-labelledby={`${filesViewId}-title`}>
+      <h2 id={`${filesViewId}-title`}>Changes</h2>
+      <p className="settings-hint">How the Changes view lists files when you open it.</p>
+      <div className="settings-field">
+        <label htmlFor={filesViewId}>Staged and Unstaged files</label>
+        <FilesViewSelect
+          id={filesViewId}
+          value={settings.changes.filesView}
+          onChange={(filesView) => update({ ...settings, changes: { ...settings.changes, filesView } })}
+        />
+      </div>
+    </section>
+  );
+}
+
+function FilesViewSelect({
+  id,
+  value,
+  onChange,
+}: {
+  id: string;
+  value: FilesView;
+  onChange: (value: FilesView) => void;
+}) {
+  return (
+    <select
+      id={id}
+      className="select"
+      value={value}
+      onChange={(event) => onChange(event.target.value === "flat" ? "flat" : "tree")}
+    >
+      <option value="tree">Tree</option>
+      <option value="flat">Flat list</option>
+    </select>
   );
 }
 

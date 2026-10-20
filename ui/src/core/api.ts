@@ -263,8 +263,15 @@ export interface Settings {
     /** Horizontal never combines with the Linear graph style; the core stores Tree instead. */
     orientation: "vertical" | "horizontal";
     graphStyle: "tree" | "linear";
+    /** How the changed files of a commit are listed. */
+    filesView: FilesView;
   };
+  /** How the Staged and Unstaged lists open. */
+  changes: { filesView: FilesView };
 }
+
+/** A list of changed files, as a tree of folders or as one flat list of paths. */
+export type FilesView = "tree" | "flat";
 
 export type ConfirmTabClose = "always" | "whenLost" | "never";
 
@@ -280,7 +287,15 @@ export const defaultSettings: Settings = {
   sync: { autoFetch: true, fetchIntervalMinutes: 5 },
   copy: { onSelect: true },
   tabs: { confirmClose: "whenLost", restoreOnLaunch: true },
-  history: { mine: false, merges: false, allBranches: true, orientation: "vertical", graphStyle: "tree" },
+  history: {
+    mine: false,
+    merges: false,
+    allBranches: true,
+    orientation: "vertical",
+    graphStyle: "tree",
+    filesView: "tree",
+  },
+  changes: { filesView: "tree" },
 };
 
 export interface Group {

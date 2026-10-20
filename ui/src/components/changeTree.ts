@@ -1,4 +1,4 @@
-import type { FileChange } from "../core/api";
+import type { FileChange, FilesView } from "../core/api";
 
 export interface FolderNode {
   type: "folder";
@@ -32,7 +32,7 @@ export interface GroupTree<L extends string = string> {
 export type TreeRow<L extends string = string> =
   | { type: "group"; key: string; list: L; name: string; count: number }
   | { type: "folder"; key: string; folder: FolderNode; depth: number; expanded: boolean }
-  | { type: "file"; key: string; list: L; file: FileNode; depth: number };
+  | { type: "file"; key: string; list: L; file: FileNode; depth: number; directory?: string };
 
 const nameOrder = new Intl.Collator();
 
@@ -68,10 +68,14 @@ export function fileKey(list: string, path: string) {
   return `${list}:${path}`;
 }
 
-/** The rows the tree shows, top to bottom, with the contents of collapsed folders left out. */
+/**
+ * The rows the list shows, top to bottom. A tree leaves out the contents of collapsed folders; a
+ * flat list has no folders and orders the files by path, each carrying the folder it is in.
+ */
 export function flattenChanges<L extends string>(
   trees: GroupTree<L>[],
   collapsed: ReadonlySet<string>,
+  view: FilesView = "tree",
 ): TreeRow<L>[] {
   const rows: TreeRow<L>[] = [];
   for (const { group, nodes } of trees) {
@@ -82,18 +86,36 @@ export function flattenChanges<L extends string>(
       name: group.name,
       count: group.changes.length,
     });
-    appendNodes(rows, group.list, nodes, 0, collapsed);
+    if (view === "tree") {
+      appendNodes(rows, group.list, nodes, 0, collapsed);
+      continue;
+    }
+    for (const change of byPath(group.changes)) {
+      const slash = change.path.lastIndexOf("/");
+      rows.push({
+        type: "file",
+        key: fileKey(group.list, change.path),
+        list: group.list,
+        file: { type: "file", name: change.path.slice(slash + 1), change },
+        depth: 0,
+        directory: change.path.slice(0, Math.max(slash, 0)),
+      });
+    }
   }
   return rows;
 }
 
-/** The file the tree lists first, which is the one shown when nothing was picked. */
-export function firstFile<L extends string>(trees: GroupTree<L>[]) {
+/** The file the list shows first, which is the one selected when nothing was picked. */
+export function firstFile<L extends string>(trees: GroupTree<L>[], view: FilesView = "tree") {
   for (const { group, nodes } of trees) {
-    const file = firstFileOf(nodes);
-    if (file) return { list: group.list, change: file.change };
+    const change = view === "tree" ? firstFileOf(nodes)?.change : byPath(group.changes)[0];
+    if (change) return { list: group.list, change };
   }
   return null;
+}
+
+function byPath(changes: FileChange[]) {
+  return [...changes].sort((a, b) => nameOrder.compare(a.path, b.path));
 }
 
 function firstFileOf(nodes: TreeNode[]): FileNode | null {

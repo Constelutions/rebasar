@@ -1,8 +1,8 @@
 use std::fs;
 
 use rebasar_core::{
-    ApiError, AppearanceSettings, ConfirmTabClose, Core, CopySettings, DiffMode, DiffSettings,
-    GraphStyle, HistoryOrientation, HistorySettings, Settings, SyncSettings, TabSettings,
+    ApiError, AppearanceSettings, ChangesSettings, ConfirmTabClose, Core, CopySettings, DiffMode,
+    DiffSettings, FilesView, GraphStyle, HistoryOrientation, HistorySettings, Settings, SyncSettings, TabSettings,
     WhitespaceMode,
 };
 
@@ -37,8 +37,36 @@ fn customised() -> Settings {
             all_branches: false,
             orientation: HistoryOrientation::Horizontal,
             graph_style: GraphStyle::Tree,
+            files_view: FilesView::Flat,
+        },
+        changes: ChangesSettings {
+            files_view: FilesView::Flat,
         },
     }
+}
+
+#[test]
+fn changed_files_start_as_a_tree_everywhere() {
+    let settings = Settings::default();
+
+    assert_eq!(settings.history.files_view, FilesView::Tree);
+    assert_eq!(settings.changes.files_view, FilesView::Tree);
+}
+
+#[test]
+fn settings_files_written_before_the_files_view_existed_still_load() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::write(
+        dir.path().join("settings.json"),
+        r#"{ "history": { "mine": true } }"#,
+    )
+    .unwrap();
+
+    let settings = core_in(dir.path()).settings().expect("settings");
+
+    assert!(settings.history.mine);
+    assert_eq!(settings.history.files_view, FilesView::Tree);
+    assert_eq!(settings.changes.files_view, FilesView::Tree);
 }
 
 #[test]

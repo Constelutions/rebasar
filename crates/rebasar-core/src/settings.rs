@@ -18,6 +18,23 @@ pub struct Settings {
     pub copy: CopySettings,
     pub tabs: TabSettings,
     pub history: HistorySettings,
+    pub changes: ChangesSettings,
+}
+
+/// How a list of changed files is laid out.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum FilesView {
+    #[default]
+    Tree,
+    Flat,
+}
+
+/// How the Staged and Unstaged lists open.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, rename_all = "camelCase")]
+pub struct ChangesSettings {
+    pub files_view: FilesView,
 }
 
 /// The filters History opens with, before the user changes them in a Tab.
@@ -31,6 +48,8 @@ pub struct HistorySettings {
     pub all_branches: bool,
     pub orientation: HistoryOrientation,
     pub graph_style: GraphStyle,
+    /// How the changed files of a commit are listed.
+    pub files_view: FilesView,
 }
 
 impl Default for HistorySettings {
@@ -41,6 +60,7 @@ impl Default for HistorySettings {
             all_branches: true,
             orientation: HistoryOrientation::default(),
             graph_style: GraphStyle::default(),
+            files_view: FilesView::default(),
         }
     }
 }

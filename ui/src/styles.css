@@ -462,6 +462,21 @@ button {
   flex: none;
 }
 
+.change-group-header .segmented {
+  margin-left: auto;
+  padding: 1px;
+}
+
+.change-group-header .segment {
+  padding: 0 var(--space-2);
+  font-size: var(--text-xs);
+}
+
+.change-group-header .segmented + .group-action {
+  margin-left: 0;
+}
+
+.tree-directory,
 .renamed-from {
   min-width: 0;
   overflow: hidden;

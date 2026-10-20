@@ -277,6 +277,7 @@ it("starts from the stored settings", async () => {
       copy: { onSelect: true },
       tabs: { confirmClose: "whenLost", restoreOnLaunch: true },
       history: { ...defaultSettings.history },
+      changes: { ...defaultSettings.changes },
     },
   });
   await openSettings(user);
@@ -319,6 +320,20 @@ it("stores the History orientation and graph style it opens with as soon as they
   );
 });
 
+it("stores the default view of the changed files of a commit and of the Staged and Unstaged lists", async () => {
+  const { user, api } = render();
+  await openSettings(user);
+
+  expect(screen.getByLabelText("Changed files of a commit")).toHaveValue("tree");
+  expect(screen.getByLabelText("Staged and Unstaged files")).toHaveValue("tree");
+
+  await user.selectOptions(screen.getByLabelText("Changed files of a commit"), "flat");
+  await waitFor(async () => expect((await api.settings()).history.filesView).toBe("flat"));
+
+  await user.selectOptions(screen.getByLabelText("Staged and Unstaged files"), "flat");
+  await waitFor(async () => expect((await api.settings()).changes.filesView).toBe("flat"));
+});
+
 it("does not offer a Linear graph style for a Horizontal History", async () => {
   const { user } = render();
   await openSettings(user);
@@ -326,7 +341,7 @@ it("does not offer a Linear graph style for a Horizontal History", async () => {
   await user.selectOptions(screen.getByLabelText("Orientation"), "horizontal");
 
   expect(screen.getByRole("option", { name: "Linear" })).toBeDisabled();
-  expect(screen.getByRole("option", { name: "Tree" })).toBeEnabled();
+  expect(within(screen.getByLabelText("Graph style")).getByRole("option", { name: "Tree" })).toBeEnabled();
 });
 
 it("stores a changed diff option as soon as it is picked", async () => {

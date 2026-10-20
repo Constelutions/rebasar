@@ -1,9 +1,15 @@
 import { useMemo, useState } from "react";
 
-import type { ChangeKind, FileChange } from "../core/api";
+import type { ChangeKind, FileChange, FilesView } from "../core/api";
 import { Button } from "./Button";
 import { type GroupTree, type TreeRow, fileKey, flattenChanges } from "./changeTree";
+import { SegmentedControl } from "./SegmentedControl";
 import { VirtualList } from "./VirtualList";
+
+const viewOptions = [
+  { value: "tree", label: "Tree" },
+  { value: "flat", label: "Flat" },
+] as const;
 
 export const TREE_ROW_HEIGHT = 26;
 
@@ -42,6 +48,11 @@ interface FileTreeProps<L extends string> {
   actionsFor?: (list: L) => FileAction[];
   /** A button in the header of the list, such as 'Discard all'. */
   groupActionFor?: (list: L) => GroupAction | undefined;
+  /** Shows the files as folders or as one flat list; a tree when left out. */
+  view?: FilesView;
+  /** Puts a tree/flat toggle in the header of every list that `viewToggleFor` accepts. */
+  onViewChange?: (view: FilesView) => void;
+  viewToggleFor?: (list: L) => boolean;
 }
 
 export function FileTree<L extends string>({
@@ -50,9 +61,12 @@ export function FileTree<L extends string>({
   onSelect,
   actionsFor,
   groupActionFor,
+  view = "tree",
+  onViewChange,
+  viewToggleFor = () => true,
 }: FileTreeProps<L>) {
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
-  const rows = useMemo(() => flattenChanges(trees, collapsed), [trees, collapsed]);
+  const rows = useMemo(() => flattenChanges(trees, collapsed, view), [trees, collapsed, view]);
 
   function toggle(key: string) {
     setCollapsed((current) => {
@@ -79,6 +93,11 @@ export function FileTree<L extends string>({
           onSelect={onSelect}
           actions={row.type === "file" ? (actionsFor?.(row.list) ?? []) : []}
           groupAction={row.type === "group" ? groupActionFor?.(row.list) : undefined}
+          viewToggle={
+            row.type === "group" && onViewChange && viewToggleFor(row.list)
+              ? { view, onChange: onViewChange }
+              : undefined
+          }
         />
       )}
     />
@@ -92,6 +111,7 @@ interface TreeRowViewProps<L extends string> {
   onSelect: (list: L, change: FileChange) => void;
   actions: FileAction[];
   groupAction: GroupAction | undefined;
+  viewToggle: { view: FilesView; onChange: (view: FilesView) => void } | undefined;
 }
 
 function TreeRowView<L extends string>({
@@ -101,6 +121,7 @@ function TreeRowView<L extends string>({
   onSelect,
   actions,
   groupAction,
+  viewToggle,
 }: TreeRowViewProps<L>) {
   const indent = { paddingLeft: `calc(var(--space-4) * ${"depth" in row ? row.depth : 0})` };
 
@@ -109,6 +130,14 @@ function TreeRowView<L extends string>({
       <header className="change-group-header">
         <h2>{row.name}</h2>
         <span className="change-group-count">{row.count}</span>
+        {viewToggle && (
+          <SegmentedControl
+            label={`${row.name} view`}
+            options={viewOptions}
+            value={viewToggle.view}
+            onChange={viewToggle.onChange}
+          />
+        )}
         {groupAction && (
           <Button
             variant="plain"
@@ -154,6 +183,7 @@ function TreeRowView<L extends string>({
           {statusLetters[kind].letter}
         </span>
         <span className="tree-name">{row.file.name}</span>
+        {row.directory && <span className="tree-directory">{row.directory}</span>}
         {originalPath && <span className="renamed-from">{originalPath}</span>}
         <LineCounts added={added} removed={removed} />
       </Button>

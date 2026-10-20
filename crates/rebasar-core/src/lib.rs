@@ -63,7 +63,7 @@ pub use outgoing::OutgoingCommit;
 pub use identity::GitIdentity;
 pub use safety::{Assessment, Loss, MutationKind};
 pub use settings::{
-    AppearanceSettings, ConfirmTabClose, CopySettings, DiffMode, DiffSettings, GraphStyle, HistoryOrientation, HistorySettings, Settings, SyncSettings,
+    AppearanceSettings, ChangesSettings, ConfirmTabClose, CopySettings, DiffMode, DiffSettings, FilesView, GraphStyle, HistoryOrientation, HistorySettings, Settings, SyncSettings,
     TabSettings,
 };
 use registry::RegistryStore;

@@ -6,6 +6,7 @@ import type {
   DiffMode,
   FileChange,
   FileDiff,
+  FilesView,
   OutgoingCommit,
   PullRequestDetails,
   WhitespaceMode,
@@ -37,12 +38,17 @@ export function ChangesView({ api, worktreePath, status, error, commitDrafts }: 
   const [editingPullRequest, setEditingPullRequest] = useState(false);
   const { outgoing, outgoingError } = useOutgoingCommits(api, worktreePath);
   const { confirm, dialog } = useConfirmation(api, worktreePath);
-  const { settings, ready } = useSettings();
+  const { settings, ready, update } = useSettings();
   const [pickedMode, setPickedMode] = useState<DiffMode | null>(null);
   const mode = pickedMode ?? settings.diff.defaultMode;
 
+  const filesView = settings.changes.filesView;
+
   const trees = useMemo(() => buildGroupTrees(status ? changeGroups(status) : []), [status]);
-  const selected = useMemo(() => resolveSelection(trees, picked), [trees, picked]);
+  const selected = useMemo(
+    () => resolveSelection(trees, picked, filesView),
+    [trees, picked, filesView],
+  );
   const whitespace = ready ? settings.diff.whitespace : null;
   const diff = useFileDiff(api, worktreePath, status, selected, whitespace);
 
@@ -130,6 +136,9 @@ export function ChangesView({ api, worktreePath, status, error, commitDrafts }: 
                 onSelect={(list, change) => setPicked({ list, path: change.path })}
                 actionsFor={actionsFor}
                 groupActionFor={groupActionFor}
+                view={filesView}
+                onViewChange={(view) => update({ ...settings, changes: { filesView: view } })}
+                viewToggleFor={(list) => list !== "conflicts"}
               />
             </div>
             <div className="changes-diff">
@@ -214,12 +223,13 @@ interface Selected {
 function resolveSelection(
   trees: GroupTree<ChangeList>[],
   picked: FileSelection<ChangeList> | null,
+  view: FilesView,
 ): Selected | null {
   const change = trees
     .find(({ group }) => group.list === picked?.list)
     ?.group.changes.find((candidate) => candidate.path === picked?.path);
   if (picked && change) return { list: picked.list, change };
-  return firstFile(trees);
+  return firstFile(trees, view);
 }
 
 function useFileDiff(
