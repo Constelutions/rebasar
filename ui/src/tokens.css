@@ -86,6 +86,9 @@
   --switcher-width: 320px;
   --switcher-button-max-width: 220px;
   --switcher-max-height: 360px;
+  --multi-select-width: 260px;
+  --multi-select-button-max-width: 240px;
+  --multi-select-max-height: 280px;
   --output-body-height: 220px;
   --palette-width: 600px;
   --palette-list-height: 380px;

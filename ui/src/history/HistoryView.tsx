@@ -1,8 +1,9 @@
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import { SegmentedControl } from "../components/SegmentedControl";
-import type { CoreApi, HistoryRow, Tab } from "../core/api";
+import type { CoreApi, HistoryRow, Settings, Tab } from "../core/api";
 import { describeError } from "../core/describeError";
+import { useSettings } from "../settings/SettingsContext";
 import { useDebounced } from "../useDebounced";
 import { Avatar } from "./Avatar";
 import { useConfirmation } from "../useConfirmation";
@@ -13,6 +14,8 @@ import { type CommitAction, CommitMenu } from "./CommitMenu";
 import { type Connections, CommitGraph, DayGraph } from "./CommitGraph";
 import { type Chips, FilterBar } from "./FilterBar";
 import { defaultChips, useHistoryCommands } from "./historyCommands";
+import { MY_COMMITS, addTerm } from "./historyQuery";
+import { useAuthorNames, useBranchNames } from "./useFilterChoices";
 import { RefBadge } from "./RefBadge";
 import { type GraphStyle, type Orientation, itemSize } from "./geometry";
 import { type HistoryItem, formatTime } from "./items";
@@ -43,9 +46,30 @@ interface HistoryViewProps {
   initialQuery?: string;
 }
 
-export function HistoryView({ api, tab, initialQuery = "" }: HistoryViewProps) {
-  const [queryText, setQueryText] = useState(initialQuery);
-  const [chips, setChips] = useState<Chips>(defaultChips);
+export function HistoryView(props: HistoryViewProps) {
+  const { settings, ready } = useSettings();
+  if (!ready) return null;
+  return <FilteredHistory {...props} defaults={settings.history} />;
+}
+
+/** A search from the palette is shown as asked, so the filters History opens with do not apply to it. */
+function startingFilter(initialQuery: string, defaults: Settings["history"]) {
+  if (initialQuery !== "") return { query: initialQuery, chips: defaultChips };
+  return {
+    query: defaults.mine ? addTerm("", "author", MY_COMMITS) : "",
+    chips: { allBranches: defaults.allBranches, merges: defaults.merges },
+  };
+}
+
+function FilteredHistory({
+  api,
+  tab,
+  initialQuery = "",
+  defaults,
+}: HistoryViewProps & { defaults: Settings["history"] }) {
+  const [starting] = useState(() => startingFilter(initialQuery, defaults));
+  const [queryText, setQueryText] = useState(starting.query);
+  const [chips, setChips] = useState<Chips>(starting.chips);
   useHistoryCommands({ queryText, setQueryText, chips, setChips });
   const query = useDebounced(queryText, QUERY_DEBOUNCE_MS);
   const filter = useMemo(() => ({ query, ...chips }), [query, chips]);
@@ -55,6 +79,8 @@ export function HistoryView({ api, tab, initialQuery = "" }: HistoryViewProps) {
     filter,
   );
   const count = useHistoryCount(api, tab.worktreePath, filter);
+  const branchNames = useBranchNames(api, tab.worktreePath);
+  const authorNames = useAuthorNames(items);
   const [{ orientation, style }, changeLayout] = useHistoryLayout();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [comparing, setComparing] = useState(false);
@@ -138,6 +164,8 @@ export function HistoryView({ api, tab, initialQuery = "" }: HistoryViewProps) {
       onQueryChange={setQueryText}
       chips={chips}
       onChipsChange={setChips}
+      branches={branchNames}
+      authors={authorNames}
       count={count}
       queryError={queryError}
     />
@@ -154,7 +182,7 @@ export function HistoryView({ api, tab, initialQuery = "" }: HistoryViewProps) {
     );
   }
   if (loaded && items.length === 0) {
-    const filtered = filter.query !== "" || filter.mine || filter.merges || !filter.allBranches;
+    const filtered = filter.query !== "" || filter.merges || !filter.allBranches;
     return (
       <>
         {filterBar}

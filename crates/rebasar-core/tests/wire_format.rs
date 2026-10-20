@@ -1,5 +1,5 @@
 use rebasar_core::{
-    ConfirmTabClose, CopySettings,
+    ConfirmTabClose, CopySettings, HistorySettings,
     ApiError, AppearanceSettings, Assessment, ChangeKind, ChangeList, CheckState, CommitDetail,
     CommitDiffRequest, CommitHit, CommitOptions, CommitParent, CoreEvent, DiffContent, DiffLine,
     DiffMode, DiffRequest, DiffSettings, Edge, EdgeKind, FileChange, FileDiff, GitHubAuthStatus,
@@ -213,7 +213,6 @@ fn a_history_filter_deserialises_from_the_shape_the_ui_sends() {
     let filter: HistoryFilter = serde_json::from_value(json!({
         "query": "author:ada",
         "allBranches": false,
-        "mine": true,
         "merges": false,
     }))
     .unwrap();
@@ -223,7 +222,6 @@ fn a_history_filter_deserialises_from_the_shape_the_ui_sends() {
         HistoryFilter {
             query: "author:ada".to_owned(),
             all_branches: false,
-            mine: true,
             merges: false,
         }
     );
@@ -559,6 +557,11 @@ fn settings_serialise_to_the_shape_the_ui_expects() {
             confirm_close: ConfirmTabClose::WhenLost,
             restore_on_launch: false,
         },
+        history: HistorySettings {
+            mine: true,
+            merges: false,
+            all_branches: false,
+        },
     };
 
     assert_eq!(
@@ -569,6 +572,7 @@ fn settings_serialise_to_the_shape_the_ui_expects() {
             "sync": { "autoFetch": false, "fetchIntervalMinutes": 10 },
             "copy": { "onSelect": false },
             "tabs": { "confirmClose": "whenLost", "restoreOnLaunch": false },
+            "history": { "mine": true, "merges": false, "allBranches": false },
         })
     );
 }

@@ -17,6 +17,28 @@ pub struct Settings {
     pub sync: SyncSettings,
     pub copy: CopySettings,
     pub tabs: TabSettings,
+    pub history: HistorySettings,
+}
+
+/// The filters History opens with, before the user changes them in a Tab.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, rename_all = "camelCase")]
+pub struct HistorySettings {
+    /// Starts with only the user's own commits.
+    pub mine: bool,
+    pub merges: bool,
+    /// Off starts with the commits reachable from HEAD only.
+    pub all_branches: bool,
+}
+
+impl Default for HistorySettings {
+    fn default() -> Self {
+        Self {
+            mine: false,
+            merges: false,
+            all_branches: true,
+        }
+    }
 }
 
 /// When closing a Tab asks first.

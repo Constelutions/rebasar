@@ -114,19 +114,20 @@ export interface HistoryPage {
   hasMore: boolean;
 }
 
-/** What the History filter bar asks for: the typed query plus the quick chips. */
+/**
+ * What the History filter bar asks for: the typed query plus the quick chips. Whose commits to
+ * show is in the query, as `author:` terms (`author:@me` is the Repository's Git identity).
+ */
 export interface HistoryFilter {
   query: string;
   /** Off narrows History to the commits reachable from HEAD. */
   allBranches: boolean;
-  mine: boolean;
   merges: boolean;
 }
 
 export const unfilteredHistory: HistoryFilter = {
   query: "",
   allBranches: true,
-  mine: false,
   merges: false,
 };
 
@@ -254,6 +255,8 @@ export interface Settings {
   sync: { autoFetch: boolean; fetchIntervalMinutes: number };
   copy: { onSelect: boolean };
   tabs: { confirmClose: ConfirmTabClose; restoreOnLaunch: boolean };
+  /** The filters History opens with. */
+  history: { mine: boolean; merges: boolean; allBranches: boolean };
 }
 
 export type ConfirmTabClose = "always" | "whenLost" | "never";
@@ -270,6 +273,7 @@ export const defaultSettings: Settings = {
   sync: { autoFetch: true, fetchIntervalMinutes: 5 },
   copy: { onSelect: true },
   tabs: { confirmClose: "whenLost", restoreOnLaunch: true },
+  history: { mine: false, merges: false, allBranches: true },
 };
 
 export interface Group {

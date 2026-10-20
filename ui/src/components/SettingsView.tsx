@@ -58,6 +58,7 @@ function GlobalSettings({ api }: { api: CoreApi }) {
       <DiffSection settings={settings} update={update} />
       <SyncSection settings={settings} update={update} />
       <TabsSection settings={settings} update={update} />
+      <HistorySection settings={settings} update={update} />
       <CopySection settings={settings} update={update} />
       <AppearanceSection settings={settings} update={update} />
       {error && (
@@ -326,6 +327,52 @@ function TabsSection({ settings, update }: SectionProps) {
             update({ ...settings, tabs: { ...tabs, restoreOnLaunch: event.target.checked } })
           }
         />
+      </div>
+    </section>
+  );
+}
+
+function HistorySection({ settings, update }: SectionProps) {
+  const mineId = useId();
+  const mergesId = useId();
+  const branchesId = useId();
+  const { history } = settings;
+
+  return (
+    <section className="settings-section" aria-labelledby={`${mineId}-title`}>
+      <h2 id={`${mineId}-title`}>History filters</h2>
+      <p className="settings-hint">What History shows when you open it.</p>
+      <div className="settings-field">
+        <label htmlFor={mineId}>Show only my commits</label>
+        <input
+          id={mineId}
+          type="checkbox"
+          checked={history.mine}
+          onChange={(event) => update({ ...settings, history: { ...history, mine: event.target.checked } })}
+        />
+      </div>
+      <div className="settings-field">
+        <label htmlFor={mergesId}>Show only merge commits</label>
+        <input
+          id={mergesId}
+          type="checkbox"
+          checked={history.merges}
+          onChange={(event) => update({ ...settings, history: { ...history, merges: event.target.checked } })}
+        />
+      </div>
+      <div className="settings-field">
+        <label htmlFor={branchesId}>Branches</label>
+        <select
+          id={branchesId}
+          className="select"
+          value={history.allBranches ? "all" : "current"}
+          onChange={(event) =>
+            update({ ...settings, history: { ...history, allBranches: event.target.value === "all" } })
+          }
+        >
+          <option value="all">All branches</option>
+          <option value="current">Current branch</option>
+        </select>
       </div>
     </section>
   );

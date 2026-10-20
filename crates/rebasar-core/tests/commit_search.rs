@@ -73,6 +73,21 @@ fn the_filter_syntax_of_history_applies() {
 }
 
 #[test]
+fn several_authors_and_me_widen_the_search() {
+    let repo = team_repo();
+    repo.git(&["config", "user.email", "ada@example.com"]);
+
+    assert_eq!(
+        subjects(&find(&repo, "author:grace author:@me parser")),
+        ["Fix feature parser", "Add parser"]
+    );
+    assert_eq!(
+        subjects(&find(&repo, "author:@me")),
+        ["Update docs", "Add parser"]
+    );
+}
+
+#[test]
 fn a_full_hash_finds_its_commit() {
     let repo = team_repo();
     let head = repo.head_commit();

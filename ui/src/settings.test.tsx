@@ -276,6 +276,7 @@ it("starts from the stored settings", async () => {
       sync: { autoFetch: true, fetchIntervalMinutes: 5 },
       copy: { onSelect: true },
       tabs: { confirmClose: "whenLost", restoreOnLaunch: true },
+      history: { mine: false, merges: false, allBranches: true },
     },
   });
   await openSettings(user);
@@ -283,6 +284,23 @@ it("starts from the stored settings", async () => {
   await waitFor(() => expect(screen.getByLabelText("Whitespace")).toHaveValue("ignoreAll"));
   expect(screen.getByLabelText("Default diff mode")).toHaveValue("sideBySide");
   expect(screen.getByLabelText("Code font size")).toHaveValue("14");
+});
+
+it("stores the History filters it opens with as soon as they are picked", async () => {
+  const { user, api } = render();
+  await openSettings(user);
+
+  expect(screen.getByLabelText("Show only my commits")).not.toBeChecked();
+  expect(screen.getByLabelText("Show only merge commits")).not.toBeChecked();
+  expect(screen.getByLabelText("Branches")).toHaveValue("all");
+
+  await user.click(screen.getByLabelText("Show only my commits"));
+  await user.click(screen.getByLabelText("Show only merge commits"));
+  await user.selectOptions(screen.getByLabelText("Branches"), "current");
+
+  await waitFor(async () =>
+    expect((await api.settings()).history).toEqual({ mine: true, merges: true, allBranches: false }),
+  );
 });
 
 it("stores a changed diff option as soon as it is picked", async () => {

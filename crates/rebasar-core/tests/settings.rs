@@ -1,8 +1,8 @@
 use std::fs;
 
 use rebasar_core::{
-    ApiError, AppearanceSettings, ConfirmTabClose, Core, CopySettings, DiffMode, DiffSettings, Settings,
-    SyncSettings, TabSettings, WhitespaceMode,
+    ApiError, AppearanceSettings, ConfirmTabClose, Core, CopySettings, DiffMode, DiffSettings,
+    HistorySettings, Settings, SyncSettings, TabSettings, WhitespaceMode,
 };
 
 fn core_in(dir: &std::path::Path) -> Core {
@@ -30,6 +30,11 @@ fn customised() -> Settings {
             confirm_close: ConfirmTabClose::Never,
             restore_on_launch: false,
         },
+        history: HistorySettings {
+            mine: true,
+            merges: true,
+            all_branches: false,
+        },
     }
 }
 
@@ -50,6 +55,15 @@ fn closing_a_tab_asks_only_when_something_would_be_lost_and_tabs_are_restored_by
 
     assert_eq!(tabs.confirm_close, ConfirmTabClose::WhenLost);
     assert!(tabs.restore_on_launch);
+}
+
+#[test]
+fn history_starts_showing_every_branch_and_everyone() {
+    let history = Settings::default().history;
+
+    assert!(history.all_branches);
+    assert!(!history.mine);
+    assert!(!history.merges);
 }
 
 #[test]
