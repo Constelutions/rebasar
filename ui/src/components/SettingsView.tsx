@@ -522,8 +522,11 @@ function CommitSection({ settings, update }: SectionProps) {
   );
 }
 
+const COPIED_HASH_LENGTHS = [7, 8, 10, 12, 16, 20, 40];
+
 function CopySection({ settings, update }: SectionProps) {
   const onSelectId = useId();
+  const hashLengthId = useId();
   const { copy } = settings;
 
   return (
@@ -537,6 +540,27 @@ function CopySection({ settings, update }: SectionProps) {
           checked={copy.onSelect}
           onChange={(event) => update({ ...settings, copy: { ...copy, onSelect: event.target.checked } })}
         />
+      </div>
+      <div className="settings-field">
+        <label htmlFor={hashLengthId}>Copied hash length</label>
+        <select
+          id={hashLengthId}
+          className="select"
+          value={copy.hashLength ?? "full"}
+          onChange={(event) =>
+            update({
+              ...settings,
+              copy: { ...copy, hashLength: event.target.value === "full" ? null : Number(event.target.value) },
+            })
+          }
+        >
+          <option value="full">Full hash</option>
+          {COPIED_HASH_LENGTHS.map((length) => (
+            <option key={length} value={length}>
+              {length} characters
+            </option>
+          ))}
+        </select>
       </div>
     </section>
   );

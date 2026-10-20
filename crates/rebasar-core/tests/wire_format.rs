@@ -552,7 +552,10 @@ fn settings_serialise_to_the_shape_the_ui_expects() {
             auto_fetch: false,
             fetch_interval_minutes: 10,
         },
-        copy: CopySettings { on_select: false },
+        copy: CopySettings {
+            on_select: false,
+            hash_length: Some(12),
+        },
         tabs: TabSettings {
             confirm_close: ConfirmTabClose::WhenLost,
             restore_on_launch: false,
@@ -585,7 +588,7 @@ fn settings_serialise_to_the_shape_the_ui_expects() {
             "diff": { "whitespace": "ignoreAll", "defaultMode": "sideBySide" },
             "appearance": { "codeFontSize": 13, "sidebarCollapsed": true },
             "sync": { "autoFetch": false, "fetchIntervalMinutes": 10 },
-            "copy": { "onSelect": false },
+            "copy": { "onSelect": false, "hashLength": 12 },
             "tabs": { "confirmClose": "whenLost", "restoreOnLaunch": false },
             "history": {
                 "mine": true,

@@ -253,7 +253,8 @@ export interface Settings {
   diff: { whitespace: WhitespaceMode; defaultMode: DiffMode };
   appearance: { codeFontSize: number; sidebarCollapsed: boolean };
   sync: { autoFetch: boolean; fetchIntervalMinutes: number };
-  copy: { onSelect: boolean };
+  /** `hashLength` is how many characters of a hash a click copies; `null` copies all of it. */
+  copy: { onSelect: boolean; hashLength: number | null };
   tabs: { confirmClose: ConfirmTabClose; restoreOnLaunch: boolean };
   /** The filters History opens with, and the layout it keeps. */
   history: {
@@ -292,7 +293,7 @@ export const defaultSettings: Settings = {
   diff: { whitespace: "show", defaultMode: "unified" },
   appearance: { codeFontSize: 12, sidebarCollapsed: false },
   sync: { autoFetch: true, fetchIntervalMinutes: 5 },
-  copy: { onSelect: true },
+  copy: { onSelect: true, hashLength: null },
   tabs: { confirmClose: "whenLost", restoreOnLaunch: true },
   history: {
     mine: false,

@@ -274,7 +274,7 @@ it("starts from the stored settings", async () => {
       diff: { whitespace: "ignoreAll", defaultMode: "sideBySide" },
       appearance: { codeFontSize: 14, sidebarCollapsed: false },
       sync: { autoFetch: true, fetchIntervalMinutes: 5 },
-      copy: { onSelect: true },
+      copy: { onSelect: true, hashLength: null },
       tabs: { confirmClose: "whenLost", restoreOnLaunch: true },
       history: { ...defaultSettings.history },
       changes: { ...defaultSettings.changes },
@@ -444,4 +444,16 @@ it("applies the stored code font size at launch", async () => {
   await waitFor(() =>
     expect(document.documentElement.style.getPropertyValue("--diff-font-size")).toBe("13px"),
   );
+});
+
+it("stores how many characters of a hash a click copies as soon as it is picked", async () => {
+  const { user, api } = render();
+  await openSettings(user);
+  expect(screen.getByLabelText("Copied hash length")).toHaveValue("full");
+
+  await user.selectOptions(screen.getByLabelText("Copied hash length"), "12");
+  await waitFor(async () => expect((await api.settings()).copy.hashLength).toBe(12));
+
+  await user.selectOptions(screen.getByLabelText("Copied hash length"), "full");
+  await waitFor(async () => expect((await api.settings()).copy.hashLength).toBeNull());
 });

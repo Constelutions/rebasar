@@ -65,7 +65,7 @@ it("points to the banner when a cherry-pick stops", async () => {
 
   await choose(user, "Older work", "Cherry-pick");
 
-  expect(await screen.findByRole("alert")).toHaveTextContent("Cherry-pick bbbbbbb failed");
+  expect(await screen.findByRole("alert")).toHaveTextContent("Cherry-pick bbbbbbbb failed");
   expect(screen.getByRole("alert")).toHaveTextContent("banner");
 });
 
@@ -126,5 +126,5 @@ it("says so when a reset fails", async () => {
 
   await choose(user, "Latest work", "Reset mixed to here");
 
-  expect(await screen.findByRole("alert")).toHaveTextContent("Reset to aaaaaaa failed");
+  expect(await screen.findByRole("alert")).toHaveTextContent("Reset to aaaaaaaa failed");
 });

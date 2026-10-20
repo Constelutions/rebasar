@@ -8,7 +8,7 @@ use serde::Serialize;
 use super::commit::{read_commit, CommitData};
 use super::filter::Filter;
 use super::refs::Snapshot;
-use super::{HistoryFilter, Layout, RefKind, RefLabel};
+use super::{HistoryFilter, Layout, RefKind, RefLabel, HISTORY_SHORT_ID_LENGTH};
 use crate::query::{Query, Term};
 use crate::{open_worktree, ApiError, Core};
 
@@ -27,7 +27,7 @@ impl From<CommitData> for CommitHit {
     fn from(commit: CommitData) -> Self {
         Self {
             id: commit.id.to_string(),
-            short_id: commit.id.to_hex_with_len(7).to_string(),
+            short_id: commit.id.to_hex_with_len(HISTORY_SHORT_ID_LENGTH).to_string(),
             subject: commit.subject,
             author_name: commit.author_name,
             timestamp: commit.time,

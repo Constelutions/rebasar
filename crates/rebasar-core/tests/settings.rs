@@ -27,6 +27,7 @@ fn customised() -> Settings {
         },
         copy: CopySettings {
             on_select: false,
+            hash_length: Some(12),
         },
         tabs: TabSettings {
             confirm_close: ConfirmTabClose::Never,
@@ -308,4 +309,31 @@ fn a_settings_file_from_before_copy_on_select_keeps_it_on() {
     let settings = core_in(dir.path()).settings().expect("settings");
 
     assert!(settings.copy.on_select);
+}
+
+#[test]
+fn a_click_on_a_hash_copies_all_of_it_by_default() {
+    assert_eq!(Settings::default().copy.hash_length, None);
+}
+
+#[test]
+fn a_copied_hash_length_outside_the_supported_range_is_clamped() {
+    let dir = tempfile::tempdir().unwrap();
+    let core = core_in(dir.path());
+    let with_length = |hash_length| Settings {
+        copy: CopySettings {
+            hash_length: Some(hash_length),
+            ..CopySettings::default()
+        },
+        ..Settings::default()
+    };
+
+    assert_eq!(
+        core.update_settings(&with_length(200)).unwrap().copy.hash_length,
+        Some(CopySettings::MAX_HASH_LENGTH)
+    );
+    assert_eq!(
+        core.update_settings(&with_length(1)).unwrap().copy.hash_length,
+        Some(CopySettings::MIN_HASH_LENGTH)
+    );
 }

@@ -41,7 +41,7 @@ function CopyButton() {
 }
 
 function withSettings(children: ReactNode, copyOnSelect = true) {
-  const settings: Settings = { ...defaultSettings, copy: { onSelect: copyOnSelect } };
+  const settings: Settings = { ...defaultSettings, copy: { onSelect: copyOnSelect, hashLength: null } };
   return (
     <SettingsProvider value={{ settings, ready: true, error: null, update: () => {} }}>
       {children}

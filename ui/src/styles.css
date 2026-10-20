@@ -767,6 +767,60 @@ button {
   color: var(--color-text-subtle);
 }
 
+button.commit-hash {
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+  background: none;
+  border: 0;
+}
+
+button.commit-hash:hover {
+  color: var(--color-accent-text);
+  text-decoration: underline;
+}
+
+.history-list[data-orientation="vertical"] .commit-hash,
+.column-hash {
+  width: var(--commit-hash-width);
+}
+
+.history-list[data-orientation="vertical"] .commit-time,
+.column-time {
+  width: var(--commit-time-width);
+}
+
+/* Reserves the width of the list's scrollbar so the titles stay over their columns. */
+.history-columns {
+  display: flex;
+  flex: none;
+  gap: var(--space-3);
+  box-sizing: border-box;
+  padding: var(--space-2) var(--space-5) 0;
+  margin: var(--space-4) calc(-1 * var(--space-5)) 0;
+  overflow-y: scroll;
+  font: 600 var(--text-xs) / 1.4 var(--font-ui);
+  color: var(--color-text-subtle);
+  white-space: nowrap;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.history-columns > * {
+  flex: none;
+}
+
+.history-columns .column-message {
+  flex: 1;
+}
+
+.history-columns .column-author {
+  width: 140px;
+}
+
+.history-columns + .history-scroller {
+  margin-top: 0;
+}
+
 .category-0 { --lane-color: var(--color-category-0); }
 .category-1 { --lane-color: var(--color-category-1); }
 .category-2 { --lane-color: var(--color-category-2); }

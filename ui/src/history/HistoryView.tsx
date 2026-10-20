@@ -3,7 +3,9 @@ import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useStat
 import { SegmentedControl } from "../components/SegmentedControl";
 import type { CoreApi, HistoryRow, Settings, Tab } from "../core/api";
 import { describeError } from "../core/describeError";
+import { Button } from "../components/Button";
 import { useSettings } from "../settings/SettingsContext";
+import { useCopyOnSelect } from "../useCopyOnSelect";
 import { useDebounced } from "../useDebounced";
 import { Avatar } from "./Avatar";
 import { useConfirmation } from "../useConfirmation";
@@ -82,6 +84,12 @@ function FilteredHistory({
   const branchNames = useBranchNames(api, tab.worktreePath);
   const authorNames = useAuthorNames(items);
   const [{ orientation, style }, changeLayout] = useHistoryLayout();
+  const hashLength = useSettings().settings.copy.hashLength;
+  const { copy, tooltip: copiedTooltip } = useCopyOnSelect();
+  const copyHash = useCallback(
+    (commitId: string, near: Element) => copy(commitId.slice(0, hashLength ?? undefined), near),
+    [copy, hashLength],
+  );
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [comparing, setComparing] = useState(false);
   const [menu, setMenu] = useState<{ commitId: string; x: number; y: number } | null>(null);
@@ -212,6 +220,7 @@ function FilteredHistory({
         />
       </div>
       <div className="history" data-detail-open={selectedId !== null || undefined}>
+        {orientation === "vertical" && <ColumnTitles />}
         <HistoryList
           key={`${orientation}-${generation}`}
           items={items}
@@ -222,6 +231,7 @@ function FilteredHistory({
           loadMore={loadMore}
           selectedId={selectedId}
           onSelect={select}
+          onCopyHash={copyHash}
           onOpenMenu={(commitId, x, y) => setMenu({ commitId, x, y })}
         />
         {selectedId !== null && (
@@ -265,6 +275,7 @@ function FilteredHistory({
         />
       )}
       {confirmation}
+      {copiedTooltip}
       {rebaseFrom && (
         <RebaseEditor
           api={api}
@@ -277,6 +288,18 @@ function FilteredHistory({
   );
 }
 
+/** Aligned with the columns of the vertical rows, which are the only ones laid out as a table. */
+function ColumnTitles() {
+  return (
+    <div role="group" aria-label="Columns" className="history-columns">
+      <span className="column-message" />
+      <span className="column-author">Author</span>
+      <span className="column-hash">Commit ID</span>
+      <span className="column-time">Date</span>
+    </div>
+  );
+}
+
 interface HistoryListProps {
   items: HistoryItem[];
   laneCount: number;
@@ -286,6 +309,7 @@ interface HistoryListProps {
   loadMore: () => void;
   selectedId: string | null;
   onSelect: (commitId: string) => void;
+  onCopyHash: (commitId: string, near: Element) => void;
   onOpenMenu: (commitId: string, x: number, y: number) => void;
 }
 
@@ -298,6 +322,7 @@ function HistoryList({
   loadMore,
   selectedId,
   onSelect,
+  onCopyHash,
   onOpenMenu,
 }: HistoryListProps) {
   const size = itemSize(orientation);
@@ -363,6 +388,7 @@ function HistoryList({
               style={style}
               selectedId={selectedId}
               onSelect={onSelect}
+              onCopyHash={onCopyHash}
               onOpenMenu={onOpenMenu}
             />
           );
@@ -392,6 +418,7 @@ interface HistoryItemViewProps {
   style: GraphStyle;
   selectedId: string | null;
   onSelect: (commitId: string) => void;
+  onCopyHash: (commitId: string, near: Element) => void;
   onOpenMenu: (commitId: string, x: number, y: number) => void;
 }
 
@@ -405,6 +432,7 @@ const HistoryItemView = memo(function HistoryItemView({
   style,
   selectedId,
   onSelect,
+  onCopyHash,
   onOpenMenu,
 }: HistoryItemViewProps) {
   const size = itemSize(orientation);
@@ -428,6 +456,7 @@ const HistoryItemView = memo(function HistoryItemView({
       style={position}
       selected={item.row.id === selectedId}
       onSelect={onSelect}
+      onCopyHash={onCopyHash}
       onOpenMenu={onOpenMenu}
     />
   );
@@ -440,10 +469,20 @@ interface CommitItemProps {
   style: { top: number; height: number } | { left: number; width: number };
   selected: boolean;
   onSelect: (commitId: string) => void;
+  onCopyHash: (commitId: string, near: Element) => void;
   onOpenMenu: (commitId: string, x: number, y: number) => void;
 }
 
-function CommitItem({ row, connections, graph, style, selected, onSelect, onOpenMenu }: CommitItemProps) {
+function CommitItem({
+  row,
+  connections,
+  graph,
+  style,
+  selected,
+  onSelect,
+  onCopyHash,
+  onOpenMenu,
+}: CommitItemProps) {
   return (
     <div
       role="listitem"
@@ -477,7 +516,18 @@ function CommitItem({ row, connections, graph, style, selected, onSelect, onOpen
         ))}
       </span>
       <span className="commit-author">{row.authorName}</span>
-      <span className="commit-hash">{row.shortId}</span>
+      <Button
+        variant="plain"
+        className="commit-hash"
+        aria-label={`Copy hash ${row.shortId}`}
+        onClick={(event) => {
+          event.stopPropagation();
+          onCopyHash(row.id, event.currentTarget);
+        }}
+        onKeyDown={(event) => event.stopPropagation()}
+      >
+        {row.shortId}
+      </Button>
       <time className="commit-time" dateTime={new Date(row.timestamp * 1000).toISOString()}>
         {formatTime(row.timestamp)}
       </time>

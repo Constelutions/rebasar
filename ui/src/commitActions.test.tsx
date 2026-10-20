@@ -151,7 +151,7 @@ it("reports a checkout that Git refused", async () => {
 
   await user.click(menuItem("Checkout (detached)"));
 
-  expect(await screen.findByRole("alert")).toHaveTextContent("Check out bbbbbbb failed");
+  expect(await screen.findByRole("alert")).toHaveTextContent("Check out bbbbbbbb failed");
 });
 
 it("creates a branch at the commit with the name the user types", async () => {
@@ -159,7 +159,7 @@ it("creates a branch at the commit with the name the user types", async () => {
   await openMenuOn("Older work");
 
   await user.click(menuItem("Create branch here…"));
-  const dialog = await screen.findByRole("dialog", { name: "Create branch at bbbbbbb" });
+  const dialog = await screen.findByRole("dialog", { name: "Create branch at bbbbbbbb" });
   await user.type(within(dialog).getByRole("textbox", { name: "Branch name" }), "topic/parser");
   await user.click(within(dialog).getByRole("button", { name: "Create branch" }));
 
@@ -201,7 +201,7 @@ it("creates a tag at the commit", async () => {
   await openMenuOn("Latest work");
 
   await user.click(menuItem("Create tag here…"));
-  const dialog = await screen.findByRole("dialog", { name: "Create tag at aaaaaaa" });
+  const dialog = await screen.findByRole("dialog", { name: "Create tag at aaaaaaaa" });
   await user.type(within(dialog).getByRole("textbox", { name: "Tag name" }), "v1.0");
   await user.click(within(dialog).getByRole("button", { name: "Create tag" }));
 
@@ -223,7 +223,7 @@ it("rewords the latest commit from its current message", async () => {
   await openMenuOn("Latest work");
 
   await user.click(menuItem("Reword…"));
-  const dialog = await screen.findByRole("dialog", { name: "Reword aaaaaaa" });
+  const dialog = await screen.findByRole("dialog", { name: "Reword aaaaaaaa" });
   const message = within(dialog).getByRole("textbox", { name: "Commit message" });
   await within(dialog).findByDisplayValue(/With a body\./);
   expect(message).toHaveValue("Latest work\n\nWith a body.");
@@ -244,7 +244,7 @@ it("sends the user to the interactive rebase editor to reword an older commit", 
 
   await user.click(menuItem("Reword…"));
 
-  const dialog = await screen.findByRole("dialog", { name: "Reword bbbbbbb" });
+  const dialog = await screen.findByRole("dialog", { name: "Reword bbbbbbbb" });
   expect(dialog).toHaveTextContent("interactive rebase editor");
   expect(within(dialog).queryByRole("textbox")).not.toBeInTheDocument();
   await user.click(within(dialog).getByRole("button", { name: "Close" }));

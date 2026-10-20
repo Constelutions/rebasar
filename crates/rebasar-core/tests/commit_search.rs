@@ -48,7 +48,7 @@ fn a_hit_carries_what_the_palette_lists() {
 
     assert_eq!(hits.len(), 1);
     assert_eq!(hits[0].id, head);
-    assert_eq!(hits[0].short_id, head[..7]);
+    assert_eq!(hits[0].short_id, head[..8]);
     assert_eq!(hits[0].author_name, "Ada Lovelace");
     assert_eq!(hits[0].subject, "Add a");
 }

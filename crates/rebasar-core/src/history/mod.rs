@@ -19,6 +19,9 @@ pub use search::CommitHit;
 
 const OBJECT_CACHE_BYTES: usize = 64 * 1024 * 1024;
 
+/// Longer than Git's default of 7 so that two commits in a long History rarely look alike.
+pub(crate) const HISTORY_SHORT_ID_LENGTH: usize = 8;
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct HistoryPage {

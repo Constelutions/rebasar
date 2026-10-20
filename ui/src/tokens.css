@@ -80,6 +80,8 @@
   --sidebar-width: 208px;
   --sidebar-width-collapsed: 52px;
   --avatar-size: 22px;
+  --commit-hash-width: 72px;
+  --commit-time-width: 64px;
   --status-dot-size: 8px;
   --tab-max-width: 260px;
   --tab-close-size: 22px;

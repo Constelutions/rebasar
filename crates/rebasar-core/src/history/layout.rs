@@ -6,7 +6,7 @@ use gix::ObjectId;
 use super::commit::{read_commit, CommitData};
 use super::filter::Filter;
 use super::refs::Snapshot;
-use super::{Edge, EdgeKind, HistoryPage, HistoryRow, RefLabel};
+use super::{Edge, EdgeKind, HistoryPage, HistoryRow, RefLabel, HISTORY_SHORT_ID_LENGTH};
 use crate::ApiError;
 
 /// The graph of one Worktree, laid out row by row for as far as it has been asked for. Only the
@@ -200,7 +200,7 @@ impl Walk {
             id,
             HistoryRow {
                 id: commit.id.to_string(),
-                short_id: commit.id.to_hex_with_len(7).to_string(),
+                short_id: commit.id.to_hex_with_len(HISTORY_SHORT_ID_LENGTH).to_string(),
                 subject: commit.subject,
                 author_name: commit.author_name,
                 author_email: commit.author_email,

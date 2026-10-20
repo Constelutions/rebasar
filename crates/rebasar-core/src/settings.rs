@@ -186,11 +186,22 @@ impl Default for SyncSettings {
 #[serde(default, rename_all = "camelCase")]
 pub struct CopySettings {
     pub on_select: bool,
+    /// How many characters of a commit hash a click on it copies; none copies all of it.
+    pub hash_length: Option<u8>,
+}
+
+impl CopySettings {
+    pub const MIN_HASH_LENGTH: u8 = 4;
+    /// The longest hash Git writes, a SHA-256 one.
+    pub const MAX_HASH_LENGTH: u8 = 64;
 }
 
 impl Default for CopySettings {
     fn default() -> Self {
-        Self { on_select: true }
+        Self {
+            on_select: true,
+            hash_length: None,
+        }
     }
 }
 
@@ -226,6 +237,10 @@ impl Settings {
             SyncSettings::MIN_FETCH_INTERVAL_MINUTES,
             SyncSettings::MAX_FETCH_INTERVAL_MINUTES,
         );
+        self.copy.hash_length = self
+            .copy
+            .hash_length
+            .map(|length| length.clamp(CopySettings::MIN_HASH_LENGTH, CopySettings::MAX_HASH_LENGTH));
         // A single line of commits has no lanes to lay out across a horizontal history.
         if self.history.orientation == HistoryOrientation::Horizontal {
             self.history.graph_style = GraphStyle::Tree;
