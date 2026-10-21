@@ -7,8 +7,8 @@ import { renderApp, sampleTab } from "./test-support";
 
 const worktree = sampleTab.worktreePath;
 
-const vscode: Editor = { id: "vscode", label: "VS Code", available: true, unavailableReason: null };
-const zed: Editor = { id: "zed", label: "Zed", available: true, unavailableReason: null };
+const vscode: Editor = { id: "vscode", label: "VS Code", opensFolders: true, available: true, unavailableReason: null };
+const zed: Editor = { id: "zed", label: "Zed", opensFolders: true, available: true, unavailableReason: null };
 
 interface OpenOptions {
   editors?: Editor[];
@@ -121,4 +121,13 @@ it("offers an editor in the command palette for the Worktree in front", async ()
   await user.keyboard("{Enter}");
 
   await waitFor(() => expect(api.openedInEditor).toEqual([{ editorId: "zed", path: worktree }]));
+});
+
+it("leaves out the editors that only open files", async () => {
+  const notepad: Editor = { id: "notepad", label: "Notepad", opensFolders: false, available: true, unavailableReason: null };
+  const { user } = await open({ editors: [notepad, vscode, zed] });
+
+  const menu = await openMenu(user);
+
+  expect(within(menu).getAllByRole("menuitem").map((item) => item.textContent)).toEqual(["VS Code", "Zed"]);
 });

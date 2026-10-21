@@ -1,11 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 
 import type { CoreApi, Editor } from "../core/api";
 import { describeError } from "../core/describeError";
 import { usePaletteCommands } from "../palette/PaletteProvider";
 import type { PaletteCommand } from "../palette/registry";
-import { useSettings } from "../settings/SettingsContext";
 import { useDismiss } from "../useDismiss";
+import { useEditors } from "../useEditors";
 import { Button } from "./Button";
 
 interface OpenInEditorProps {
@@ -16,26 +16,15 @@ interface OpenInEditorProps {
 
 /** Opens the Tab in front in an editor: the main button uses the last editor chosen, the arrow lists them all. */
 export function OpenInEditor({ api, worktreePath, onError }: OpenInEditorProps) {
-  const { settings, update } = useSettings();
-  const [editors, setEditors] = useState<Editor[]>([]);
+  const { editors: everyEditor, lastUsed, remember } = useEditors(api, onError);
   const [menuOpen, setMenuOpen] = useState(false);
   const container = useRef<HTMLDivElement>(null);
   const closeMenu = useCallback(() => setMenuOpen(false), []);
   useDismiss(menuOpen, container, closeMenu);
 
-  useEffect(() => {
-    let current = true;
-    api.listEditors().then(
-      (listed) => current && setEditors(listed),
-      (failure) => current && onError(describeError(failure)),
-    );
-    return () => {
-      current = false;
-    };
-  }, [api, onError]);
-
+  const editors = useMemo(() => everyEditor.filter((editor) => editor.opensFolders), [everyEditor]);
   const usable = useMemo(() => editors.filter((editor) => editor.available), [editors]);
-  const defaultEditor = usable.find((editor) => editor.id === settings.editor.lastUsed) ?? usable[0];
+  const defaultEditor = usable.find((editor) => editor.id === lastUsed) ?? usable[0];
 
   const open = useCallback(
     async (editor: Editor) => {
@@ -46,11 +35,9 @@ export function OpenInEditor({ api, worktreePath, onError }: OpenInEditorProps) 
         onError(describeError(failure));
         return;
       }
-      if (settings.editor.lastUsed !== editor.id) {
-        update({ ...settings, editor: { lastUsed: editor.id } });
-      }
+      remember(editor.id);
     },
-    [api, worktreePath, onError, settings, update],
+    [api, worktreePath, onError, remember],
   );
 
   const commands = useMemo<PaletteCommand[]>(

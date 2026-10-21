@@ -62,8 +62,8 @@ export function diffKey({ list, path }: Pick<DiffRequest, "list" | "path">) {
 const ready: GitSetup = { kind: "ready", version: "2.47.1" };
 
 const defaultEditors: Editor[] = [
-  { id: "vscode", label: "VS Code", available: true, unavailableReason: null },
-  { id: "zed", label: "Zed", available: true, unavailableReason: null },
+  { id: "vscode", label: "VS Code", opensFolders: true, available: true, unavailableReason: null },
+  { id: "zed", label: "Zed", opensFolders: true, available: true, unavailableReason: null },
 ];
 
 export interface StubGitHub {
@@ -159,6 +159,8 @@ export interface StubCoreApi extends CoreApi {
   readonly pullRequestActions: readonly string[];
   /** The Worktree folders opened in an editor, in order. */
   readonly openedInEditor: readonly { editorId: string; path: string }[];
+  /** The files opened in an editor, in order. */
+  readonly openedFilesInEditor: readonly { editorId: string; worktreePath: string; file: string }[];
   /** The tags and remotes the Branches view lists. */
   setTagsAndRemotes(path: string, tags: TagInfo[], remotes: RemoteInfo[]): void;
   /** The Worktrees the Worktrees view lists. */
@@ -280,6 +282,7 @@ export function createStubCoreApi(
   const tagRemoteActions: string[] = [];
   const pullRequestActions: string[] = [];
   const openedInEditor: { editorId: string; path: string }[] = [];
+  const openedFilesInEditor: { editorId: string; worktreePath: string; file: string }[] = [];
   const pullRequestBodies = new Map<number, string>();
   let nextPullRequest = 100;
   const stagedLines: { direction: "stage" | "unstage"; selection: LineSelection }[] = [];
@@ -636,6 +639,9 @@ export function createStubCoreApi(
     },
     async openInEditor(editorId, path) {
       openedInEditor.push({ editorId, path });
+    },
+    async openFileInEditor(editorId, worktreePath, file) {
+      openedFilesInEditor.push({ editorId, worktreePath, file });
     },
     async listTags(path) {
       return tagLists.get(path) ?? [];
@@ -1290,6 +1296,7 @@ export function createStubCoreApi(
     stagedLines,
     pullRequestActions,
     openedInEditor,
+    openedFilesInEditor,
     tagRemoteActions,
     worktreeActions,
     stashActions,

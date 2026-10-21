@@ -1226,6 +1226,19 @@ async fn open_in_editor(
         .map_err(ApiError::unexpected)?
 }
 
+#[tauri::command]
+async fn open_file_in_editor(
+    core: State<'_, Arc<Core>>,
+    editor_id: String,
+    worktree_path: PathBuf,
+    file: String,
+) -> Result<(), ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.open_file_in_editor(&editor_id, &worktree_path, &file))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
 fn restore_window(window: &WebviewWindow, bounds: WindowBounds) {
     if let Err(error) = window.set_size(PhysicalSize::new(bounds.width, bounds.height)) {
         eprintln!("failed to restore the window size: {error}");
@@ -1411,7 +1424,8 @@ fn main() {
             mark_pull_request_ready,
             open_in_browser,
             list_editors,
-            open_in_editor
+            open_in_editor,
+            open_file_in_editor
         ])
         .run(tauri::generate_context!())
         .expect("failed to run Rebasar");

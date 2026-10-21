@@ -7,6 +7,7 @@ import { type GroupTree, buildGroupTrees, firstFile } from "../components/change
 import type { CommitDetail, CoreApi, DiffMode, FileChange, FilesView } from "../core/api";
 import { describeError } from "../core/describeError";
 import { useSettings } from "../settings/SettingsContext";
+import { useFileOpener } from "../useEditors";
 import { formatDateTime } from "./items";
 import { type DiffBase, useCommitFileDiff } from "./useCommitFileDiff";
 
@@ -87,6 +88,7 @@ function CommitBody({
   onParentChange,
 }: CommitBodyProps) {
   const [pickedPath, setPickedPath] = useState<string | null>(null);
+  const [openError, setOpenError] = useState<string | null>(null);
   const { settings, update } = useSettings();
   const filesView = settings.history.filesView;
   const [pickedMode, setPickedMode] = useState<DiffMode | null>(null);
@@ -111,6 +113,7 @@ function CommitBody({
   );
   const selected = resolveSelection(files, pickedPath, trees, filesView);
   const diff = useCommitFileDiff(api, worktreePath, detail.id, base, selected);
+  const fileOpener = useFileOpener(api, worktreePath, selected, setOpenError);
 
   return (
     <>
@@ -168,6 +171,11 @@ function CommitBody({
           ))}
         </div>
       )}
+      {openError && (
+        <p role="alert" className="error">
+          {openError}
+        </p>
+      )}
       {files.length === 0 ? (
         <p className="placeholder">
           {comparing ? "The working tree matches this commit." : "No files changed."}
@@ -183,6 +191,7 @@ function CommitBody({
               onViewChange={(view) =>
                 update({ ...settings, history: { ...settings.history, filesView: view } })
               }
+              fileOpener={fileOpener}
             />
           </div>
           <div className="changes-diff">

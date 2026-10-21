@@ -1459,8 +1459,13 @@ button.commit-hash:hover {
   cursor: pointer;
 }
 
-.row-action:hover {
+.row-action:hover:not(:disabled) {
   background: var(--color-hover);
+}
+
+.row-action:disabled {
+  color: var(--color-text-subtle);
+  cursor: not-allowed;
 }
 
 .line-counts + .row-action {
@@ -2370,21 +2375,35 @@ button.commit-hash:hover {
   border-bottom-left-radius: 0;
 }
 
-.open-in-editor-menu {
-  position: absolute;
-  top: calc(100% + var(--space-1));
-  right: 0;
+.open-in-editor-menu,
+.file-editor-menu {
   z-index: 20;
   display: flex;
   flex-direction: column;
-  min-width: 100%;
   padding: var(--space-1);
   background: var(--color-surface-raised);
   border: 1px solid var(--color-border-raised);
   border-radius: var(--radius-md);
 }
 
-.open-in-editor-menu button {
+.open-in-editor-menu {
+  position: absolute;
+  top: calc(100% + var(--space-1));
+  right: 0;
+  min-width: 100%;
+}
+
+.file-editor-menu {
+  position: fixed;
+  min-width: 140px;
+}
+
+.file-editor-menu button[aria-current="true"] {
+  color: var(--color-accent-text);
+}
+
+.open-in-editor-menu button,
+.file-editor-menu button {
   padding: var(--space-1) var(--space-3);
   color: var(--color-text);
   text-align: left;
@@ -2396,11 +2415,14 @@ button.commit-hash:hover {
 }
 
 .open-in-editor-menu button:hover:not(:disabled),
-.open-in-editor-menu button:focus-visible {
+.file-editor-menu button:hover:not(:disabled),
+.open-in-editor-menu button:focus-visible,
+.file-editor-menu button:focus-visible {
   background: var(--color-hover);
 }
 
-.open-in-editor-menu button:disabled {
+.open-in-editor-menu button:disabled,
+.file-editor-menu button:disabled {
   color: var(--color-text-subtle);
   cursor: not-allowed;
 }

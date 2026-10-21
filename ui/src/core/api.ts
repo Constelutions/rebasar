@@ -318,6 +318,8 @@ export const defaultSettings: Settings = {
 export interface Editor {
   id: string;
   label: string;
+  /** Whether it can be started on a whole Worktree; the others only open files. */
+  opensFolders: boolean;
   available: boolean;
   /** Why it cannot be used; set exactly when it is not available. */
   unavailableReason: string | null;
@@ -697,6 +699,8 @@ export interface CoreApi {
   listEditors(): Promise<Editor[]>;
   /** Opens a Worktree folder in one of the listed editors that is available. */
   openInEditor(editorId: string, path: string): Promise<void>;
+  /** Opens a file, named relative to the Worktree, in one of the listed editors that is available. */
+  openFileInEditor(editorId: string, worktreePath: string, file: string): Promise<void>;
   listTags(path: string): Promise<TagInfo[]>;
   /** At the current commit; annotated when a message is given. */
   createTagHere(path: string, name: string, message: string | null): Promise<MutationOutcome>;

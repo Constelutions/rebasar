@@ -701,6 +701,12 @@ impl Core {
             .map_err(|message| ApiError::Unexpected { message })
     }
 
+    /// Opens a file of a Worktree, named relative to it, in one of the editors from `list_editors`.
+    pub fn open_file_in_editor(&self, editor_id: &str, worktree: &Path, file: &str) -> Result<(), ApiError> {
+        platform::open_file_in_editor(editor_id, worktree, file, &std::env::var_os("PATH").unwrap_or_default())
+            .map_err(|message| ApiError::Unexpected { message })
+    }
+
     fn github_context(&self, path: &Path) -> Result<(github::Remote, String), ApiError> {
         let (_, repo) = open_worktree(path)?;
         let remote = self.github.remote(&repo)?;

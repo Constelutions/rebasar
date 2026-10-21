@@ -618,10 +618,11 @@ fn editors_serialise_to_the_shape_the_ui_expects() {
     );
 
     assert_eq!(
-        serde_json::to_value(&editors[..1]).unwrap(),
+        serde_json::to_value(&editors[2..3]).unwrap(),
         json!([{
             "id": "vscode",
             "label": "VS Code",
+            "opensFolders": true,
             "available": false,
             "unavailableReason": "The code command was not found on the PATH.",
         }])

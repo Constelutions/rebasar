@@ -15,6 +15,7 @@ import type {
 import { describeError } from "../core/describeError";
 import { useSettings } from "../settings/SettingsContext";
 import { useConfirmation } from "../useConfirmation";
+import { useFileOpener } from "../useEditors";
 import type { CommitDrafts } from "../useCommitDrafts";
 import { Button } from "./Button";
 import { type ChangeGroup, type GroupTree, buildGroupTrees, firstFile } from "./changeTree";
@@ -52,6 +53,7 @@ export function ChangesView({ api, worktreePath, status, error, commitDrafts }: 
   );
   const whitespace = ready ? settings.diff.whitespace : null;
   const diff = useFileDiff(api, worktreePath, status, selected, whitespace);
+  const fileOpener = useFileOpener(api, worktreePath, selected?.change ?? null, setActionError);
 
   if (error) {
     return (
@@ -171,6 +173,7 @@ export function ChangesView({ api, worktreePath, status, error, commitDrafts }: 
                 view={filesView}
                 onViewChange={(view) => update({ ...settings, changes: { ...settings.changes, filesView: view } })}
                 viewToggleFor={(list) => list !== "conflicts"}
+                fileOpener={fileOpener}
               />
             </SplitPane>
           </>

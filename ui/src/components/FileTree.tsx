@@ -1,6 +1,8 @@
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import type { ChangeKind, FileChange, FilesView } from "../core/api";
+import type { ChangeKind, Editor, FileChange, FilesView } from "../core/api";
+import { useDismiss } from "../useDismiss";
+import { type FileOpener, NOTHING_TO_OPEN, canOpen } from "../useEditors";
 import { Button } from "./Button";
 import { type GroupTree, type TreeRow, fileKey, flattenChanges } from "./changeTree";
 import { SegmentedControl } from "./SegmentedControl";
@@ -53,6 +55,13 @@ interface FileTreeProps<L extends string> {
   /** Puts a tree/flat toggle in the header of every list that `viewToggleFor` accepts. */
   onViewChange?: (view: FilesView) => void;
   viewToggleFor?: (list: L) => boolean;
+  /** Adds "Open file in…" to every file row. */
+  fileOpener?: FileOpener;
+}
+
+interface OpenMenu {
+  change: FileChange;
+  anchor: DOMRect;
 }
 
 export function FileTree<L extends string>({
@@ -64,8 +73,11 @@ export function FileTree<L extends string>({
   view = "tree",
   onViewChange,
   viewToggleFor = () => true,
+  fileOpener,
 }: FileTreeProps<L>) {
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
+  const [openMenu, setOpenMenu] = useState<OpenMenu | null>(null);
+  const closeMenu = useCallback(() => setOpenMenu(null), []);
   const rows = useMemo(() => flattenChanges(trees, collapsed, view), [trees, collapsed, view]);
 
   function toggle(key: string) {
@@ -79,28 +91,84 @@ export function FileTree<L extends string>({
   const selectedKey = selected && fileKey(selected.list, selected.path);
 
   return (
-    <VirtualList
-      label="Changed files"
-      className="file-tree"
-      items={rows}
-      rowHeight={TREE_ROW_HEIGHT}
-      getKey={(row) => row.key}
-      renderRow={(row) => (
-        <TreeRowView
-          row={row}
-          selected={row.type === "file" && row.key === selectedKey}
-          onToggle={toggle}
-          onSelect={onSelect}
-          actions={row.type === "file" ? (actionsFor?.(row.list) ?? []) : []}
-          groupAction={row.type === "group" ? groupActionFor?.(row.list) : undefined}
-          viewToggle={
-            row.type === "group" && onViewChange && viewToggleFor(row.list)
-              ? { view, onChange: onViewChange }
-              : undefined
-          }
+    <>
+      <VirtualList
+        label="Changed files"
+        className="file-tree"
+        items={rows}
+        rowHeight={TREE_ROW_HEIGHT}
+        getKey={(row) => row.key}
+        renderRow={(row) => (
+          <TreeRowView
+            row={row}
+            selected={row.type === "file" && row.key === selectedKey}
+            onToggle={toggle}
+            onSelect={onSelect}
+            actions={row.type === "file" ? (actionsFor?.(row.list) ?? []) : []}
+            onOpenIn={fileOpener && setOpenMenu}
+            groupAction={row.type === "group" ? groupActionFor?.(row.list) : undefined}
+            viewToggle={
+              row.type === "group" && onViewChange && viewToggleFor(row.list)
+                ? { view, onChange: onViewChange }
+                : undefined
+            }
+          />
+        )}
+      />
+      {fileOpener && openMenu && (
+        <FileEditorMenu
+          opener={fileOpener}
+          menu={openMenu}
+          onPick={(editor) => {
+            closeMenu();
+            fileOpener.open(editor, openMenu.change);
+          }}
+          onClose={closeMenu}
         />
       )}
-    />
+    </>
+  );
+}
+
+interface FileEditorMenuProps {
+  opener: FileOpener;
+  menu: OpenMenu;
+  onPick: (editor: Editor) => void;
+  onClose: () => void;
+}
+
+/** Fixed to the viewport because the list scrolls and would clip a menu inside it. */
+function FileEditorMenu({ opener, menu, onPick, onClose }: FileEditorMenuProps) {
+  const container = useRef<HTMLDivElement>(null);
+  useDismiss(true, container, onClose);
+
+  useEffect(() => {
+    const items = [...(container.current?.querySelectorAll<HTMLElement>("button:not(:disabled)") ?? [])];
+    (items.find((item) => item.getAttribute("aria-current") === "true") ?? items[0])?.focus();
+  }, []);
+
+  return (
+    <div
+      ref={container}
+      role="menu"
+      aria-label="Open file in"
+      className="file-editor-menu"
+      style={{ top: menu.anchor.bottom, right: window.innerWidth - menu.anchor.right }}
+    >
+      {opener.editors.map((editor) => (
+        <Button
+          variant="plain"
+          key={editor.id}
+          role="menuitem"
+          aria-current={editor.id === opener.lastUsed || undefined}
+          disabled={!editor.available}
+          title={editor.unavailableReason ?? undefined}
+          onClick={() => onPick(editor)}
+        >
+          {editor.label}
+        </Button>
+      ))}
+    </div>
   );
 }
 
@@ -110,6 +178,8 @@ interface TreeRowViewProps<L extends string> {
   onToggle: (key: string) => void;
   onSelect: (list: L, change: FileChange) => void;
   actions: FileAction[];
+  /** Present when the rows offer "Open file in…"; called with the file and where its button is. */
+  onOpenIn: ((menu: OpenMenu) => void) | undefined;
   groupAction: GroupAction | undefined;
   viewToggle: { view: FilesView; onChange: (view: FilesView) => void } | undefined;
 }
@@ -120,6 +190,7 @@ function TreeRowView<L extends string>({
   onToggle,
   onSelect,
   actions,
+  onOpenIn,
   groupAction,
   viewToggle,
 }: TreeRowViewProps<L>) {
@@ -199,6 +270,22 @@ function TreeRowView<L extends string>({
           {action.label}
         </Button>
       ))}
+      {onOpenIn && (
+        <Button
+          variant="plain"
+          type="button"
+          aria-label={`Open file in… ${row.file.change.path}`}
+          aria-haspopup="menu"
+          className="row-action"
+          disabled={!canOpen(row.file.change)}
+          title={canOpen(row.file.change) ? "Open file in…" : NOTHING_TO_OPEN}
+          onClick={(event) =>
+            onOpenIn({ change: row.file.change, anchor: event.currentTarget.getBoundingClientRect() })
+          }
+        >
+          Open in…
+        </Button>
+      )}
     </div>
   );
 }

@@ -96,6 +96,8 @@ export const tauriCoreApi: CoreApi = {
   openInBrowser: (url) => invoke<void>("open_in_browser", { url }),
   listEditors: () => invoke<Editor[]>("list_editors"),
   openInEditor: (editorId, path) => invoke<void>("open_in_editor", { editorId, path }),
+  openFileInEditor: (editorId, worktreePath, file) =>
+    invoke<void>("open_file_in_editor", { editorId, worktreePath, file }),
   listTags: (path) => invoke<TagInfo[]>("list_tags", { path }),
   createTagHere: (path, name, message) =>
     invoke<MutationOutcome>("create_tag_here", { path, name, message }),
