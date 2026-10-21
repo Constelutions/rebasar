@@ -50,7 +50,6 @@ interface FileTreeProps<L extends string> {
   actionsFor?: (list: L) => FileAction[];
   /** A button in the header of the list, such as 'Discard all'. */
   groupActionFor?: (list: L) => GroupAction | undefined;
-  /** Shows the files as folders or as one flat list; a tree when left out. */
   view?: FilesView;
   /** Puts a tree/flat toggle in the header of every list that `viewToggleFor` accepts. */
   onViewChange?: (view: FilesView) => void;

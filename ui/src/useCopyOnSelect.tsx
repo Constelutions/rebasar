@@ -61,7 +61,7 @@ export function useCopyOnSelect<T extends HTMLElement = HTMLElement>(): CopyOnSe
       const surface = ref.current;
       const selection = document.getSelection();
       if (!surface || !selection || selection.isCollapsed) return;
-      if (!surface.contains(selection.anchorNode)) return;
+      if (!surface.contains(selection.anchorNode) || !surface.contains(selection.focusNode)) return;
       pending = setTimeout(() => {
         const text = selection.toString();
         if (text !== "") void copyAt(text, anchorAbove(surface.getBoundingClientRect()));

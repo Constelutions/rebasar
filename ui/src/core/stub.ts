@@ -50,6 +50,7 @@ import {
   type TokenSource,
   type WorktreeStatus,
   type Settings,
+  HISTORY_SHORT_ID_LENGTH,
   defaultSettings,
 } from "./api";
 
@@ -785,15 +786,15 @@ export function createStubCoreApi(
     },
     async cherryPickCommit(path, commit) {
       commitActions.push({ kind: "cherryPick", commit });
-      return mutate(path, `Cherry-pick ${commit.slice(0, 7)}`, (status) => status);
+      return mutate(path, `Cherry-pick ${commit.slice(0, HISTORY_SHORT_ID_LENGTH)}`, (status) => status);
     },
     async revertCommit(path, commit) {
       commitActions.push({ kind: "revert", commit });
-      return mutate(path, `Revert ${commit.slice(0, 7)}`, (status) => status);
+      return mutate(path, `Revert ${commit.slice(0, HISTORY_SHORT_ID_LENGTH)}`, (status) => status);
     },
     async resetToCommit(path, commit, mode) {
       commitActions.push({ kind: "reset", commit, mode });
-      return mutate(path, `Reset ${mode} to ${commit.slice(0, 7)}`, (status) => status);
+      return mutate(path, `Reset ${mode} to ${commit.slice(0, HISTORY_SHORT_ID_LENGTH)}`, (status) => status);
     },
     async rebasePlan(path, from) {
       const found = rebasePlans.get(`${path}\0${from ?? ""}`);
@@ -917,7 +918,7 @@ export function createStubCoreApi(
     },
     async checkoutCommit(path, commit) {
       commitActions.push({ kind: "checkout", commit });
-      return mutate(path, `Check out ${commit.slice(0, 7)}`, (status) => status);
+      return mutate(path, `Check out ${commit.slice(0, HISTORY_SHORT_ID_LENGTH)}`, (status) => status);
     },
     async createBranch(path, name, commit) {
       commitActions.push({ kind: "createBranch", name, commit });
@@ -929,7 +930,7 @@ export function createStubCoreApi(
     },
     async rewordLatestCommit(path, commit, message) {
       commitActions.push({ kind: "reword", commit, message });
-      return mutate(path, `Reword ${commit.slice(0, 7)}`, (status) => status);
+      return mutate(path, `Reword ${commit.slice(0, HISTORY_SHORT_ID_LENGTH)}`, (status) => status);
     },
     async compareWithWorktree(_worktreePath, commit) {
       return comparisons[commit] ?? [];

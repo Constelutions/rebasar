@@ -1,5 +1,6 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useCallback, useId, useRef, useState } from "react";
 
+import { useDismiss } from "../useDismiss";
 import { Button } from "./Button";
 
 export interface MultiSelectOption {
@@ -24,27 +25,13 @@ interface MultiSelectProps {
   onToggle: (value: string, checked: boolean) => void;
 }
 
-/** A button that opens a list in which any number of options can be checked; presets clear the selection. */
 export function MultiSelect({ label, summary, presets, options, onToggle }: MultiSelectProps) {
   const [open, setOpen] = useState(false);
   const container = useRef<HTMLDivElement>(null);
   const presetGroup = useId();
+  const close = useCallback(() => setOpen(false), []);
 
-  useEffect(() => {
-    if (!open) return;
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") setOpen(false);
-    }
-    function onPointerDown(event: PointerEvent) {
-      if (!container.current?.contains(event.target as Node)) setOpen(false);
-    }
-    window.addEventListener("keydown", onKeyDown);
-    window.addEventListener("pointerdown", onPointerDown);
-    return () => {
-      window.removeEventListener("keydown", onKeyDown);
-      window.removeEventListener("pointerdown", onPointerDown);
-    };
-  }, [open]);
+  useDismiss(open, container, close);
 
   return (
     <div ref={container} className="multi-select">

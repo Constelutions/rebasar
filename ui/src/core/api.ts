@@ -93,6 +93,9 @@ export interface RefLabel {
   name: string;
 }
 
+/** Mirrors the core's `HISTORY_SHORT_ID_LENGTH`, for the short ids the UI has to make when the core sent none. */
+export const HISTORY_SHORT_ID_LENGTH = 8;
+
 export interface HistoryRow {
   id: string;
   shortId: string;

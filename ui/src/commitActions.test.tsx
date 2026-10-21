@@ -141,7 +141,7 @@ it("checks out the commit detached", async () => {
   expect(api.commitActions).toEqual([{ kind: "checkout", commit: olderId }]);
   expect(screen.queryByRole("menu")).not.toBeInTheDocument();
   const output = screen.getByRole("region", { name: "Output" });
-  expect(await within(output).findByRole("status")).toHaveTextContent("Check out bbbbbbb: succeeded");
+  expect(await within(output).findByRole("status")).toHaveTextContent("Check out bbbbbbbb: succeeded");
 });
 
 it("reports a checkout that Git refused", async () => {

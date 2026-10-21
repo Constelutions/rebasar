@@ -27,7 +27,6 @@ interface SplitPaneProps {
   children: ReactNode;
 }
 
-/** Lays the content and its secondary pane out side by side or one above the other. */
 export function SplitPane({ className, position, secondary, children }: SplitPaneProps) {
   return (
     <div className={className ? `split-pane ${className}` : "split-pane"} data-position={position} data-open={secondary ? true : undefined}>

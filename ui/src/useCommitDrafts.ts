@@ -22,9 +22,7 @@ export function useCommitDrafts() {
   );
 
   const hasUnsent = useCallback(
-    (worktreePath: string) => {
-      return draftOf(worktreePath).message.trim() !== "";
-    },
+    (worktreePath: string) => draftOf(worktreePath).message.trim() !== "",
     [draftOf],
   );
 

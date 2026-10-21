@@ -113,6 +113,26 @@ describe("copy on select", () => {
     expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
   });
 
+  it("ignores a selection that starts inside its element and ends outside it", async () => {
+    render(withSettings(<Surface />));
+    const inside = screen.getByText("Copy this text please");
+    const outside = screen.getByText("Never copied");
+    const range = document.createRange();
+    range.setStart(inside.firstChild!, 5);
+    range.setEnd(outside.firstChild!, 5);
+    const selection = document.getSelection()!;
+    selection.removeAllRanges();
+    selection.addRange(range);
+
+    act(() => {
+      document.dispatchEvent(new Event("selectionchange"));
+    });
+    await wait(COPY_DEBOUNCE_MS);
+
+    expect(writeText).not.toHaveBeenCalled();
+    expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
+  });
+
   it("copies nothing once the selection is cleared", async () => {
     render(withSettings(<Surface />));
     select("Copy this text please", 0, 4);

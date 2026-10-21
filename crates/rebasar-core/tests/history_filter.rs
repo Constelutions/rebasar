@@ -208,6 +208,17 @@ fn the_me_author_is_the_email_in_the_repository_configuration() {
 }
 
 #[test]
+fn the_me_author_is_matched_ignoring_case() {
+    let repo = TempRepo::init("sample");
+    repo.git(&["config", "user.email", "grace@example.com"]);
+    repo.commit_file_as(ADA, "a", "1", "By Ada")
+        .commit_file_as(GRACE, "a", "2", "By Grace");
+
+    assert_eq!(found(&repo, "author:@ME"), ["By Grace"]);
+    assert_eq!(found(&repo, "author:@Me"), ["By Grace"]);
+}
+
+#[test]
 fn the_me_author_needs_an_email_in_the_configuration() {
     let _git = IsolatedGitConfig::new();
     let repo = TempRepo::init("sample");

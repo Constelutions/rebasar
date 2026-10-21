@@ -78,7 +78,7 @@ impl Filter {
         for term in Query::parse(&filter.query)?.terms {
             match term {
                 Term::Text(text) => resolved.texts.push(text.to_lowercase()),
-                Term::Author(author) if author == ME => resolved.me = Some(configured_email(repo)?),
+                Term::Author(author) if author.eq_ignore_ascii_case(ME) => resolved.me = Some(configured_email(repo)?),
                 Term::Author(author) => resolved.authors.push(author.to_lowercase()),
                 Term::Path(path) => resolved.paths.push(path),
                 Term::Branch(branch) => resolved.branches.push(branch.to_lowercase()),

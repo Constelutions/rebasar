@@ -2,7 +2,7 @@ import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useStat
 
 import { SegmentedControl } from "../components/SegmentedControl";
 import { SplitPane, SplitPositionToggle } from "../components/SplitPane";
-import type { CoreApi, HistoryRow, Settings, Tab } from "../core/api";
+import { type CoreApi, HISTORY_SHORT_ID_LENGTH, type HistoryRow, type Settings, type Tab } from "../core/api";
 import { describeError } from "../core/describeError";
 import { Button } from "../components/Button";
 import { useSettings } from "../settings/SettingsContext";
@@ -114,7 +114,7 @@ function FilteredHistory({
   async function runAction(action: CommitAction, commitId: string) {
     setMenu(null);
     setNotice(null);
-    const shortId = commitOf(commitId)?.shortId ?? commitId.slice(0, 7);
+    const shortId = commitOf(commitId)?.shortId ?? commitId.slice(0, HISTORY_SHORT_ID_LENGTH);
     switch (action) {
       case "checkout": {
         const outcome = await api.checkoutCommit(tab.worktreePath, commitId).catch((failure) => {
@@ -279,7 +279,7 @@ function FilteredHistory({
           worktreePath={tab.worktreePath}
           kind={dialog.kind}
           commitId={dialog.commitId}
-          shortId={commitOf(dialog.commitId)?.shortId ?? dialog.commitId.slice(0, 7)}
+          shortId={commitOf(dialog.commitId)?.shortId ?? dialog.commitId.slice(0, HISTORY_SHORT_ID_LENGTH)}
           isLatest={commitOf(dialog.commitId)?.refs.some((label) => label.kind === "head") ?? false}
           onClose={() => setDialog(null)}
           onOpenRebaseEditor={() => {
