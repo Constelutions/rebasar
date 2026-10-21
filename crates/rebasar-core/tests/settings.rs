@@ -44,6 +44,7 @@ fn customised() -> Settings {
         },
         changes: ChangesSettings {
             files_view: FilesView::Flat,
+            diff_position: SplitPosition::Bottom,
         },
         commit: CommitSettings {
             sign_off_by_default: true,
@@ -102,6 +103,18 @@ fn commit_details_open_to_the_right_until_settings_say_otherwise() {
     let settings = core_in(dir.path()).settings().expect("settings");
 
     assert_eq!(settings.history.detail_position, SplitPosition::Right);
+}
+
+#[test]
+fn the_diff_of_the_changes_view_opens_to_the_right_until_settings_say_otherwise() {
+    assert_eq!(Settings::default().changes.diff_position, SplitPosition::Right);
+
+    let dir = tempfile::tempdir().unwrap();
+    fs::write(dir.path().join("settings.json"), r#"{ "changes": { "filesView": "flat" } }"#).unwrap();
+    let settings = core_in(dir.path()).settings().expect("settings");
+
+    assert_eq!(settings.changes.files_view, FilesView::Flat);
+    assert_eq!(settings.changes.diff_position, SplitPosition::Right);
 }
 
 #[test]

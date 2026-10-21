@@ -270,7 +270,7 @@ export interface Settings {
     detailPosition: SplitPosition;
   };
   /** How the Staged and Unstaged lists open. */
-  changes: { filesView: FilesView };
+  changes: { filesView: FilesView; diffPosition: SplitPosition };
   commit: { signOffByDefault: boolean };
   /** `lastUsed` is the id of the editor the title bar opens with one click. */
   editor: { lastUsed: string | null };
@@ -309,7 +309,7 @@ export const defaultSettings: Settings = {
     filesView: "tree",
     detailPosition: "right",
   },
-  changes: { filesView: "tree" },
+  changes: { filesView: "tree", diffPosition: "right" },
   commit: { signOffByDefault: false },
   editor: { lastUsed: null },
   branches: { filter: "both" },

@@ -447,18 +447,37 @@ function HistorySection({ settings, update }: SectionProps) {
 
 function ChangesSection({ settings, update }: SectionProps) {
   const filesViewId = useId();
+  const diffPositionId = useId();
+  const { changes } = settings;
 
   return (
     <section className="settings-section" aria-labelledby={`${filesViewId}-title`}>
       <h2 id={`${filesViewId}-title`}>Changes</h2>
-      <p className="settings-hint">How the Changes view lists files when you open it.</p>
+      <p className="settings-hint">How the Changes view lists files and places the diff when you open it.</p>
       <div className="settings-field">
         <label htmlFor={filesViewId}>Staged and Unstaged files</label>
         <FilesViewSelect
           id={filesViewId}
           value={settings.changes.filesView}
-          onChange={(filesView) => update({ ...settings, changes: { ...settings.changes, filesView } })}
+          onChange={(filesView) => update({ ...settings, changes: { ...changes, filesView } })}
         />
+      </div>
+      <div className="settings-field">
+        <label htmlFor={diffPositionId}>Diff position</label>
+        <select
+          id={diffPositionId}
+          className="select"
+          value={changes.diffPosition}
+          onChange={(event) =>
+            update({
+              ...settings,
+              changes: { ...changes, diffPosition: event.target.value === "bottom" ? "bottom" : "right" },
+            })
+          }
+        >
+          <option value="right">Right</option>
+          <option value="bottom">Bottom</option>
+        </select>
       </div>
     </section>
   );

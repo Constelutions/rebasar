@@ -467,3 +467,13 @@ it("stores how many characters of a hash a click copies as soon as it is picked"
   await user.selectOptions(screen.getByLabelText("Copied hash length"), "full");
   await waitFor(async () => expect((await api.settings()).copy.hashLength).toBeNull());
 });
+
+it("stores where the diff of the Changes view opens as soon as it is picked", async () => {
+  const { user, api } = render();
+  await openSettings(user);
+  expect(screen.getByLabelText("Diff position")).toHaveValue("right");
+
+  await user.selectOptions(screen.getByLabelText("Diff position"), "bottom");
+
+  await waitFor(async () => expect((await api.settings()).changes.diffPosition).toBe("bottom"));
+});

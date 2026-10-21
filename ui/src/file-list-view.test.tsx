@@ -220,7 +220,7 @@ describe("the Staged and Unstaged files", () => {
   });
 
   it("open in the view stored as the default for Changes", async () => {
-    await openChanges(status, withSettings({ changes: { filesView: "flat" } }));
+    await openChanges(status, withSettings({ changes: { ...defaultSettings.changes, filesView: "flat" } }));
 
     expect(screen.queryByRole("button", { name: /^src/ })).not.toBeInTheDocument();
     expect(screen.getByRole("radiogroup", { name: "Staged view" })).toBeInTheDocument();

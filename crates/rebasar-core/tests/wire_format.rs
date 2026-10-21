@@ -571,6 +571,7 @@ fn settings_serialise_to_the_shape_the_ui_expects() {
         },
         changes: ChangesSettings {
             files_view: FilesView::Flat,
+            diff_position: SplitPosition::Bottom,
         },
         commit: CommitSettings {
             sign_off_by_default: true,
@@ -600,7 +601,7 @@ fn settings_serialise_to_the_shape_the_ui_expects() {
                 "filesView": "flat",
                 "detailPosition": "bottom",
             },
-            "changes": { "filesView": "flat" },
+            "changes": { "filesView": "flat", "diffPosition": "bottom" },
             "commit": { "signOffByDefault": true },
             "editor": { "lastUsed": "zed" },
             "branches": { "filter": "local" },

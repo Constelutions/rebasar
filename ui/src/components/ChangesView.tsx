@@ -22,6 +22,7 @@ import { CommitComposer } from "./CommitComposer";
 import { DiffView, type LineStaging } from "./DiffView";
 import { PullRequestDialog } from "./PullRequestDialog";
 import { type FileAction, FileTree, type FileSelection } from "./FileTree";
+import { SplitPane, SplitPositionToggle } from "./SplitPane";
 
 interface ChangesViewProps {
   api: CoreApi;
@@ -42,7 +43,7 @@ export function ChangesView({ api, worktreePath, status, error, commitDrafts }: 
   const [pickedMode, setPickedMode] = useState<DiffMode | null>(null);
   const mode = pickedMode ?? settings.diff.defaultMode;
 
-  const filesView = settings.changes.filesView;
+  const { filesView, diffPosition } = settings.changes;
 
   const trees = useMemo(() => buildGroupTrees(status ? changeGroups(status) : []), [status]);
   const selected = useMemo(
@@ -128,8 +129,39 @@ export function ChangesView({ api, worktreePath, status, error, commitDrafts }: 
         {trees.length === 0 ? (
           <p className="placeholder">No changes.</p>
         ) : (
-          <div className="changes">
-            <div className="changes-files">
+          <>
+            <div className="changes-toolbar">
+              <SplitPositionToggle
+                label="Diff position"
+                value={diffPosition}
+                onChange={(position) =>
+                  update({ ...settings, changes: { ...settings.changes, diffPosition: position } })
+                }
+              />
+            </div>
+            <SplitPane
+              className="changes-split"
+              position={diffPosition}
+              secondary={
+                <div className="changes-diff">
+                  {diff.error && (
+                    <p role="alert" className="error">
+                      {diff.error}
+                    </p>
+                  )}
+                  {diff.value && (
+                    <DiffView
+                      key={`${selected?.list}:${diff.value.path}`}
+                      diff={diff.value}
+                      mode={mode}
+                      onModeChange={setPickedMode}
+                      onLoadLarge={diff.loadLarge}
+                      staging={staging}
+                    />
+                  )}
+                </div>
+              }
+            >
               <FileTree
                 trees={trees}
                 selected={selected && { list: selected.list, path: selected.change.path }}
@@ -137,28 +169,11 @@ export function ChangesView({ api, worktreePath, status, error, commitDrafts }: 
                 actionsFor={actionsFor}
                 groupActionFor={groupActionFor}
                 view={filesView}
-                onViewChange={(view) => update({ ...settings, changes: { filesView: view } })}
+                onViewChange={(view) => update({ ...settings, changes: { ...settings.changes, filesView: view } })}
                 viewToggleFor={(list) => list !== "conflicts"}
               />
-            </div>
-            <div className="changes-diff">
-              {diff.error && (
-                <p role="alert" className="error">
-                  {diff.error}
-                </p>
-              )}
-              {diff.value && (
-                <DiffView
-                  key={`${selected?.list}:${diff.value.path}`}
-                  diff={diff.value}
-                  mode={mode}
-                  onModeChange={setPickedMode}
-                  onLoadLarge={diff.loadLarge}
-                  staging={staging}
-                />
-              )}
-            </div>
-          </div>
+            </SplitPane>
+          </>
         )}
       </div>
       {dialog}

@@ -20,6 +20,7 @@ export function SplitPositionToggle({ label, value, onChange }: SplitPositionTog
 }
 
 interface SplitPaneProps {
+  className?: string;
   position: SplitPosition;
   /** The pane that opens beside the content; none leaves the content to fill the space. */
   secondary?: ReactNode;
@@ -27,9 +28,9 @@ interface SplitPaneProps {
 }
 
 /** Lays the content and its secondary pane out side by side or one above the other. */
-export function SplitPane({ position, secondary, children }: SplitPaneProps) {
+export function SplitPane({ className, position, secondary, children }: SplitPaneProps) {
   return (
-    <div className="split-pane" data-position={position} data-open={secondary ? true : undefined}>
+    <div className={className ? `split-pane ${className}` : "split-pane"} data-position={position} data-open={secondary ? true : undefined}>
       <div className="split-primary">{children}</div>
       {secondary}
     </div>

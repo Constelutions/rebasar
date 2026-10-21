@@ -74,11 +74,12 @@ pub enum SplitPosition {
     Bottom,
 }
 
-/// How the Staged and Unstaged lists open.
+/// How the Staged and Unstaged lists open, and where the diff of the selected file goes.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
 pub struct ChangesSettings {
     pub files_view: FilesView,
+    pub diff_position: SplitPosition,
 }
 
 /// The filters History opens with, before the user changes them in a Tab.
