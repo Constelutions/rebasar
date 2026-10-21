@@ -113,6 +113,10 @@ function LoadedBranches({ api, tab, defaultFilter }: BranchesViewProps & { defau
       void confirm({ kind: "deleteBranch", name: branch.name }, () =>
         void run(`Delete branch ${branch.name}`, () => api.deleteBranch(path, branch.name)),
       ).catch((failure) => setError(describeError(failure))),
+    removeRemote: (remote, name) =>
+      void confirm({ kind: "deleteRemoteBranch", remote, name }, () =>
+        void run(`Delete branch ${name} on ${remote}`, () => api.deleteRemoteBranch(path, remote, name)),
+      ).catch((failure) => setError(describeError(failure))),
   };
 
   return (
@@ -169,6 +173,7 @@ interface RowActions {
   rename: (branch: BranchInfo) => void;
   setUpstream: (branch: BranchInfo) => void;
   remove: (branch: BranchInfo) => void;
+  removeRemote: (remote: string, name: string) => void;
 }
 
 function BranchList({ rows, actions }: { rows: BranchRow[]; actions: RowActions }) {
@@ -259,6 +264,17 @@ function BranchItem({ row, actions }: { row: BranchRow; actions: RowActions }) {
             )}
           </>
         )}
+        {row.remotes.map(({ remote }) => (
+          <Button
+            key={remote}
+            size="sm"
+            variant="danger"
+            aria-label={`Delete ${row.name} on ${remote}`}
+            onClick={() => actions.removeRemote(remote, row.name)}
+          >
+            Delete on {remote}
+          </Button>
+        ))}
       </span>
     </li>
   );

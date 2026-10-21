@@ -8,6 +8,8 @@ export interface ConfirmationDialogProps {
   title: string;
   confirmLabel: string;
   loss: Loss;
+  /** Who else is affected, for a Mutation that reaches beyond this machine. */
+  warning?: string;
   onConfirm: () => void;
   onCancel: () => void;
 }
@@ -16,6 +18,7 @@ export function ConfirmationDialog({
   title,
   confirmLabel,
   loss,
+  warning,
   onConfirm,
   onCancel,
 }: ConfirmationDialogProps) {
@@ -86,6 +89,22 @@ export function ConfirmationDialog({
               .
             </p>
           )}
+          {loss.commitList.length > 0 && (
+            <>
+              <ul className="loss-commits" aria-label="Commits that will be lost">
+                {loss.commitList.map((commit) => (
+                  <li key={commit.shortId}>
+                    <code className="loss-id">{commit.shortId}</code>
+                    <span className="loss-path">{commit.subject}</span>
+                  </li>
+                ))}
+              </ul>
+              {loss.commits > loss.commitList.length && (
+                <p>and {loss.commits - loss.commitList.length} more</p>
+              )}
+            </>
+          )}
+          {warning && <p className="dialog-warning">{warning}</p>}
           <p className="dialog-recovery">
             Rebasar has no undo. Git&apos;s reflog is the only recovery path
             {loss.files.length > 0 && ", and it does not record uncommitted changes"}.

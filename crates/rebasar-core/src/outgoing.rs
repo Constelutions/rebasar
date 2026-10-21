@@ -26,7 +26,16 @@ pub(crate) fn read(repo: &gix::Repository) -> Result<Vec<OutgoingCommit>, ApiErr
         Some(upstream) => vec![upstream],
         None => remote_tips(repo)?,
     };
+    unreached_commits(repo, tip.detach(), hidden, MAX_OUTGOING)
+}
 
+/// The newest commits `tip` reaches that none of `hidden` do, at most `limit` of them.
+pub(crate) fn unreached_commits(
+    repo: &gix::Repository,
+    tip: gix::ObjectId,
+    hidden: Vec<gix::ObjectId>,
+    limit: usize,
+) -> Result<Vec<OutgoingCommit>, ApiError> {
     let walk = repo
         .rev_walk([tip])
         .sorting(Sorting::ByCommitTime(CommitTimeOrder::NewestFirst))
@@ -35,7 +44,7 @@ pub(crate) fn read(repo: &gix::Repository) -> Result<Vec<OutgoingCommit>, ApiErr
         .map_err(ApiError::unexpected)?;
 
     let mut commits = Vec::new();
-    for info in walk.take(MAX_OUTGOING) {
+    for info in walk.take(limit) {
         let info = info.map_err(ApiError::unexpected)?;
         let commit = info.object().map_err(ApiError::unexpected)?;
         let message = commit.message().map_err(ApiError::unexpected)?;

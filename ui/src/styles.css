@@ -2200,11 +2200,30 @@ button.commit-hash:hover {
   font: var(--text-sm) var(--font-mono);
 }
 
-.loss-files li {
+.loss-commits {
+  max-height: var(--dialog-list-height);
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+  font: var(--text-sm) var(--font-mono);
+}
+
+.loss-files li,
+.loss-commits li {
   display: flex;
   align-items: center;
   gap: var(--space-2);
   min-height: var(--row-height);
+}
+
+.loss-id {
+  flex: none;
+  color: var(--color-text-subtle);
+}
+
+.dialog-warning {
+  color: var(--color-danger);
 }
 
 .loss-path {

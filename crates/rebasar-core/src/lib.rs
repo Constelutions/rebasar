@@ -61,7 +61,7 @@ pub use mutation::{MutationId, MutationInfo, MutationOutcome, OutputStream};
 pub use operation::{OperationInProgress, OperationKind, OperationStep};
 pub use outgoing::OutgoingCommit;
 pub use identity::GitIdentity;
-pub use safety::{Assessment, Loss, MutationKind};
+pub use safety::{Assessment, Loss, LostCommit, MutationKind};
 pub use settings::{
     AppearanceSettings, BranchesFilter, BranchesSettings, ChangesSettings, CommitSettings, ConfirmTabClose, CopySettings, DiffMode, DiffSettings, EditorSettings, FilesView, GraphStyle, HistoryOrientation, HistorySettings, Settings, SplitPosition, SyncSettings,
     TabSettings,

@@ -852,6 +852,12 @@ export function createStubCoreApi(
         list.filter((branch) => !(branch.kind === "local" && branch.name === name)),
       );
     },
+    async deleteRemoteBranch(path, remote, name) {
+      branchActions.push(`delete-remote:${remote}:${name}`);
+      return changeBranches(path, `Delete branch ${name} on ${remote}`, (list) =>
+        list.filter((branch) => !(branch.kind === "remote" && branch.name === `${remote}/${name}`)),
+      );
+    },
     async setBranchUpstream(path, name, upstream) {
       branchActions.push(`upstream:${name}:${upstream ?? ""}`);
       return changeBranches(path, `Track ${upstream ?? "nothing"} from ${name}`, (list) =>
@@ -1080,7 +1086,7 @@ export function createStubCoreApi(
       assessed.push(kind);
       if (kind.kind === "deleteTag") {
         return kind.name.startsWith("only-")
-          ? { kind: "destructive", loss: { files: [], commits: 2, unpushedCommits: 2 } }
+          ? { kind: "destructive", loss: { files: [], commits: 2, unpushedCommits: 2, commitList: [] } }
           : { kind: "safe" };
       }
       if (kind.kind === "deleteRemoteTag") return { kind: "safe" };
@@ -1093,6 +1099,7 @@ export function createStubCoreApi(
                 files: [{ path: "unsaved.ts", originalPath: null, kind: "modified", added: 1, removed: 0 }],
                 commits: 0,
                 unpushedCommits: 0,
+                commitList: [],
               },
             }
           : { kind: "safe" };
@@ -1100,7 +1107,7 @@ export function createStubCoreApi(
       if (kind.kind === "dropStash") {
         const found = (stashLists.get(path) ?? []).find(({ info }) => info.id === kind.stash);
         return found
-          ? { kind: "destructive", loss: { files: found.preview.files, commits: 0, unpushedCommits: 0 } }
+          ? { kind: "destructive", loss: { files: found.preview.files, commits: 0, unpushedCommits: 0, commitList: [] } }
           : { kind: "safe" };
       }
       if (kind.kind === "reset") {
@@ -1109,33 +1116,50 @@ export function createStubCoreApi(
         const commits = resetDrops.get(kind.commit) ?? 0;
         return files.length === 0 && commits === 0
           ? { kind: "safe" }
-          : { kind: "destructive", loss: { files, commits, unpushedCommits: commits } };
+          : { kind: "destructive", loss: { files, commits, unpushedCommits: commits, commitList: [] } };
       }
       if (kind.kind === "deleteBranch") {
         const branch = branchesOf(path).find((candidate) => candidate.name === kind.name);
         return branch && !branch.merged && branch.upstream === null
-          ? { kind: "destructive", loss: { files: [], commits: 2, unpushedCommits: 2 } }
+          ? { kind: "destructive", loss: { files: [], commits: 2, unpushedCommits: 2, commitList: [] } }
           : { kind: "safe" };
+      }
+      if (kind.kind === "deleteRemoteBranch") {
+        const keptLocally = branchesOf(path).some((b) => b.kind === "local" && b.name === kind.name);
+        return keptLocally
+          ? { kind: "safe" }
+          : {
+              kind: "destructive",
+              loss: {
+                files: [],
+                commits: 2,
+                unpushedCommits: 0,
+                commitList: [
+                  { shortId: "a1b2c3d", subject: `Work only on ${kind.remote}` },
+                  { shortId: "d4e5f6a", subject: "Earlier work only there" },
+                ],
+              },
+            };
       }
       if (kind.kind === "forcePush") {
         const { behind } = syncOf(path);
         return behind === 0
           ? { kind: "safe" }
-          : { kind: "destructive", loss: { files: [], commits: behind, unpushedCommits: 0 } };
+          : { kind: "destructive", loss: { files: [], commits: behind, unpushedCommits: 0, commitList: [] } };
       }
       if (kind.kind === "abortOperation") {
         const status = statusOf(path);
         const files = [...status.conflicts, ...status.staged, ...status.unstaged];
         return files.length === 0
           ? { kind: "safe" }
-          : { kind: "destructive", loss: { files, commits: 0, unpushedCommits: 0 } };
+          : { kind: "destructive", loss: { files, commits: 0, unpushedCommits: 0, commitList: [] } };
       }
       if (kind.kind !== "discardChanges") return { kind: "safe" };
       const files = statusOf(path).unstaged.filter((file) => kind.paths.includes(file.path));
       const assessment: Assessment =
         files.length === 0
           ? { kind: "safe" }
-          : { kind: "destructive", loss: { files, commits: 0, unpushedCommits: 0 } };
+          : { kind: "destructive", loss: { files, commits: 0, unpushedCommits: 0, commitList: [] } };
       return assessment;
     },
     async discardChanges(path, paths) {

@@ -376,6 +376,7 @@ export type MutationKind =
   | { kind: "abortOperation" }
   | { kind: "forcePush" }
   | { kind: "deleteBranch"; name: string }
+  | { kind: "deleteRemoteBranch"; remote: string; name: string }
   | { kind: "reset"; commit: string; mode: ResetMode }
   | { kind: "dropStash"; stash: string }
   | { kind: "removeWorktree"; path: string }
@@ -390,6 +391,13 @@ export interface Loss {
   commits: number;
   /** How many of those commits exist on no remote. */
   unpushedCommits: number;
+  /** The newest of those commits, to name them; empty unless the Mutation lists them. */
+  commitList: LostCommit[];
+}
+
+export interface LostCommit {
+  shortId: string;
+  subject: string;
 }
 
 export type Assessment = { kind: "safe" } | { kind: "destructive"; loss: Loss };
@@ -757,6 +765,8 @@ export interface CoreApi {
   renameBranch(path: string, name: string, newName: string): Promise<MutationOutcome>;
   /** Confirm with `{ kind: "deleteBranch", name }` first. */
   deleteBranch(path: string, name: string): Promise<MutationOutcome>;
+  /** Confirm with `{ kind: "deleteRemoteBranch", remote, name }` first; a local branch stays. */
+  deleteRemoteBranch(path: string, remote: string, name: string): Promise<MutationOutcome>;
   /** `null` stops the branch tracking anything. */
   setBranchUpstream(path: string, name: string, upstream: string | null): Promise<MutationOutcome>;
   /** A merge or rebase that stops on a conflict leaves the Worktree for the banner to show. */

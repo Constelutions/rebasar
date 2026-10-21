@@ -738,6 +738,19 @@ async fn delete_branch(
 }
 
 #[tauri::command]
+async fn delete_remote_branch(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+    remote: String,
+    name: String,
+) -> Result<MutationOutcome, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.delete_remote_branch(&path, &remote, &name))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
 async fn set_branch_upstream(
     core: State<'_, Arc<Core>>,
     path: PathBuf,
@@ -1359,6 +1372,7 @@ fn main() {
             checkout_branch,
             rename_branch,
             delete_branch,
+            delete_remote_branch,
             set_branch_upstream,
             merge_branch,
             rebase_onto,

@@ -4,7 +4,7 @@ use rebasar_core::{
     CommitDiffRequest, CommitHit, CommitOptions, CommitParent, CoreEvent, DiffContent, DiffLine,
     DiffMode, DiffRequest, DiffSettings, Edge, EdgeKind, FileChange, FileDiff, GitHubAuthStatus,
     GitHubRepository, GitIdentity, GitSetup, Group, Head, HistoryCount, HistoryFilter,
-    HistoryPage, HistoryRow, Hunk, LineKind, Loss, ModeChange, MutationId, MutationInfo,
+    HistoryPage, HistoryRow, Hunk, LineKind, Loss, LostCommit, ModeChange, MutationId, MutationInfo,
     MutationKind, MutationOutcome, OutgoingCommit, OutputStream, PullRequest, RefKind, RefLabel,
     RepositoryEntry, RepositoryList, ReviewState, Session, Settings, SyncSettings, Tab, TabSettings, TokenSource,
     UnavailableReason, WhitespaceMode, WorktreeEntry, WorktreeStatus,
@@ -880,6 +880,16 @@ fn a_mutation_kind_deserialises_from_the_shape_the_ui_sends() {
             paths: vec!["a.txt".to_owned()]
         }
     );
+    assert_eq!(
+        serde_json::from_value::<MutationKind>(
+            json!({ "kind": "deleteRemoteBranch", "remote": "origin", "name": "topic" })
+        )
+        .unwrap(),
+        MutationKind::DeleteRemoteBranch {
+            remote: "origin".to_owned(),
+            name: "topic".to_owned()
+        }
+    );
 }
 
 #[test]
@@ -900,6 +910,10 @@ fn an_assessment_serialises_to_the_shape_the_ui_expects() {
                 }],
                 commits: 3,
                 unpushed_commits: 1,
+                commit_list: vec![LostCommit {
+                    short_id: "abc1234".to_owned(),
+                    subject: "Add notes".to_owned(),
+                }],
             }
         })
         .unwrap(),
@@ -915,6 +929,7 @@ fn an_assessment_serialises_to_the_shape_the_ui_expects() {
                 }],
                 "commits": 3,
                 "unpushedCommits": 1,
+                "commitList": [{ "shortId": "abc1234", "subject": "Add notes" }],
             },
         })
     );

@@ -140,7 +140,7 @@ describe("safe mutations", () => {
 });
 
 describe("the confirmation dialog", () => {
-  const emptyLoss: Loss = { files: [], commits: 0, unpushedCommits: 0 };
+  const emptyLoss: Loss = { files: [], commits: 0, unpushedCommits: 0, commitList: [] };
 
   function renderDialog(loss: Loss) {
     const onConfirm = vi.fn();
@@ -174,7 +174,7 @@ describe("the confirmation dialog", () => {
   });
 
   it("states the commits that become unreachable and how many of them are on no remote", () => {
-    const { dialog } = renderDialog({ files: [], commits: 3, unpushedCommits: 2 });
+    const { dialog } = renderDialog({ ...emptyLoss, commits: 3, unpushedCommits: 2 });
 
     expect(dialog).toHaveTextContent(
       "3 commits will no longer be reachable from any branch, and 2 of them exist on no remote.",
@@ -184,10 +184,43 @@ describe("the confirmation dialog", () => {
   });
 
   it("leaves out the unpushed count when every commit is on a remote", () => {
-    const { dialog } = renderDialog({ files: [], commits: 1, unpushedCommits: 0 });
+    const { dialog } = renderDialog({ ...emptyLoss, commits: 1 });
 
     expect(dialog).toHaveTextContent("1 commit will no longer be reachable from any branch.");
     expect(dialog).not.toHaveTextContent("remote");
+  });
+
+  it("names the listed commits and says how many more there are", () => {
+    const { dialog } = renderDialog({
+      ...emptyLoss,
+      commits: 3,
+      commitList: [
+        { shortId: "abc1234", subject: "Add parser" },
+        { shortId: "def5678", subject: "Fix parser" },
+      ],
+    });
+
+    const list = within(dialog).getByRole("list", { name: "Commits that will be lost" });
+    expect(within(list).getAllByRole("listitem").map((item) => item.textContent)).toEqual([
+      "abc1234Add parser",
+      "def5678Fix parser",
+    ]);
+    expect(dialog).toHaveTextContent("and 1 more");
+  });
+
+  it("shows a warning about who else is affected when it has one", () => {
+    render(
+      <ConfirmationDialog
+        title="Delete remote branch"
+        confirmLabel="Delete"
+        loss={{ ...emptyLoss, commits: 1 }}
+        warning="Everyone who shares origin loses topic."
+        onConfirm={vi.fn()}
+        onCancel={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("alertdialog")).toHaveTextContent("Everyone who shares origin loses topic.");
   });
 
   it("reports what the buttons do", async () => {

@@ -300,3 +300,86 @@ fn rebasing_replays_the_current_branch_and_a_conflict_leaves_it_paused() {
         Some(OperationKind::Rebase)
     );
 }
+
+/// `topic` is pushed to `origin`, then only the remote-tracking branch is kept.
+fn with_remote_only_topic() -> TempRepo {
+    let repo = with_topic();
+    repo.add_bare_remote("origin");
+    repo.git(&["push", "origin", "topic"]);
+    repo.git(&["branch", "--delete", "--force", "topic"]);
+    repo
+}
+
+fn delete_remote_topic() -> MutationKind {
+    MutationKind::DeleteRemoteBranch { remote: "origin".to_owned(), name: "topic".to_owned() }
+}
+
+#[test]
+fn deleting_a_remote_branch_names_the_commits_only_it_reaches() {
+    let repo = with_remote_only_topic();
+
+    let Assessment::Destructive { loss } =
+        core().assess_mutation(repo.path(), &delete_remote_topic()).unwrap()
+    else {
+        panic!("origin/topic holds a commit nothing else has");
+    };
+
+    assert_eq!(loss.commits, 1);
+    assert_eq!(
+        loss.commit_list.iter().map(|c| c.subject.as_str()).collect::<Vec<_>>(),
+        ["Topic work"]
+    );
+    assert_eq!(loss.commit_list[0].short_id.len(), 7);
+}
+
+#[test]
+fn a_remote_branch_another_ref_also_reaches_is_safe_to_delete() {
+    let repo = with_remote_only_topic();
+    repo.create_branch("keep");
+    repo.git(&["reset", "--hard", "origin/topic"]);
+    repo.checkout("main");
+
+    assert_eq!(
+        core().assess_mutation(repo.path(), &delete_remote_topic()).unwrap(),
+        Assessment::Safe
+    );
+}
+
+#[test]
+fn a_remote_branch_the_same_name_on_another_remote_still_counts_as_reachable() {
+    let repo = with_remote_only_topic();
+    repo.add_bare_remote("backup");
+    repo.git(&["push", "backup", "origin/topic:refs/heads/topic"]);
+    repo.git(&["fetch", "backup"]);
+
+    assert_eq!(
+        core().assess_mutation(repo.path(), &delete_remote_topic()).unwrap(),
+        Assessment::Safe
+    );
+}
+
+#[test]
+fn deleting_a_remote_branch_leaves_the_local_branch_and_the_reverse() {
+    let repo = with_topic();
+    repo.add_bare_remote("origin");
+    repo.git(&["push", "origin", "topic"]);
+
+    ok(core().delete_remote_branch(repo.path(), "origin", "topic"));
+
+    assert!(!repo.git(&["ls-remote", "--heads", "origin"]).contains("refs/heads/topic"));
+    assert!(branches(&repo).iter().any(|b| b.name == "topic" && b.kind == BranchKind::Local));
+
+    repo.git(&["push", "origin", "topic"]);
+    ok(core().delete_branch(repo.path(), "topic"));
+
+    assert!(repo.git(&["ls-remote", "--heads", "origin"]).contains("refs/heads/topic"));
+}
+
+#[test]
+fn a_remote_branch_name_that_looks_like_an_option_is_refused() {
+    let repo = with_topic();
+    repo.add_bare_remote("origin");
+
+    assert!(core().delete_remote_branch(repo.path(), "origin", "--all").is_err());
+    assert!(core().delete_remote_branch(repo.path(), "--mirror", "topic").is_err());
+}

@@ -143,6 +143,8 @@ export const tauriCoreApi: CoreApi = {
   renameBranch: (path, name, newName) =>
     invoke<MutationOutcome>("rename_branch", { path, name, newName }),
   deleteBranch: (path, name) => invoke<MutationOutcome>("delete_branch", { path, name }),
+  deleteRemoteBranch: (path, remote, name) =>
+    invoke<MutationOutcome>("delete_remote_branch", { path, remote, name }),
   setBranchUpstream: (path, name, upstream) =>
     invoke<MutationOutcome>("set_branch_upstream", { path, name, upstream }),
   mergeBranch: (path, branch, mode: MergeMode) =>

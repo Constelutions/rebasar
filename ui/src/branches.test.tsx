@@ -270,7 +270,7 @@ it("cannot delete or merge the current branch", async () => {
   await openBranches();
   const main = await row("main");
 
-  expect(within(main).queryByRole("button", { name: /Delete/ })).not.toBeInTheDocument();
+  expect(within(main).queryByRole("button", { name: "Delete main" })).not.toBeInTheDocument();
   expect(within(main).queryByRole("button", { name: /Merge/ })).not.toBeInTheDocument();
   expect(within(main).queryByRole("button", { name: /Check out/ })).not.toBeInTheDocument();
 });
@@ -328,7 +328,96 @@ it("offers rename, upstream and delete only for branches that exist locally", as
   const feature = await row("feature");
   expect(within(feature).queryByRole("button", { name: /Rename/ })).not.toBeInTheDocument();
   expect(within(feature).queryByRole("button", { name: /Upstream/ })).not.toBeInTheDocument();
-  expect(within(feature).queryByRole("button", { name: /Delete/ })).not.toBeInTheDocument();
+  expect(within(feature).queryByRole("button", { name: "Delete feature" })).not.toBeInTheDocument();
+});
+
+it("deletes a remote-only branch after a confirmation that names its commits and who is affected", async () => {
+  const { user, api } = await openBranches();
+  await row("feature");
+
+  await user.click(screen.getByRole("button", { name: "Delete feature on origin" }));
+  const dialog = await screen.findByRole("alertdialog", { name: "Delete remote branch" });
+
+  expect(within(dialog).getByRole("list", { name: "Commits that will be lost" })).toHaveTextContent(
+    "Work only on origin",
+  );
+  expect(dialog).toHaveTextContent("2 commits will no longer be reachable");
+  expect(dialog).toHaveTextContent("Everyone who shares origin");
+  expect(api.branchActions).toEqual([]);
+  await user.click(within(dialog).getByRole("button", { name: "Delete" }));
+  await waitFor(() => expect(api.branchActions).toEqual(["delete-remote:origin:feature"]));
+  await waitFor(() => expect(screen.queryByText("feature", { selector: ".branch-name" })).not.toBeInTheDocument());
+});
+
+it("keeps a remote branch when the confirmation is cancelled", async () => {
+  const { user, api } = await openBranches();
+  await row("feature");
+
+  await user.click(screen.getByRole("button", { name: "Delete feature on origin" }));
+  await user.click(await screen.findByRole("button", { name: "Cancel" }));
+
+  expect(api.branchActions).toEqual([]);
+  expect(await row("feature")).toBeInTheDocument();
+});
+
+it("deletes the remote counterpart of a local branch without touching the local branch", async () => {
+  const { user, api } = await openBranches([
+    branch("main", { current: true }),
+    branch("topic"),
+    branch("origin/topic", { kind: "remote" }),
+  ]);
+  const topic = await row("topic");
+  expect(badges(topic)).toEqual(["local", "origin"]);
+
+  await user.click(screen.getByRole("button", { name: "Delete topic on origin" }));
+
+  await waitFor(() => expect(api.branchActions).toEqual(["delete-remote:origin:topic"]));
+  await waitFor(() => expect(badges(topic)).toEqual(["local"]));
+  expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+});
+
+it("deletes only the local branch and leaves its remote counterpart", async () => {
+  const { user, api } = await openBranches([
+    branch("main", { current: true }),
+    branch("old", { merged: true }),
+    branch("origin/old", { kind: "remote", merged: true }),
+  ]);
+  const old = await row("old");
+
+  await user.click(screen.getByRole("button", { name: "Delete old" }));
+
+  await waitFor(() => expect(api.branchActions).toEqual(["delete:old"]));
+  await waitFor(() => expect(badges(old)).toEqual(["origin"]));
+});
+
+it("offers one delete per remote for a branch on several remotes", async () => {
+  const { user, api } = await openBranches([
+    branch("main", { current: true }),
+    branch("origin/shared", { kind: "remote" }),
+    branch("backup/shared", { kind: "remote" }),
+  ]);
+  const shared = await row("shared");
+
+  expect(within(shared).getByRole("button", { name: "Delete shared on origin" })).toBeInTheDocument();
+  await user.click(within(shared).getByRole("button", { name: "Delete shared on backup" }));
+  await user.click(await screen.findByRole("button", { name: "Delete" }));
+
+  await waitFor(() => expect(api.branchActions).toEqual(["delete-remote:backup:shared"]));
+  expect(badges(shared)).toEqual(["origin"]);
+});
+
+it("deletes a remote branch right away when the core finds nothing would be lost", async () => {
+  const { user, api } = await openBranches([
+    branch("main", { current: true }),
+    branch("topic"),
+    branch("origin/topic", { kind: "remote" }),
+  ]);
+  await row("topic");
+
+  await user.click(screen.getByRole("button", { name: "Delete topic on origin" }));
+
+  await waitFor(() => expect(api.assessedMutations).toEqual([{ kind: "deleteRemoteBranch", remote: "origin", name: "topic" }]));
+  expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
 });
 
 it("says so when a merge fails and points to the output panel", async () => {
