@@ -414,6 +414,8 @@ export type Assessment = { kind: "safe" } | { kind: "destructive"; loss: Loss };
 
 export type CoreEvent =
   | { type: "tabOpened"; tab: Tab }
+  /** The path the app was started with, or that a second start handed over, could not be opened. */
+  | { type: "launchFailed"; message: string }
   | { type: "tabClosed"; worktreePath: string }
   | { type: "worktreeChanged"; worktreePath: string }
   | { type: "pollingTabsChanged"; worktreePaths: string[] }
@@ -669,6 +671,11 @@ export interface CoreApi {
   /** Open pull requests of the Repository's GitHub remote, most recently updated first. */
   pullRequests(path: string): Promise<PullRequest[]>;
   appInfo(): Promise<AppInfo>;
+  /**
+   * Opens the Worktree the app was started with, if it was started with one, and only the first
+   * time it is asked. Failures arrive as a `launchFailed` event, so ask once the UI is listening.
+   */
+  openLaunchPath(): Promise<void>;
   checkGit(): Promise<GitSetup>;
   /**
    * The mutation methods resolve when the mutation has finished, after waiting for earlier

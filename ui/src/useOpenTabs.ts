@@ -19,6 +19,7 @@ export function useOpenTabs(api: CoreApi) {
   const [error, setError] = useState<string | null>(null);
   const [restoredView, setRestoredView] = useState<string | null>(null);
   const latestRequests = useRef(new Map<string, number>());
+  const listening = useRef<Promise<unknown>>(Promise.resolve());
 
   const refresh = useCallback(
     async (path: string) => {
@@ -66,6 +67,12 @@ export function useOpenTabs(api: CoreApi) {
       setRestoredView(session.view);
       if (session.active !== null) select(session.active);
 
+      // After the restore, so the Worktree the app was started with ends up in front, and once
+      // the event subscription exists, so a failure to open it is not lost.
+      await listening.current;
+      if (cancelled) return;
+      await api.openLaunchPath();
+
       // One at a time and after a paint, so that many restored Tabs never delay the first one.
       for (const { worktreePath } of session.tabs) {
         if (worktreePath === session.active) continue;
@@ -97,6 +104,9 @@ export function useOpenTabs(api: CoreApi) {
           setOpenTabs((current) => withTab(current, event.tab));
           select(event.tab.worktreePath);
           break;
+        case "launchFailed":
+          setError(event.message);
+          break;
         case "tabClosed":
           setOpenTabs((current) =>
             current.filter((open) => open.tab.worktreePath !== event.worktreePath),
@@ -110,6 +120,7 @@ export function useOpenTabs(api: CoreApi) {
           break;
       }
     });
+    listening.current = subscription;
     return () => {
       void subscription.then((unsubscribe) => unsubscribe());
     };

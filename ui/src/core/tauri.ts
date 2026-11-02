@@ -74,6 +74,7 @@ export const tauriCoreApi: CoreApi = {
   signOutOfGitHub: () => invoke<GitHubAuthStatus>("sign_out_of_github"),
   pullRequests: (path) => invoke<PullRequest[]>("pull_requests", { path }),
   appInfo: () => invoke<AppInfo>("app_info"),
+  openLaunchPath: () => invoke<void>("open_launch_path"),
   checkGit: () => invoke<GitSetup>("check_git"),
   stageFiles: (path, paths) => invoke<MutationOutcome>("stage_files", { path, paths }),
   unstageFiles: (path, paths) => invoke<MutationOutcome>("unstage_files", { path, paths }),

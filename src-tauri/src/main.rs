@@ -1,7 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use std::path::PathBuf;
-use std::sync::Arc;
+use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex, PoisonError};
 
 use rebasar_core::{
     ApiError, AppInfo, Assessment, BranchInfo, ConflictFile, ConflictSide, CommitDetail, CommitDiffRequest, CommitHit, CommitOptions, Core,
@@ -148,6 +148,37 @@ async fn pull_requests(
 #[tauri::command]
 fn app_info(core: State<'_, Arc<Core>>) -> AppInfo {
     core.app_info()
+}
+
+/// The path the app was started with, held until the UI is listening for the events that opening
+/// it produces.
+struct PendingLaunchPath(Mutex<Option<PathBuf>>);
+
+/// The first argument that is not a flag, made absolute against the folder it was typed in.
+fn launch_path(args: &[String], working_dir: &Path) -> Option<PathBuf> {
+    args.iter()
+        .skip(1)
+        .find(|argument| !argument.starts_with('-'))
+        .map(|argument| working_dir.join(argument))
+}
+
+#[tauri::command]
+async fn open_launch_path(
+    core: State<'_, Arc<Core>>,
+    pending: State<'_, PendingLaunchPath>,
+) -> Result<(), ApiError> {
+    let path = pending
+        .0
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner)
+        .take();
+    let Some(path) = path else {
+        return Ok(());
+    };
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.open_launch_path(&path))
+        .await
+        .map_err(ApiError::unexpected)
 }
 
 #[tauri::command]
@@ -1290,6 +1321,20 @@ fn config_dir_of(app: &tauri::App) -> tauri::Result<PathBuf> {
 
 fn main() {
     tauri::Builder::default()
+        // Registered first, as the plugin requires. A second start hands its path to this instance
+        // and exits, so two instances never overwrite each other's registry.
+        .plugin(tauri_plugin_single_instance::init(|app, args, working_dir| {
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.unminimize();
+                let _ = window.set_focus();
+            }
+            let Some(path) = launch_path(&args, Path::new(&working_dir)) else {
+                return;
+            };
+            if let Some(core) = app.try_state::<Arc<Core>>() {
+                core.open_launch_path(&path);
+            }
+        }))
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             let handle = app.handle().clone();
@@ -1306,6 +1351,9 @@ fn main() {
             }
             let config_dir = config_dir_of(app)?;
             app.manage(Arc::new(core.with_config_dir(config_dir)));
+            let arguments: Vec<String> = std::env::args().collect();
+            let working_dir = std::env::current_dir().unwrap_or_default();
+            app.manage(PendingLaunchPath(Mutex::new(launch_path(&arguments, &working_dir))));
             Ok(())
         })
         .on_window_event(|window, event| {
@@ -1339,6 +1387,7 @@ fn main() {
             sign_out_of_github,
             pull_requests,
             app_info,
+            open_launch_path,
             check_git,
             stage_files,
             unstage_files,
