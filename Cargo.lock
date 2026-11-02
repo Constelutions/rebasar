@@ -3909,6 +3909,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "rebasar-cli"
+version = "0.1.0"
+dependencies = [
+ "tempfile",
+]
+
+[[package]]
 name = "rebasar-core"
 version = "0.1.0"
 dependencies = [
