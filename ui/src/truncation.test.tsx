@@ -65,9 +65,10 @@ it("keeps the tooltip open while the pointer is inside it so its text can be sel
   await waitFor(() => expect(screen.queryByRole("tooltip")).toBeNull());
 });
 
-it("keeps the file name of a path out of the cut part", () => {
+it("marks a path to be cut from its start so that the file name stays visible", () => {
   render(withSettings(<TruncatedText path text="plugins/skills/dependabot-consolidate/SKILL.md" />));
 
-  expect(screen.getByText("plugins/skills/dependabot-consolidate/")).toHaveClass("truncate-directory");
-  expect(screen.getByText("SKILL.md")).toHaveClass("truncate-name");
+  const path = screen.getByText("plugins/skills/dependabot-consolidate/SKILL.md");
+
+  expect(path.closest(".truncate-path")).not.toBeNull();
 });

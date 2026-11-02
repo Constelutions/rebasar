@@ -70,7 +70,7 @@ describe("the position of the diff", () => {
       const { split } = await openChanges(withChangesSettings({ diffPosition }));
 
       expect(within(split).getByRole("list", { name: "Changed files" })).toBeInTheDocument();
-      expect(within(split).getByText("src/api.ts", { selector: ".diff-path" })).toBeInTheDocument();
+      expect(within(split).getByText("src/api.ts", { selector: ".diff-path bdi" })).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Commit" })).toBeInTheDocument();
       expect(split).not.toContainElement(screen.getByRole("button", { name: "Commit" }));
     },

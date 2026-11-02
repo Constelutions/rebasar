@@ -86,9 +86,15 @@ async function openHistory(options: OpenOptions = {}) {
   return { user, api };
 }
 
+async function openRowMenu(user: ReturnType<typeof userEvent.setup>, path: string) {
+  await user.click(await screen.findByRole("button", { name: `Options for ${path}` }));
+  return screen.getByRole("menu", { name: `Actions for ${path}` });
+}
+
 async function openFileMenu(user: ReturnType<typeof userEvent.setup>, path: string) {
-  await user.click(await screen.findByRole("button", { name: `Open file in… ${path}` }));
-  return screen.getByRole("menu", { name: "Open file in" });
+  const rowMenu = await openRowMenu(user, path);
+  await user.click(within(rowMenu).getByRole("menuitem", { name: "Open in…" }));
+  return screen.getByRole("menu", { name: "Open in…" });
 }
 
 it("offers every changed file in a menu of the editors, in the order the platform layer reports them", async () => {
@@ -111,7 +117,7 @@ it("opens the file of the row in the editor picked from the menu", async () => {
   await user.click(within(menu).getByRole("menuitem", { name: "Nano" }));
 
   expect(api.openedFilesInEditor).toEqual([{ editorId: "nano", worktreePath: worktree, file: "src/core/api.ts" }]);
-  expect(screen.queryByRole("menu", { name: "Open file in" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("menu")).not.toBeInTheDocument();
 });
 
 it("remembers the editor, which becomes the one-click default of the Worktree button too", async () => {
@@ -147,10 +153,12 @@ it("disables an editor that is not on the PATH and gives the reason in a tooltip
 it("has nothing to open for a deleted file", async () => {
   await openChanges();
 
-  const button = await screen.findByRole("button", { name: "Open file in… README.md" });
+  const user = userEvent.setup();
+  const menu = await openRowMenu(user, "README.md");
 
-  expect(button).toBeDisabled();
-  expect(button).toHaveAttribute("title", "A deleted file has nothing to open.");
+  const item = within(menu).getByRole("menuitem", { name: "Open in…" });
+  expect(item).toBeDisabled();
+  expect(item).toHaveAttribute("title", "A deleted file has nothing to open.");
 });
 
 it("reports a failure to open the file and does not remember the editor", async () => {
@@ -174,7 +182,7 @@ it("closes the menu on Escape", async () => {
   await openFileMenu(user, "docs/guide.md");
   await user.keyboard("{Escape}");
 
-  expect(screen.queryByRole("menu", { name: "Open file in" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("menu")).not.toBeInTheDocument();
 });
 
 it("offers the selected file in the command palette", async () => {
@@ -200,7 +208,9 @@ it("offers the files of a commit in History the same menu", async () => {
 });
 
 it("has nothing to open for a file a commit deleted", async () => {
-  await openHistory();
+  const { user } = await openHistory();
 
-  expect(await screen.findByRole("button", { name: "Open file in… old.txt" })).toBeDisabled();
+  const menu = await openRowMenu(user, "old.txt");
+
+  expect(within(menu).getByRole("menuitem", { name: "Open in…" })).toBeDisabled();
 });

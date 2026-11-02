@@ -13,6 +13,7 @@ import {
   sideBySideRows,
   unifiedRows,
 } from "./diffRows";
+import { TruncatedText } from "./TruncatedText";
 import { VirtualList } from "./VirtualList";
 
 export const DIFF_ROW_HEIGHT = 20;
@@ -64,9 +65,9 @@ export function DiffView({ diff, mode, onModeChange, onLoadLarge, staging }: Dif
       <header className="diff-header">
         <div className="diff-title">
           <span ref={pathRef} className="diff-path">
-            {diff.path}
+            <TruncatedText path text={diff.path} />
           </span>
-          {diff.originalPath && <span className="renamed-from">renamed from {diff.originalPath}</span>}
+          {diff.originalPath && <TruncatedText className="renamed-from" text={`renamed from ${diff.originalPath}`} />}
           {diff.modeChange && (
             <span className="mode-change">
               mode {diff.modeChange.old} → {diff.modeChange.new}

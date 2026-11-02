@@ -37,11 +37,16 @@ function unstaged() {
   return within(screen.getByRole("list", { name: "Changed files" }));
 }
 
+async function discardFromMenu(user: ReturnType<typeof userEvent.setup>, path: string) {
+  await user.click(screen.getByRole("button", { name: `Options for ${path}` }));
+  await user.click(screen.getByRole("menuitem", { name: "Discard" }));
+}
+
 describe("discarding changes", () => {
   it("asks first, naming the file that would be lost, and does nothing until confirmed", async () => {
     const { user, api } = await openChanges();
 
-    await user.click(screen.getByRole("button", { name: "Discard notes.txt" }));
+    await discardFromMenu(user, "notes.txt");
 
     const dialog = await screen.findByRole("alertdialog", { name: "Discard changes" });
     expect(dialog).toHaveTextContent("1 file with uncommitted changes will be lost");
@@ -54,7 +59,7 @@ describe("discarding changes", () => {
 
   it("discards the file once the user confirms", async () => {
     const { user, api } = await openChanges();
-    await user.click(screen.getByRole("button", { name: "Discard notes.txt" }));
+    await discardFromMenu(user, "notes.txt");
 
     await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Discard" }));
 
@@ -69,7 +74,7 @@ describe("discarding changes", () => {
 
   it("keeps everything when the user cancels", async () => {
     const { user, api } = await openChanges();
-    await user.click(screen.getByRole("button", { name: "Discard notes.txt" }));
+    await discardFromMenu(user, "notes.txt");
 
     await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Cancel" }));
 
@@ -80,7 +85,7 @@ describe("discarding changes", () => {
 
   it("cancels on Escape and starts with Cancel focused", async () => {
     const { user, api } = await openChanges();
-    await user.click(screen.getByRole("button", { name: "Discard notes.txt" }));
+    await discardFromMenu(user, "notes.txt");
 
     expect(await within(await screen.findByRole("alertdialog")).findByRole("button", { name: "Cancel" })).toHaveFocus();
     await user.keyboard("{Escape}");
@@ -92,7 +97,8 @@ describe("discarding changes", () => {
   it("discards every unstaged file from Discard all, listing all of them in the dialog", async () => {
     const { user, api } = await openChanges();
 
-    await user.click(screen.getByRole("button", { name: "Discard all" }));
+    await user.click(screen.getByRole("button", { name: "Unstaged options" }));
+    await user.click(screen.getByRole("menuitem", { name: "Discard all" }));
 
     const dialog = await screen.findByRole("alertdialog");
     expect(dialog).toHaveTextContent("3 files with uncommitted changes will be lost");
@@ -113,11 +119,22 @@ describe("discarding changes", () => {
     );
   });
 
+  it("keeps Stage on the row and opens the rest of the actions on a right-click", async () => {
+    const { user } = await openChanges();
+
+    expect(screen.getByRole("button", { name: "Stage notes.txt" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Discard notes.txt" })).not.toBeInTheDocument();
+
+    await user.pointer({ keys: "[MouseRight]", target: unstaged().getByText("notes.txt") });
+
+    expect(screen.getByRole("menuitem", { name: "Discard" })).toBeInTheDocument();
+  });
+
   it("offers no discard for staged or conflicted files", async () => {
     await openChanges();
 
-    expect(screen.queryByRole("button", { name: "Discard src/api.ts" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Discard clash.txt" })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Options for src/api.ts" }));
+    expect(screen.queryByRole("menuitem", { name: "Discard" })).not.toBeInTheDocument();
   });
 });
 

@@ -444,6 +444,7 @@ button {
   background: transparent;
   border: 0;
   border-radius: var(--radius-sm);
+  overflow: hidden;
 }
 
 .folder-row,
@@ -470,7 +471,7 @@ button {
 }
 
 .tree-name {
-  flex: none;
+  flex: 0 1 auto;
 }
 
 .change-group-header .segmented {
@@ -483,12 +484,17 @@ button {
   font-size: var(--text-xs);
 }
 
-.change-group-header .segmented + .group-action {
+.change-group-header .options-button {
+  margin-left: auto;
+}
+
+.change-group-header .segmented + .options-button {
   margin-left: 0;
 }
 
 .tree-directory,
 .renamed-from {
+  flex: 1 1 0;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -499,6 +505,7 @@ button {
 
 .line-counts {
   display: flex;
+  flex: none;
   gap: var(--space-2);
   margin-left: auto;
   font: var(--text-xs) var(--font-mono);
@@ -1008,16 +1015,23 @@ button.commit-hash:hover {
 
 .diff-title {
   display: flex;
-  flex-wrap: wrap;
+  flex: 1 1 0;
   align-items: baseline;
   gap: var(--space-2) var(--space-4);
   min-width: 0;
 }
 
 .diff-path {
+  display: flex;
+  flex: 0 1 auto;
+  min-width: 0;
   font: var(--text-md) var(--font-mono);
   color: var(--color-text-strong);
   user-select: text;
+}
+
+.diff-path .truncate-path {
+  display: block;
 }
 
 .mode-change {
@@ -2138,12 +2152,7 @@ button.commit-hash:hover {
   min-height: var(--row-height);
 }
 
-.change-group-header .group-action {
-  margin-left: auto;
-}
-
-.row-action.danger,
-.group-action.danger {
+.row-action.danger {
   color: var(--color-danger);
 }
 
@@ -2374,8 +2383,7 @@ button.commit-hash:hover {
   border-bottom-left-radius: 0;
 }
 
-.open-in-editor-menu,
-.file-editor-menu {
+.open-in-editor-menu {
   z-index: 20;
   display: flex;
   flex-direction: column;
@@ -2392,17 +2400,7 @@ button.commit-hash:hover {
   min-width: 100%;
 }
 
-.file-editor-menu {
-  position: fixed;
-  min-width: 140px;
-}
-
-.file-editor-menu button[aria-current="true"] {
-  color: var(--color-accent-text);
-}
-
-.open-in-editor-menu button,
-.file-editor-menu button {
+.open-in-editor-menu button {
   padding: var(--space-1) var(--space-3);
   color: var(--color-text);
   text-align: left;
@@ -2414,14 +2412,11 @@ button.commit-hash:hover {
 }
 
 .open-in-editor-menu button:hover:not(:disabled),
-.file-editor-menu button:hover:not(:disabled),
-.open-in-editor-menu button:focus-visible,
-.file-editor-menu button:focus-visible {
+.open-in-editor-menu button:focus-visible {
   background: var(--color-hover);
 }
 
-.open-in-editor-menu button:disabled,
-.file-editor-menu button:disabled {
+.open-in-editor-menu button:disabled {
   color: var(--color-text-subtle);
   cursor: not-allowed;
 }
@@ -2785,18 +2780,8 @@ button.commit-hash:hover {
 }
 
 .truncate-path {
-  display: inline-flex;
-  text-overflow: clip;
-}
-
-.truncate-directory {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.truncate-name {
-  flex: none;
+  direction: rtl;
+  text-align: left;
 }
 
 .truncation-tooltip {

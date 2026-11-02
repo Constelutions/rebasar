@@ -10,7 +10,7 @@ const SHOW_DELAY_MS = 350;
 interface TruncatedTextProps {
   text: string;
   className?: string;
-  /** Cuts the directories and always keeps the file name visible. */
+  /** Cuts from the start so the file name stays visible: the ellipsis replaces the leading directories. */
   path?: boolean;
 }
 
@@ -35,10 +35,10 @@ export function TruncatedText({ text, className, path = false }: TruncatedTextPr
   const show = useCallback(() => {
     clearTimeout(leaveTimer.current);
     const target = element.current;
-    if (!target || !isCut(target, path)) return;
+    if (!target || target.scrollWidth <= target.clientWidth) return;
     clearTimeout(showTimer.current);
     showTimer.current = setTimeout(() => setAnchor(target.getBoundingClientRect()), SHOW_DELAY_MS);
-  }, [path]);
+  }, []);
 
   const hide = useCallback(() => {
     clearTimeout(showTimer.current);
@@ -46,18 +46,10 @@ export function TruncatedText({ text, className, path = false }: TruncatedTextPr
   }, []);
 
   const classes = ["truncate", path ? "truncate-path" : "", className ?? ""].filter(Boolean).join(" ");
-  const slash = path ? text.lastIndexOf("/") + 1 : 0;
 
   return (
     <span ref={element} className={classes} onMouseEnter={show} onMouseLeave={hide}>
-      {path && slash > 0 ? (
-        <>
-          <span className="truncate-directory">{text.slice(0, slash)}</span>
-          <span className="truncate-name">{text.slice(slash)}</span>
-        </>
-      ) : (
-        text
-      )}
+      {path ? <bdi>{text}</bdi> : text}
       {anchor && (
         <TruncationTooltip anchor={anchor} onEnter={show} onLeave={hide}>
           {text}
@@ -65,11 +57,6 @@ export function TruncatedText({ text, className, path = false }: TruncatedTextPr
       )}
     </span>
   );
-}
-
-function isCut(target: HTMLElement, path: boolean): boolean {
-  const measured = path ? (target.querySelector<HTMLElement>(".truncate-directory") ?? target) : target;
-  return measured.scrollWidth > measured.clientWidth;
 }
 
 interface TruncationTooltipProps {
