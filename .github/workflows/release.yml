@@ -1,0 +1,133 @@
+name: Release
+
+# Every push to develop or main (so every merged PR) runs this. It only releases when the workspace
+# version has no tag yet; see scripts/release/plan.mjs and docs/releasing.md.
+on:
+  push:
+    branches: [develop, main]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Build everything but publish nothing
+        type: boolean
+        default: true
+
+# Two merges in quick succession must not race to publish.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  plan:
+    name: Plan the release
+    runs-on: ubuntu-22.04
+    outputs:
+      release: ${{ steps.plan.outputs.release }}
+      tag: ${{ steps.plan.outputs.tag }}
+      prerelease: ${{ steps.plan.outputs.prerelease }}
+      winget: ${{ steps.plan.outputs.winget }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - id: plan
+        shell: bash
+        run: |
+          version=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -n 1)
+          tags=$(git tag --list 'v*' | tr '\n' ' ')
+          node scripts/release/plan.mjs plan --version "$version" --branch "$GITHUB_REF_NAME" --tags "$tags" | tee plan.txt
+          {
+            echo "### Release plan"
+            echo '```'
+            cat plan.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  build:
+    name: Build the installers
+    needs: plan
+    if: needs.plan.outputs.release == 'true'
+    uses: ./.github/workflows/build-installers.yml
+
+  publish:
+    name: Publish the release
+    needs: [plan, build]
+    if: needs.plan.outputs.release == 'true'
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      TAG: ${{ needs.plan.outputs.tag }}
+      PRERELEASE: ${{ needs.plan.outputs.prerelease }}
+      # Real publishing stays off until the repository variable is set, and a manual run can
+      # always ask for a dry run.
+      PUBLISH: ${{ vars.RELEASES_ENABLED == 'true' && (github.event_name == 'push' || inputs.dry_run == false) }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-assets
+          path: assets
+
+      - name: Report what would be published
+        if: env.PUBLISH != 'true'
+        shell: bash
+        run: |
+          {
+            echo "### Dry run: nothing was published"
+            echo "Tag \`$TAG\` (pre-release: $PRERELEASE) would be created on \`$GITHUB_SHA\` with:"
+            echo '```'
+            ls -l assets
+            echo
+            cat assets/SHA256SUMS
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          cat "$GITHUB_STEP_SUMMARY"
+
+      # The release is made as a draft and published last, so a run that fails halfway leaves no
+      # tag behind and can simply be run again; a draft left by the failed run is replaced.
+      - name: Publish the GitHub Release
+        if: env.PUBLISH == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            if [ "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = "true" ]; then
+              gh release delete "$TAG" --yes
+            else
+              echo "$TAG is already published"
+              exit 0
+            fi
+          fi
+          flags=()
+          if [ "$PRERELEASE" = "true" ]; then flags+=(--prerelease); fi
+          gh release create "$TAG" assets/* \
+            --draft \
+            --target "$GITHUB_SHA" \
+            --title "Rebasar ${TAG#v}" \
+            --generate-notes \
+            "${flags[@]}"
+          gh release edit "$TAG" --draft=false
+
+      # The marketing site rebuilds from the Releases API; a failed ping must not undo a release.
+      - name: Tell the website a release was published
+        if: env.PUBLISH == 'true'
+        continue-on-error: true
+        shell: bash
+        env:
+          DEPLOY_WEBHOOK: ${{ secrets.SITE_DEPLOY_WEBHOOK }}
+        run: |
+          if [ -z "$DEPLOY_WEBHOOK" ]; then
+            echo "No SITE_DEPLOY_WEBHOOK secret; skipping."
+            exit 0
+          fi
+          curl --fail --silent --show-error --request POST "$DEPLOY_WEBHOOK"
