@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { planRelease, validateAssets } from "./plan.mjs";
+import { planRelease, validateAssets, workspaceVersion } from "./plan.mjs";
 
 const hash = (character) => character.repeat(64);
 
@@ -62,8 +62,15 @@ test("a tag that matches the workspace version is accepted", () => {
   assert.equal(plan.release, true);
 });
 
-test("main only releases stable 1.x.y versions", () => {
-  assert.throws(() => planRelease({ version: "0.9.0", branch: "main", tags: [] }), /main/);
+test("main holds 0.x.y until 1.0.0 and releases nothing from it, without failing the run", () => {
+  const plan = planRelease({ version: "0.9.0", branch: "main", tags: [] });
+
+  assert.equal(plan.release, false);
+  assert.match(plan.reason, /main/);
+  assert.match(plan.reason, /1\.0\.0/);
+});
+
+test("a pre-release version on main is an error, since main is stable only", () => {
   assert.throws(() => planRelease({ version: "1.1.0-beta.1", branch: "main", tags: [] }), /main/);
 });
 
@@ -167,4 +174,38 @@ test("the binary-mode marker that sha256sum may print is accepted", () => {
   const checksums = assets.map(({ name, sha256 }) => `${sha256} *${name}`).join("\n") + "\n";
 
   assert.deepEqual(validateAssets({ version: "0.1.0", assets, checksums }), []);
+});
+
+const cargoToml = (workspacePackage) => `[workspace]
+resolver = "2"
+members = ["a"]
+
+[workspace.dependencies]
+serde = { version = "1.0.0" }
+other = { path = "x", version = "9.9.9" }
+
+[workspace.dependencies.tauri]
+version = "2"
+
+[workspace.package]
+${workspacePackage}
+edition = "2021"
+`;
+
+test("the workspace version is the one in [workspace.package], not another version line", () => {
+  assert.equal(workspaceVersion(cargoToml('version = "0.1.0"')), "0.1.0");
+});
+
+test("a pre-release workspace version is read whole", () => {
+  assert.equal(workspaceVersion(cargoToml('version = "1.1.0-beta.2"')), "1.1.0-beta.2");
+});
+
+test("a version line before [workspace.package] is ignored", () => {
+  const text = `version = "9.9.9"\n\n[workspace.package]\nversion = "0.3.0"\n`;
+
+  assert.equal(workspaceVersion(text), "0.3.0");
+});
+
+test("a Cargo.toml without a workspace version is an error", () => {
+  assert.throws(() => workspaceVersion(cargoToml("")), /workspace\.package/);
 });

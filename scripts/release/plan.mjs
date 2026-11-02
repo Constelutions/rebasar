@@ -17,6 +17,26 @@ function parseVersion(version) {
 }
 
 /**
+ * The version in the `[workspace.package]` table of a root Cargo.toml. Only that table counts:
+ * dependency tables and members carry `version` keys of their own.
+ */
+export function workspaceVersion(cargoToml) {
+  let table = null;
+  for (const line of cargoToml.split(/\r?\n/)) {
+    const heading = /^\s*\[([^\]]+)\]\s*$/.exec(line);
+    if (heading) {
+      table = heading[1].trim();
+      continue;
+    }
+    if (table === "workspace.package") {
+      const version = /^\s*version\s*=\s*"([^"]+)"/.exec(line);
+      if (version) return version[1];
+    }
+  }
+  throw new Error("no version found under [workspace.package] in Cargo.toml");
+}
+
+/**
  * @param {{ version: string, branch: string, tags: string[], tag?: string }} input
  *   `tag` is the tag a run was started for, when it was started for one.
  */
@@ -41,8 +61,12 @@ export function planRelease({ version, branch, tags, tag }) {
   if (branch !== "develop" && branch !== "main") {
     return nothing(`${branch} does not publish releases`);
   }
-  if (branch === "main" && (major < 1 || prerelease)) {
-    throw new Error(`main releases stable 1.x.y versions, and ${version} is not one`);
+  // Until the promotion to 1.0.0, main legitimately holds a 0.x.y version and releases nothing.
+  if (branch === "main" && major < 1) {
+    return nothing(`main is unreleased until 1.0.0, and it is at ${version}`);
+  }
+  if (branch === "main" && prerelease) {
+    throw new Error(`main releases stable versions, and ${version} is a pre-release`);
   }
   if (branch === "develop" && major >= 1 && !prerelease) {
     throw new Error(
@@ -119,6 +143,11 @@ function required(args, name) {
 function main(args) {
   const [command] = args;
 
+  if (command === "version") {
+    console.log(workspaceVersion(readFileSync(option(args, "cargo-toml") ?? "Cargo.toml", "utf8")));
+    return 0;
+  }
+
   if (command === "plan") {
     const plan = planRelease({
       version: required(args, "version"),
@@ -146,7 +175,8 @@ function main(args) {
     return problems.length === 0 ? 0 : 1;
   }
 
-  console.error("usage: plan.mjs plan --version V --branch B [--tags 'v0.1.0 v0.2.0'] [--tag T]");
+  console.error("usage: plan.mjs version [--cargo-toml PATH]");
+  console.error("       plan.mjs plan --version V --branch B [--tags 'v0.1.0 v0.2.0'] [--tag T]");
   console.error("       plan.mjs check-assets --version V --dir DIR");
   return 2;
 }

@@ -27,7 +27,8 @@ Every other merge runs the same workflow, finds that `v<version>` already exists
 | `develop` | `1.x.y-beta.N` with no tag yet | Pre-release; not sent to winget |
 | `develop` | a bare `1.x.y` | Error: that belongs on `main` |
 | `main` | `1.x.y` with no tag yet | Stable release; goes to winget |
-| `main` | `0.x.y` or a suffixed version | Error: `main` is stable only |
+| `main` | `0.x.y` | Nothing: `main` is unreleased until 1.0.0 |
+| `main` | a suffixed version such as `1.1.0-beta.1` | Error: `main` is stable only |
 | either | the tag already exists | Nothing |
 
 ### Going to 1.0.0
@@ -39,6 +40,12 @@ Open a PR from `develop` into `main` that sets the version to `1.0.0` and merge 
 Real publishing is guarded by the repository **variable** `RELEASES_ENABLED`. Until it is `true`, the Release workflow still plans and builds everything, then writes what it would have published to the run summary and stops. Set it (Settings → Secrets and variables → Actions → Variables) when the first release should go out.
 
 To rehearse, run the **Release** workflow by hand from the Actions tab. A manual run is a dry run unless you untick `dry_run` and the variable is `true`. The **Build installers** workflow can also be run alone; it builds the installers and uploads them as workflow artifacts without any release logic.
+
+### Merging two version bumps close together
+
+Releases run one at a time, and GitHub keeps only the newest run that is waiting. If a second version bump merges while the first release is still running and a third merge follows before it finishes, the middle run is dropped and its version is skipped for good, since no tag or release is made for it. Merge version bumps one at a time and wait for the Release run to finish. A skipped version is not a problem to repair: the next bump releases the next version.
+
+On `main`, a `0.x.y` version releases nothing and does not fail the run: it stays unreleased until the promotion to 1.0.0.
 
 ### When a run fails
 

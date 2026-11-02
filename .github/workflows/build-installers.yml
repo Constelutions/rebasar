@@ -85,7 +85,7 @@ jobs:
       - name: Check the asset names and checksums against the contract
         shell: bash
         run: |
-          version=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -n 1)
+          version=$(node scripts/release/plan.mjs version)
           node scripts/release/plan.mjs check-assets --version "$version" --dir assets
 
       - uses: actions/upload-artifact@v4

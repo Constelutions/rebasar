@@ -41,7 +41,7 @@ jobs:
       - id: plan
         shell: bash
         run: |
-          version=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -n 1)
+          version=$(node scripts/release/plan.mjs version)
           tags=$(git tag --list 'v*' | tr '\n' ' ')
           node scripts/release/plan.mjs plan --version "$version" --branch "$GITHUB_REF_NAME" --tags "$tags" | tee plan.txt
           {

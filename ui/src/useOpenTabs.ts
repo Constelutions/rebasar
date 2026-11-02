@@ -67,11 +67,12 @@ export function useOpenTabs(api: CoreApi) {
       setRestoredView(session.view);
       if (session.active !== null) select(session.active);
 
-      // After the restore, so the Worktree the app was started with ends up in front, and once
-      // the event subscription exists, so a failure to open it is not lost.
-      await listening.current;
-      if (cancelled) return;
-      await api.openLaunchPath();
+      // After the session is in place, so the Worktree the app was started with ends up in front,
+      // and once the event subscription exists, so a failure to open it is not lost. Not awaited:
+      // restoring the other Tabs never waits on it, and a failure of its own cannot stop them.
+      void listening.current
+        .then(() => (cancelled ? undefined : api.openLaunchPath()))
+        .catch((failure) => setError(describeError(failure)));
 
       // One at a time and after a paint, so that many restored Tabs never delay the first one.
       for (const { worktreePath } of session.tabs) {

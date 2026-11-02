@@ -150,35 +150,61 @@ fn app_info(core: State<'_, Arc<Core>>) -> AppInfo {
     core.app_info()
 }
 
-/// The path the app was started with, held until the UI is listening for the events that opening
-/// it produces.
-struct PendingLaunchPath(Mutex<Option<PathBuf>>);
+/// The paths the app was started with, or that a second start handed over, which wait here until
+/// the UI is listening: the events that opening one produces would reach nobody before that.
+#[derive(Default)]
+struct LaunchRequests(Mutex<Launch>);
 
-/// The first argument that is not a flag, made absolute against the folder it was typed in.
+#[derive(Default)]
+struct Launch {
+    ui_listening: bool,
+    waiting: Vec<PathBuf>,
+}
+
+impl LaunchRequests {
+    fn starting_with(path: Option<PathBuf>) -> Self {
+        Self(Mutex::new(Launch {
+            ui_listening: false,
+            waiting: path.into_iter().collect(),
+        }))
+    }
+
+    fn lock(&self) -> std::sync::MutexGuard<'_, Launch> {
+        self.0.lock().unwrap_or_else(PoisonError::into_inner)
+    }
+}
+
+/// The path a command line asks for, made absolute against the folder it was typed in. Only the
+/// one argument the `rebasar` command and the AppImage pass counts; anything with flags or
+/// several arguments, such as a driver's `--port 4444`, is not a request to open a Worktree.
 fn launch_path(args: &[String], working_dir: &Path) -> Option<PathBuf> {
-    args.iter()
-        .skip(1)
-        .find(|argument| !argument.starts_with('-'))
-        .map(|argument| working_dir.join(argument))
+    match args {
+        [_, only] if !only.starts_with('-') => Some(working_dir.join(only)),
+        _ => None,
+    }
 }
 
 #[tauri::command]
 async fn open_launch_path(
     core: State<'_, Arc<Core>>,
-    pending: State<'_, PendingLaunchPath>,
+    requests: State<'_, LaunchRequests>,
 ) -> Result<(), ApiError> {
-    let path = pending
-        .0
-        .lock()
-        .unwrap_or_else(PoisonError::into_inner)
-        .take();
-    let Some(path) = path else {
-        return Ok(());
+    let paths = {
+        let mut launch = requests.lock();
+        launch.ui_listening = true;
+        std::mem::take(&mut launch.waiting)
     };
+    if paths.is_empty() {
+        return Ok(());
+    }
     let core = Arc::clone(&core);
-    tauri::async_runtime::spawn_blocking(move || core.open_launch_path(&path))
-        .await
-        .map_err(ApiError::unexpected)
+    tauri::async_runtime::spawn_blocking(move || {
+        for path in &paths {
+            core.open_launch_path(path);
+        }
+    })
+    .await
+    .map_err(ApiError::unexpected)
 }
 
 #[tauri::command]
@@ -1320,7 +1346,11 @@ fn config_dir_of(app: &tauri::App) -> tauri::Result<PathBuf> {
 }
 
 fn main() {
+    let arguments: Vec<String> = std::env::args().collect();
+    let working_dir = std::env::current_dir().unwrap_or_default();
+
     tauri::Builder::default()
+        .manage(LaunchRequests::starting_with(launch_path(&arguments, &working_dir)))
         // Registered first, as the plugin requires. A second start hands its path to this instance
         // and exits, so two instances never overwrite each other's registry.
         .plugin(tauri_plugin_single_instance::init(|app, args, working_dir| {
@@ -1331,9 +1361,22 @@ fn main() {
             let Some(path) = launch_path(&args, Path::new(&working_dir)) else {
                 return;
             };
-            if let Some(core) = app.try_state::<Arc<Core>>() {
-                core.open_launch_path(&path);
+            let (Some(requests), Some(core)) = (
+                app.try_state::<LaunchRequests>(),
+                app.try_state::<Arc<Core>>(),
+            ) else {
+                return;
+            };
+            let mut launch = requests.lock();
+            if !launch.ui_listening {
+                launch.waiting.push(path);
+                return;
             }
+            drop(launch);
+            // Off this thread, which is the app's event loop: a large or slow repository would
+            // freeze the running window while it is read.
+            let core = Arc::clone(&core);
+            std::thread::spawn(move || core.open_launch_path(&path));
         }))
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
@@ -1351,9 +1394,6 @@ fn main() {
             }
             let config_dir = config_dir_of(app)?;
             app.manage(Arc::new(core.with_config_dir(config_dir)));
-            let arguments: Vec<String> = std::env::args().collect();
-            let working_dir = std::env::current_dir().unwrap_or_default();
-            app.manage(PendingLaunchPath(Mutex::new(launch_path(&arguments, &working_dir))));
             Ok(())
         })
         .on_window_event(|window, event| {
@@ -1484,4 +1524,41 @@ fn main() {
         ])
         .run(tauri::generate_context!())
         .expect("failed to run Rebasar");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn args(list: &[&str]) -> Vec<String> {
+        list.iter().map(|argument| (*argument).to_owned()).collect()
+    }
+
+    #[test]
+    fn the_one_argument_the_cli_passes_is_the_launch_path() {
+        let path = launch_path(&args(&["rebasar-app", "C:/work/api"]), Path::new("C:/elsewhere"));
+
+        assert_eq!(path, Some(PathBuf::from("C:/work/api")));
+    }
+
+    #[test]
+    fn a_relative_path_is_resolved_against_the_folder_it_was_typed_in() {
+        let path = launch_path(&args(&["rebasar-app", "api"]), Path::new("/home/dev/work"));
+
+        assert_eq!(path, Some(PathBuf::from("/home/dev/work/api")));
+    }
+
+    #[test]
+    fn no_argument_is_no_launch_path() {
+        assert_eq!(launch_path(&args(&["rebasar-app"]), Path::new("/work")), None);
+    }
+
+    #[test]
+    fn flags_and_their_values_are_not_a_launch_path() {
+        let work = Path::new("/work");
+
+        assert_eq!(launch_path(&args(&["rebasar-app", "--port", "4444"]), work), None);
+        assert_eq!(launch_path(&args(&["rebasar-app", "--verbose"]), work), None);
+        assert_eq!(launch_path(&args(&["rebasar-app", "a", "b"]), work), None);
+    }
 }

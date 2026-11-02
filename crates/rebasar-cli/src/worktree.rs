@@ -19,6 +19,8 @@ pub fn containing(path: &Path) -> Result<PathBuf, String> {
     // Asked together so that a bare repository, which makes `--show-toplevel` fail, can still be
     // told apart from a folder that is not a repository at all.
     let output = Command::new("git")
+        // The failures below are told apart by git's own wording, which a translated git changes.
+        .env("LC_ALL", "C")
         .arg("-C")
         .arg(folder)
         .args(["rev-parse", "--is-bare-repository", "--show-toplevel"])

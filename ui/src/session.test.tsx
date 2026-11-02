@@ -62,6 +62,25 @@ it("shows the restored Tabs with the branch last seen before any status has load
   release();
 });
 
+it("still loads the background Tabs, and says why, when the launch path cannot be requested", async () => {
+  const stub = createStubCoreApi({}, { [tools.worktreePath]: dirty }, {}, {}, {}, undefined, {
+    session: previousRun(),
+  });
+  const api = {
+    ...stub,
+    async openLaunchPath() {
+      throw new Error("the core is not ready");
+    },
+  };
+
+  renderApp({ api });
+
+  expect(await screen.findByRole("alert")).toHaveTextContent("the core is not ready");
+  await vi.waitFor(() =>
+    expect(within(tabFor(tools)).getByRole("img")).toHaveAccessibleName("Has changes"),
+  );
+});
+
 it("loads the background Tabs after the active one without taking its place", async () => {
   const api = launch(previousRun(), { [tools.worktreePath]: dirty });
 

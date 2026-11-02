@@ -193,3 +193,15 @@ fn a_valid_path_with_no_app_beside_the_cli_is_still_one_line_and_exit_code_1() {
     assert_eq!(output.status.code(), Some(1));
     assert!(stderr(&output).contains("Rebasar app"));
 }
+
+#[test]
+fn a_worktree_whose_folder_name_is_not_ascii_still_opens() {
+    let repo = TempRepo::init("répertoire-日本");
+    repo.commit_file("README.md", "hello", "Initial commit");
+    let install = Install::with_app();
+
+    let output = install.run(&[repo.path().to_str().unwrap()]);
+
+    assert!(output.status.success(), "stderr: {}", stderr(&output));
+    assert_opened(&install, repo.path());
+}
