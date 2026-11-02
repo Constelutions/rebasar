@@ -32,7 +32,8 @@ it("clones a URL into the chosen folder, opens it as a Tab and lists it", async 
   expect(api.added).toEqual([
     { how: "clone", source: "https://example.com/team/app.git", groupId: "work" },
   ]);
-  expect(await within(screen.getByRole("region", { name: "Work" })).findByText("app")).toBeInTheDocument();
+  await user.click(await screen.findByRole("tab", { name: /^Work/ }));
+  expect(await within(screen.getByRole("tabpanel")).findByText("app")).toBeInTheDocument();
 });
 
 it("cannot clone before a URL and a folder are given", async () => {
@@ -97,8 +98,9 @@ it("lists what a scan finds and imports only the selected Repositories", async (
   await waitFor(() =>
     expect(api.added).toEqual([{ how: "import", source: "C:\\code\\alpha", groupId: "work" }]),
   );
-  expect(await within(screen.getByRole("region", { name: "Work" })).findByText("alpha")).toBeInTheDocument();
-  expect(screen.queryByRole("tab")).not.toBeInTheDocument();
+  await user.click(await screen.findByRole("tab", { name: /^Work/ }));
+  expect(await within(screen.getByRole("tabpanel")).findByText("alpha")).toBeInTheDocument();
+  expect(screen.queryByRole("tab", { name: /alpha/ })).not.toBeInTheDocument();
 });
 
 it("says so when a scan finds nothing", async () => {

@@ -2055,29 +2055,52 @@ button.commit-hash:hover {
   display: flex;
 }
 
-.group-header {
+.group-tabs {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.group-tab {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--color-text-muted);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.group-tab[data-selected="true"] {
+  color: var(--color-text-strong);
+  background: var(--color-selected);
+  border-color: var(--color-selected-border);
+}
+
+.group-tab-select {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  margin-bottom: var(--space-2);
+  max-width: 220px;
+  height: var(--control-height-sm);
+  padding: 0 var(--space-3);
+  color: inherit;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
 }
 
-.group-header h2 {
-  margin: 0;
-  font-size: var(--text-md);
-  font-weight: 600;
-  color: var(--color-text-muted);
+.group-tab-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .group-count {
   font: var(--text-xs) var(--font-mono);
   color: var(--color-text-subtle);
-}
-
-.group-actions {
-  display: flex;
-  gap: var(--space-1);
-  margin-left: auto;
 }
 
 .group-name-form {
@@ -2119,11 +2142,13 @@ button.commit-hash:hover {
 }
 
 .repository-name {
+  flex: 0 1 auto;
   font-weight: 500;
   color: var(--color-text-strong);
 }
 
 .repository-path {
+  flex: 1 1 0;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2134,6 +2159,7 @@ button.commit-hash:hover {
 
 .repository-actions {
   display: flex;
+  flex: none;
   gap: var(--space-2);
   margin-left: auto;
 }
