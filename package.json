@@ -4,6 +4,7 @@
   "license": "Apache-2.0",
   "scripts": {
     "dev": "tauri dev",
+    "bundle": "node scripts/bundle.mjs",
     "typecheck": "pnpm -r typecheck",
     "test:ui": "pnpm -r test",
     "test:core": "cargo test --workspace",

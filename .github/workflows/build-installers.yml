@@ -44,7 +44,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
 
       - name: Build the installers
-        run: pnpm tauri build
+        run: pnpm bundle
         env:
           # The runner has no FUSE, which linuxdeploy would otherwise need to run itself.
           APPIMAGE_EXTRACT_AND_RUN: "1"
