@@ -44,6 +44,11 @@ export function App({ api, pickFolder, appWindow, highlighter = defaultHighlight
   const storedSettings = useStoredSettings(api);
 
   useEffect(() => {
+    // `pnpm bench:app` reads this to time the app itself, without the WebDriver's attach time.
+    performance.mark("rebasar-interactive");
+  }, []);
+
+  useEffect(() => {
     api
       .checkGit()
       .then(setGitSetup)
