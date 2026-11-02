@@ -31,6 +31,12 @@ pub enum MutationKind {
     DeleteBranch {
         name: String,
     },
+    /// Deletes a branch on a remote, with the commits only it reaches. Everyone sharing that
+    /// remote loses the branch too.
+    DeleteRemoteBranch {
+        remote: String,
+        name: String,
+    },
     /// Moves the current branch to a commit; may drop commits and, when hard, uncommitted work.
     /// Throws a stash away, with the work parked in it.
     DropStash {
@@ -77,6 +83,16 @@ pub struct Loss {
     pub commits: u32,
     /// How many of those commits exist on no remote, so nobody else has a copy.
     pub unpushed_commits: u32,
+    /// The newest of those commits, for a dialog that names them. Empty for a Mutation whose
+    /// loss is not worth listing.
+    pub commit_list: Vec<LostCommit>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LostCommit {
+    pub short_id: String,
+    pub subject: String,
 }
 
 impl Loss {
@@ -90,6 +106,9 @@ pub(crate) fn assess(repo: &gix::Repository, kind: &MutationKind) -> Result<Asse
         MutationKind::AbortOperation => crate::operation::abort_loss(repo)?,
         MutationKind::ForcePush => crate::sync::force_push_loss(repo)?,
         MutationKind::DeleteBranch { name } => crate::branches::delete_loss(repo, name)?,
+        MutationKind::DeleteRemoteBranch { remote, name } => {
+            crate::branches::delete_remote_loss(repo, remote, name)?
+        }
         MutationKind::DeleteTag { name } => crate::tags_remotes::delete_tag_loss(repo, name)?,
         MutationKind::DeleteRemoteTag { .. } => return Ok(Assessment::Safe),
         MutationKind::RemoveWorktree { path } => crate::worktrees::remove_loss(path)?,

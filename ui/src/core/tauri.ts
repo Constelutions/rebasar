@@ -12,6 +12,7 @@ import type {
   CoreApi,
   CoreEvent,
   DiffRequest,
+  Editor,
   FileChange,
   FileDiff,
   HistoryCount,
@@ -64,6 +65,7 @@ export const tauriCoreApi: CoreApi = {
   commitFileDiff: (worktreePath, request: CommitDiffRequest) =>
     invoke<FileDiff>("commit_file_diff", { worktreePath, request }),
   activateTab: (path) => invoke<void>("activate_tab", { path }),
+  closeTab: (path) => invoke<void>("close_tab", { path }),
   refreshTab: (path) => invoke<Tab>("refresh_tab", { path }),
   githubRemote: (path) => invoke<GitHubRepository | null>("github_remote", { path }),
   githubAuthStatus: () => invoke<GitHubAuthStatus>("github_auth_status"),
@@ -92,6 +94,10 @@ export const tauriCoreApi: CoreApi = {
   markPullRequestReady: (path, number) =>
     invoke<PullRequestDetails>("mark_pull_request_ready", { path, number }),
   openInBrowser: (url) => invoke<void>("open_in_browser", { url }),
+  listEditors: () => invoke<Editor[]>("list_editors"),
+  openInEditor: (editorId, path) => invoke<void>("open_in_editor", { editorId, path }),
+  openFileInEditor: (editorId, worktreePath, file) =>
+    invoke<void>("open_file_in_editor", { editorId, worktreePath, file }),
   listTags: (path) => invoke<TagInfo[]>("list_tags", { path }),
   createTagHere: (path, name, message) =>
     invoke<MutationOutcome>("create_tag_here", { path, name, message }),
@@ -139,6 +145,8 @@ export const tauriCoreApi: CoreApi = {
   renameBranch: (path, name, newName) =>
     invoke<MutationOutcome>("rename_branch", { path, name, newName }),
   deleteBranch: (path, name) => invoke<MutationOutcome>("delete_branch", { path, name }),
+  deleteRemoteBranch: (path, remote, name) =>
+    invoke<MutationOutcome>("delete_remote_branch", { path, remote, name }),
   setBranchUpstream: (path, name, upstream) =>
     invoke<MutationOutcome>("set_branch_upstream", { path, name, upstream }),
   mergeBranch: (path, branch, mode: MergeMode) =>
@@ -169,6 +177,10 @@ export const tauriCoreApi: CoreApi = {
   updateSettings: (settings) => invoke<Settings>("update_settings", { settings }),
   gitIdentity: () => invoke<GitIdentity>("git_identity"),
   setGitIdentity: (identity) => invoke<GitIdentity>("set_git_identity", { identity }),
+  repositoryGitIdentity: (worktreePath) =>
+    invoke<GitIdentity>("repository_git_identity", { worktreePath }),
+  setRepositoryGitIdentity: (worktreePath, identity) =>
+    invoke<GitIdentity>("set_repository_git_identity", { worktreePath, identity }),
   restoreSession: () => invoke<Session>("restore_session"),
   watchBackgroundTab: (path) => invoke<void>("watch_background_tab", { path }),
   saveView: (view) => invoke<void>("save_view", { view }),

@@ -4,6 +4,7 @@ import { usePalette } from "../palette/PaletteProvider";
 import type { AppWindow } from "../shell/appWindow";
 import { shortcuts } from "../shortcuts";
 import type { OpenTab } from "../useOpenTabs";
+import { Button } from "./Button";
 import { RepositorySwitcher } from "./RepositorySwitcher";
 import { TabStrip } from "./TabStrip";
 import { WindowControls } from "./WindowControls";
@@ -13,6 +14,7 @@ interface TitleBarProps {
   activePath: string | undefined;
   appWindow: AppWindow;
   onSelectTab: (path: string) => void;
+  onCloseTab: (path: string) => void;
   onOpenFolder: () => void;
   /** Shown beside the search box, for what belongs to the Tab in front. */
   actions?: ReactNode;
@@ -23,6 +25,7 @@ export function TitleBar({
   activePath,
   appWindow,
   onSelectTab,
+  onCloseTab,
   onOpenFolder,
   actions,
 }: TitleBarProps) {
@@ -30,9 +33,10 @@ export function TitleBar({
 
   return (
     <header className="title-bar" data-tauri-drag-region>
-      <RepositorySwitcher tabs={tabs} onSelect={onSelectTab} />
-      <TabStrip tabs={tabs} activePath={activePath} onSelect={onSelectTab} />
-      <button
+      <RepositorySwitcher tabs={tabs} activePath={activePath} onSelect={onSelectTab} />
+      <TabStrip tabs={tabs} activePath={activePath} onSelect={onSelectTab} onClose={onCloseTab} />
+      <Button
+        variant="plain"
         type="button"
         aria-label="Open folder"
         title={`Open folder (${shortcuts.openFolder.label})`}
@@ -40,13 +44,13 @@ export function TitleBar({
         onClick={onOpenFolder}
       >
         +
-      </button>
+      </Button>
       <div className="title-bar-spacer" data-tauri-drag-region />
       {actions}
-      <button type="button" className="palette-trigger" onClick={palette.open}>
+      <Button variant="plain" type="button" className="palette-trigger" onClick={palette.open}>
         Search or run…
         <kbd>{shortcuts.commandPalette.label}</kbd>
-      </button>
+      </Button>
       <WindowControls appWindow={appWindow} />
     </header>
   );

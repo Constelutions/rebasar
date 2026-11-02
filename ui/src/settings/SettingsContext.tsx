@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState } f
 
 import { type CoreApi, type Settings, defaultSettings } from "../core/api";
 import { describeError } from "../core/describeError";
+import { forgetLegacyHistoryLayout, readLegacyHistoryLayout } from "../history/legacyLayout";
 
 export interface SettingsState {
   settings: Settings;
@@ -34,7 +35,16 @@ export function useStoredSettings(api: CoreApi): SettingsState {
     let current = true;
     api
       .settings()
-      .then((stored) => current && setSettings(stored))
+      .then(async (stored) => {
+        if (!current) return;
+        const legacy = readLegacyHistoryLayout();
+        if (legacy === null) return setSettings(stored);
+        const migrated = { ...stored, history: { ...stored.history, ...legacy } };
+        setSettings(migrated);
+        const saved = await api.updateSettings(migrated);
+        forgetLegacyHistoryLayout();
+        if (current) setSettings(saved);
+      })
       .catch((failure) => current && setError(describeError(failure)))
       .finally(() => current && setReady(true));
     return () => {

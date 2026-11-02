@@ -193,6 +193,7 @@ pub(crate) fn abort_loss(repo: &gix::Repository) -> Result<Loss, ApiError> {
         files,
         commits,
         unpushed_commits,
+        ..Loss::default()
     })
 }
 

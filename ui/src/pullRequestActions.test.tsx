@@ -144,9 +144,8 @@ it("offers to update the existing pull request after pushing from the commit com
   await screen.findByRole("tab");
   await user.click(screen.getByRole("button", { name: "Changes" }));
 
-  await user.type(await screen.findByLabelText("Subject"), "feat: more");
-  await user.click(screen.getByRole("checkbox", { name: "Push after commit" }));
-  await user.click(screen.getByRole("button", { name: "Commit" }));
+  await user.type(await screen.findByLabelText("Commit message"), "feat: more");
+  await user.click(screen.getByRole("button", { name: "Commit & Push" }));
 
   const offer = await screen.findByText(/Pull request #12 is open for this branch/);
   expect(offer).toBeInTheDocument();
@@ -173,9 +172,8 @@ it("offers nothing after a push when the branch has no pull request", async () =
   await screen.findByRole("tab");
   await user.click(screen.getByRole("button", { name: "Changes" }));
 
-  await user.type(await screen.findByLabelText("Subject"), "feat: more");
-  await user.click(screen.getByRole("checkbox", { name: "Push after commit" }));
-  await user.click(screen.getByRole("button", { name: "Commit" }));
+  await user.type(await screen.findByLabelText("Commit message"), "feat: more");
+  await user.click(screen.getByRole("button", { name: "Commit & Push" }));
 
   await waitFor(() => expect(api.syncActions).toContain("push"));
   expect(screen.queryByText(/is open for this branch/)).not.toBeInTheDocument();

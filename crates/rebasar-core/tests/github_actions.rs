@@ -1,12 +1,20 @@
 use std::sync::{Arc, Mutex};
 
 use rebasar_core::github::{
-    GhCli, GitHubServices, HttpClient, HttpError, HttpRequest, HttpResponse,
+    GhCli, GitHubServices, HttpClient, HttpError, HttpRequest, HttpResponse, SshResolver,
 };
 use rebasar_core::platform::{CredentialError, CredentialStore};
-use rebasar_core::{ApiError, Core};
+use rebasar_core::{ApiError, Core, UnavailableReason};
 use rebasar_testkit::TempRepo;
 use serde_json::{json, Value};
+
+struct NoSsh;
+
+impl SshResolver for NoSsh {
+    fn hostname(&self, alias: &str) -> Result<String, String> {
+        Ok(alias.to_owned())
+    }
+}
 
 struct FakeGhCli(Option<&'static str>);
 
@@ -76,6 +84,7 @@ fn core_with(token: Option<&'static str>, http: FakeHttp) -> Core {
             http: Arc::new(http),
             credentials: Arc::new(NoCredentials),
             gh_cli: Arc::new(FakeGhCli(token)),
+            ssh: Arc::new(NoSsh),
         },
     )
 }
@@ -149,11 +158,11 @@ fn a_pull_request_needs_a_title_a_branch_and_a_github_remote_and_a_token() {
 
     let plain = TempRepo::init("plain");
     plain.commit_file("a.txt", "one\n", "Initial commit");
-    assert!(matches!(core.create_pull_request(plain.path(), "Title", "", false), Err(ApiError::NotGithub { .. })));
+    assert!(matches!(core.create_pull_request(plain.path(), "Title", "", false), Err(ApiError::PullRequestsUnavailable { reason: UnavailableReason::NoRemotes, .. })));
 
     let signed_out = core_with(None, FakeHttp::default());
     let again = repo_on("topic");
-    assert_eq!(signed_out.create_pull_request(again.path(), "Title", "", false), Err(ApiError::GithubNotSignedIn));
+    assert!(matches!(signed_out.create_pull_request(again.path(), "Title", "", false), Err(ApiError::PullRequestsUnavailable { reason: UnavailableReason::NoToken, .. })));
 }
 
 #[test]
@@ -179,7 +188,7 @@ fn updating_a_pull_request_that_is_gone_says_so() {
 
     let error = core_with(Some("token"), http).update_pull_request(repo.path(), 404, "T", "").unwrap_err();
 
-    assert!(matches!(error, ApiError::GithubRequestFailed { message } if message.contains("#404")));
+    assert!(matches!(error, ApiError::PullRequestsUnavailable { reason: UnavailableReason::RequestFailed { message }, .. } if message.contains("#404")));
 }
 
 #[test]

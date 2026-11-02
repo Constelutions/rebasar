@@ -1,7 +1,10 @@
 use std::fs;
 
 use rebasar_core::{
-    ApiError, AppearanceSettings, Core, DiffMode, DiffSettings, Settings, WhitespaceMode,
+    ApiError, AppearanceSettings, BranchesFilter, BranchesSettings, ChangesSettings, CommitSettings, ConfirmTabClose, Core, CopySettings, DiffMode,
+    EditorSettings,
+    DiffSettings, FilesView, GraphStyle, HistoryOrientation, HistorySettings, Settings, SplitPosition, SyncSettings, TabSettings,
+    WhitespaceMode,
 };
 
 fn core_in(dir: &std::path::Path) -> Core {
@@ -14,8 +17,135 @@ fn customised() -> Settings {
             whitespace: WhitespaceMode::IgnoreAll,
             default_mode: DiffMode::SideBySide,
         },
-        appearance: AppearanceSettings { code_font_size: 14 },
+        appearance: AppearanceSettings {
+            code_font_size: 14,
+            sidebar_collapsed: true,
+        },
+        sync: SyncSettings {
+            auto_fetch: false,
+            fetch_interval_minutes: 15,
+        },
+        copy: CopySettings {
+            on_select: false,
+            hash_length: Some(12),
+        },
+        tabs: TabSettings {
+            confirm_close: ConfirmTabClose::Never,
+            restore_on_launch: false,
+        },
+        history: HistorySettings {
+            mine: true,
+            merges: true,
+            all_branches: false,
+            orientation: HistoryOrientation::Horizontal,
+            graph_style: GraphStyle::Tree,
+            files_view: FilesView::Flat,
+            detail_position: SplitPosition::Bottom,
+        },
+        changes: ChangesSettings {
+            files_view: FilesView::Flat,
+            diff_position: SplitPosition::Bottom,
+        },
+        commit: CommitSettings {
+            sign_off_by_default: true,
+        },
+        editor: EditorSettings {
+            last_used: Some("zed".to_owned()),
+        },
+        branches: BranchesSettings {
+            filter: BranchesFilter::Remote,
+        },
     }
+}
+
+#[test]
+fn the_branches_page_lists_local_and_remote_branches_until_settings_say_otherwise() {
+    let dir = tempfile::tempdir().unwrap();
+    assert_eq!(Settings::default().branches.filter, BranchesFilter::Both);
+    fs::write(dir.path().join("settings.json"), r#"{ "history": { "mine": true } }"#).unwrap();
+    assert_eq!(core_in(dir.path()).settings().expect("settings").branches.filter, BranchesFilter::Both);
+
+    fs::write(
+        dir.path().join("settings.json"),
+        r#"{ "branches": { "filter": "local" } }"#,
+    )
+    .unwrap();
+
+    let settings = core_in(dir.path()).settings().expect("settings");
+
+    assert_eq!(settings.branches.filter, BranchesFilter::Local);
+}
+
+#[test]
+fn no_editor_is_remembered_until_one_is_used() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::write(dir.path().join("settings.json"), r#"{ "history": { "mine": true } }"#).unwrap();
+
+    let settings = core_in(dir.path()).settings().expect("settings");
+
+    assert_eq!(settings.editor.last_used, None);
+}
+
+#[test]
+fn changed_files_start_as_a_tree_everywhere() {
+    let settings = Settings::default();
+
+    assert_eq!(settings.history.files_view, FilesView::Tree);
+    assert_eq!(settings.changes.files_view, FilesView::Tree);
+}
+
+#[test]
+fn commit_details_open_to_the_right_until_settings_say_otherwise() {
+    assert_eq!(Settings::default().history.detail_position, SplitPosition::Right);
+
+    let dir = tempfile::tempdir().unwrap();
+    fs::write(dir.path().join("settings.json"), r#"{ "history": { "mine": true } }"#).unwrap();
+    let settings = core_in(dir.path()).settings().expect("settings");
+
+    assert_eq!(settings.history.detail_position, SplitPosition::Right);
+}
+
+#[test]
+fn the_diff_of_the_changes_view_opens_to_the_right_until_settings_say_otherwise() {
+    assert_eq!(Settings::default().changes.diff_position, SplitPosition::Right);
+
+    let dir = tempfile::tempdir().unwrap();
+    fs::write(dir.path().join("settings.json"), r#"{ "changes": { "filesView": "flat" } }"#).unwrap();
+    let settings = core_in(dir.path()).settings().expect("settings");
+
+    assert_eq!(settings.changes.files_view, FilesView::Flat);
+    assert_eq!(settings.changes.diff_position, SplitPosition::Right);
+}
+
+#[test]
+fn settings_files_written_before_the_files_view_existed_still_load() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::write(
+        dir.path().join("settings.json"),
+        r#"{ "history": { "mine": true } }"#,
+    )
+    .unwrap();
+
+    let settings = core_in(dir.path()).settings().expect("settings");
+
+    assert!(settings.history.mine);
+    assert_eq!(settings.history.files_view, FilesView::Tree);
+    assert_eq!(settings.changes.files_view, FilesView::Tree);
+}
+
+#[test]
+fn commits_are_not_signed_off_by_default_until_settings_say_so() {
+    let dir = tempfile::tempdir().unwrap();
+    assert!(!Settings::default().commit.sign_off_by_default);
+    fs::write(
+        dir.path().join("settings.json"),
+        r#"{ "commit": { "signOffByDefault": true } }"#,
+    )
+    .unwrap();
+
+    let settings = core_in(dir.path()).settings().expect("settings");
+
+    assert!(settings.commit.sign_off_by_default);
 }
 
 #[test]
@@ -27,6 +157,70 @@ fn settings_start_with_the_defaults() {
     assert_eq!(settings, Settings::default());
     assert_eq!(settings.diff.whitespace, WhitespaceMode::Show);
     assert_eq!(settings.diff.default_mode, DiffMode::Unified);
+}
+
+#[test]
+fn closing_a_tab_asks_only_when_something_would_be_lost_and_tabs_are_restored_by_default() {
+    let tabs = Settings::default().tabs;
+
+    assert_eq!(tabs.confirm_close, ConfirmTabClose::WhenLost);
+    assert!(tabs.restore_on_launch);
+}
+
+#[test]
+fn history_starts_showing_every_branch_and_everyone() {
+    let history = Settings::default().history;
+
+    assert!(history.all_branches);
+    assert!(!history.mine);
+    assert!(!history.merges);
+}
+
+#[test]
+fn history_starts_vertical_as_a_tree() {
+    let history = Settings::default().history;
+
+    assert_eq!(history.orientation, HistoryOrientation::Vertical);
+    assert_eq!(history.graph_style, GraphStyle::Tree);
+}
+
+#[test]
+fn a_stored_horizontal_linear_history_becomes_horizontal_tree() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::write(
+        dir.path().join("settings.json"),
+        r#"{ "history": { "orientation": "horizontal", "graphStyle": "linear" } }"#,
+    )
+    .unwrap();
+
+    let history = core_in(dir.path()).settings().expect("settings").history;
+
+    assert_eq!(history.orientation, HistoryOrientation::Horizontal);
+    assert_eq!(history.graph_style, GraphStyle::Tree);
+}
+
+#[test]
+fn saving_horizontal_linear_history_stores_horizontal_tree() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut settings = Settings::default();
+    settings.history.orientation = HistoryOrientation::Horizontal;
+    settings.history.graph_style = GraphStyle::Linear;
+
+    let saved = core_in(dir.path()).update_settings(&settings).expect("update");
+
+    assert_eq!(saved.history.graph_style, GraphStyle::Tree);
+}
+
+#[test]
+fn vertical_linear_history_is_kept() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut settings = Settings::default();
+    settings.history.graph_style = GraphStyle::Linear;
+
+    let saved = core_in(dir.path()).update_settings(&settings).expect("update");
+
+    assert_eq!(saved.history.orientation, HistoryOrientation::Vertical);
+    assert_eq!(saved.history.graph_style, GraphStyle::Linear);
 }
 
 #[test]
@@ -86,11 +280,17 @@ fn a_code_font_size_outside_the_supported_range_is_clamped() {
     let core = core_in(dir.path());
 
     let too_big = Settings {
-        appearance: AppearanceSettings { code_font_size: 40 },
+        appearance: AppearanceSettings {
+            code_font_size: 40,
+            ..AppearanceSettings::default()
+        },
         ..Settings::default()
     };
     let too_small = Settings {
-        appearance: AppearanceSettings { code_font_size: 2 },
+        appearance: AppearanceSettings {
+            code_font_size: 2,
+            ..AppearanceSettings::default()
+        },
         ..Settings::default()
     };
 
@@ -115,4 +315,50 @@ fn settings_cannot_be_used_without_a_config_folder() {
     let error = Core::new(|_| {}).settings().unwrap_err();
 
     assert!(matches!(error, ApiError::Unexpected { .. }));
+}
+
+#[test]
+fn selecting_text_copies_it_by_default() {
+    assert!(Settings::default().copy.on_select);
+}
+
+#[test]
+fn a_settings_file_from_before_copy_on_select_keeps_it_on() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::write(
+        dir.path().join("settings.json"),
+        r#"{ "sync": { "autoFetch": false } }"#,
+    )
+    .unwrap();
+
+    let settings = core_in(dir.path()).settings().expect("settings");
+
+    assert!(settings.copy.on_select);
+}
+
+#[test]
+fn a_click_on_a_hash_copies_all_of_it_by_default() {
+    assert_eq!(Settings::default().copy.hash_length, None);
+}
+
+#[test]
+fn a_copied_hash_length_outside_the_supported_range_is_clamped() {
+    let dir = tempfile::tempdir().unwrap();
+    let core = core_in(dir.path());
+    let with_length = |hash_length| Settings {
+        copy: CopySettings {
+            hash_length: Some(hash_length),
+            ..CopySettings::default()
+        },
+        ..Settings::default()
+    };
+
+    assert_eq!(
+        core.update_settings(&with_length(200)).unwrap().copy.hash_length,
+        Some(CopySettings::MAX_HASH_LENGTH)
+    );
+    assert_eq!(
+        core.update_settings(&with_length(1)).unwrap().copy.hash_length,
+        Some(CopySettings::MIN_HASH_LENGTH)
+    );
 }

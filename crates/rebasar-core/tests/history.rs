@@ -63,7 +63,7 @@ fn commits_are_listed_newest_first_with_who_wrote_them_and_when() {
 
     assert_eq!(subjects(&rows), ["Commit 3", "Commit 2", "Commit 1"]);
     assert_eq!(rows[0].id, repo.head_commit());
-    assert_eq!(rows[0].short_id, repo.head_commit()[..7]);
+    assert_eq!(rows[0].short_id, repo.head_commit()[..8]);
     assert_eq!(rows[0].author_name, "Test Author");
     assert_eq!(rows[0].author_email, "author@example.com");
     assert!(rows[0].timestamp > rows[1].timestamp);

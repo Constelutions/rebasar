@@ -1,8 +1,13 @@
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import { SegmentedControl } from "../components/SegmentedControl";
-import type { CoreApi, HistoryRow, Tab } from "../core/api";
+import { SplitPane, SplitPositionToggle } from "../components/SplitPane";
+import { TruncatedText } from "../components/TruncatedText";
+import { type CoreApi, HISTORY_SHORT_ID_LENGTH, type HistoryRow, type Settings, type Tab } from "../core/api";
 import { describeError } from "../core/describeError";
+import { Button } from "../components/Button";
+import { useSettings } from "../settings/SettingsContext";
+import { useCopyOnSelect } from "../useCopyOnSelect";
 import { useDebounced } from "../useDebounced";
 import { Avatar } from "./Avatar";
 import { useConfirmation } from "../useConfirmation";
@@ -13,8 +18,10 @@ import { type CommitAction, CommitMenu } from "./CommitMenu";
 import { type Connections, CommitGraph, DayGraph } from "./CommitGraph";
 import { type Chips, FilterBar } from "./FilterBar";
 import { defaultChips, useHistoryCommands } from "./historyCommands";
-import { RefBadge } from "./RefBadge";
-import { type GraphStyle, type Orientation, itemSize } from "./geometry";
+import { MY_COMMITS, addTerm } from "./historyQuery";
+import { useAuthorNames, useBranchNames } from "./useFilterChoices";
+import { RefBadges } from "./RefBadge";
+import { type GraphStyle, type Orientation, itemSize, minimumHeight } from "./geometry";
 import { type HistoryItem, formatTime } from "./items";
 import { useHistory, useHistoryCount } from "./useHistory";
 import { useHistoryLayout } from "./useHistoryLayout";
@@ -43,9 +50,30 @@ interface HistoryViewProps {
   initialQuery?: string;
 }
 
-export function HistoryView({ api, tab, initialQuery = "" }: HistoryViewProps) {
-  const [queryText, setQueryText] = useState(initialQuery);
-  const [chips, setChips] = useState<Chips>(defaultChips);
+export function HistoryView(props: HistoryViewProps) {
+  const { settings, ready } = useSettings();
+  if (!ready) return null;
+  return <FilteredHistory {...props} defaults={settings.history} />;
+}
+
+/** A search from the palette is shown as asked, so the filters History opens with do not apply to it. */
+function startingFilter(initialQuery: string, defaults: Settings["history"]) {
+  if (initialQuery !== "") return { query: initialQuery, chips: defaultChips };
+  return {
+    query: defaults.mine ? addTerm("", "author", MY_COMMITS) : "",
+    chips: { allBranches: defaults.allBranches, merges: defaults.merges },
+  };
+}
+
+function FilteredHistory({
+  api,
+  tab,
+  initialQuery = "",
+  defaults,
+}: HistoryViewProps & { defaults: Settings["history"] }) {
+  const [starting] = useState(() => startingFilter(initialQuery, defaults));
+  const [queryText, setQueryText] = useState(starting.query);
+  const [chips, setChips] = useState<Chips>(starting.chips);
   useHistoryCommands({ queryText, setQueryText, chips, setChips });
   const query = useDebounced(queryText, QUERY_DEBOUNCE_MS);
   const filter = useMemo(() => ({ query, ...chips }), [query, chips]);
@@ -55,7 +83,17 @@ export function HistoryView({ api, tab, initialQuery = "" }: HistoryViewProps) {
     filter,
   );
   const count = useHistoryCount(api, tab.worktreePath, filter);
+  const branchNames = useBranchNames(api, tab.worktreePath);
+  const authorNames = useAuthorNames(items);
   const [{ orientation, style }, changeLayout] = useHistoryLayout();
+  const { settings, update } = useSettings();
+  const { hashLength } = settings.copy;
+  const { detailPosition } = settings.history;
+  const { copy, tooltip: copiedTooltip } = useCopyOnSelect();
+  const copyHash = useCallback(
+    (commitId: string, near: Element) => copy(commitId.slice(0, hashLength ?? undefined), near),
+    [copy, hashLength],
+  );
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [comparing, setComparing] = useState(false);
   const [menu, setMenu] = useState<{ commitId: string; x: number; y: number } | null>(null);
@@ -71,13 +109,13 @@ export function HistoryView({ api, tab, initialQuery = "" }: HistoryViewProps) {
 
   function select(commitId: string) {
     setComparing(false);
-    setSelectedId(commitId);
+    setSelectedId(commitId === selectedId ? null : commitId);
   }
 
   async function runAction(action: CommitAction, commitId: string) {
     setMenu(null);
     setNotice(null);
-    const shortId = commitOf(commitId)?.shortId ?? commitId.slice(0, 7);
+    const shortId = commitOf(commitId)?.shortId ?? commitId.slice(0, HISTORY_SHORT_ID_LENGTH);
     switch (action) {
       case "checkout": {
         const outcome = await api.checkoutCommit(tab.worktreePath, commitId).catch((failure) => {
@@ -138,6 +176,8 @@ export function HistoryView({ api, tab, initialQuery = "" }: HistoryViewProps) {
       onQueryChange={setQueryText}
       chips={chips}
       onChipsChange={setChips}
+      branches={branchNames}
+      authors={authorNames}
       count={count}
       queryError={queryError}
     />
@@ -154,7 +194,7 @@ export function HistoryView({ api, tab, initialQuery = "" }: HistoryViewProps) {
     );
   }
   if (loaded && items.length === 0) {
-    const filtered = filter.query !== "" || filter.mine || filter.merges || !filter.allBranches;
+    const filtered = filter.query !== "" || filter.merges || !filter.allBranches;
     return (
       <>
         {filterBar}
@@ -175,12 +215,38 @@ export function HistoryView({ api, tab, initialQuery = "" }: HistoryViewProps) {
         />
         <SegmentedControl
           label="Graph style"
-          options={graphStyles}
+          options={graphStyles.map((option) => ({
+            ...option,
+            disabled: option.value === "linear" && orientation === "horizontal",
+          }))}
           value={style}
           onChange={(value) => changeLayout({ style: value })}
         />
+        <SplitPositionToggle
+          label="Details position"
+          value={detailPosition}
+          onChange={(position) =>
+            update({ ...settings, history: { ...settings.history, detailPosition: position } })
+          }
+        />
       </div>
-      <div className="history" data-detail-open={selectedId !== null || undefined}>
+      <SplitPane
+        position={detailPosition}
+        secondary={
+          selectedId !== null && (
+            <CommitDetailPane
+              key={selectedId}
+              api={api}
+              worktreePath={tab.worktreePath}
+              commitId={selectedId}
+              comparing={comparing}
+              onComparingChange={setComparing}
+              onClose={() => setSelectedId(null)}
+            />
+          )
+        }
+      >
+        {orientation === "vertical" && <ColumnTitles />}
         <HistoryList
           key={`${orientation}-${generation}`}
           items={items}
@@ -191,20 +257,10 @@ export function HistoryView({ api, tab, initialQuery = "" }: HistoryViewProps) {
           loadMore={loadMore}
           selectedId={selectedId}
           onSelect={select}
+          onCopyHash={copyHash}
           onOpenMenu={(commitId, x, y) => setMenu({ commitId, x, y })}
         />
-        {selectedId !== null && (
-          <CommitDetailPane
-            key={selectedId}
-            api={api}
-            worktreePath={tab.worktreePath}
-            commitId={selectedId}
-            comparing={comparing}
-            onComparingChange={setComparing}
-            onClose={() => setSelectedId(null)}
-          />
-        )}
-      </div>
+      </SplitPane>
       {notice && (
         <p role="alert" className="error">
           {notice}
@@ -224,7 +280,7 @@ export function HistoryView({ api, tab, initialQuery = "" }: HistoryViewProps) {
           worktreePath={tab.worktreePath}
           kind={dialog.kind}
           commitId={dialog.commitId}
-          shortId={commitOf(dialog.commitId)?.shortId ?? dialog.commitId.slice(0, 7)}
+          shortId={commitOf(dialog.commitId)?.shortId ?? dialog.commitId.slice(0, HISTORY_SHORT_ID_LENGTH)}
           isLatest={commitOf(dialog.commitId)?.refs.some((label) => label.kind === "head") ?? false}
           onClose={() => setDialog(null)}
           onOpenRebaseEditor={() => {
@@ -234,6 +290,7 @@ export function HistoryView({ api, tab, initialQuery = "" }: HistoryViewProps) {
         />
       )}
       {confirmation}
+      {copiedTooltip}
       {rebaseFrom && (
         <RebaseEditor
           api={api}
@@ -246,6 +303,18 @@ export function HistoryView({ api, tab, initialQuery = "" }: HistoryViewProps) {
   );
 }
 
+/** Aligned with the columns of the vertical rows, which are the only ones laid out as a table. */
+function ColumnTitles() {
+  return (
+    <div role="group" aria-label="Columns" className="history-columns">
+      <span className="column-message" />
+      <span className="column-author">Author</span>
+      <span className="column-hash">Commit ID</span>
+      <span className="column-time">Date</span>
+    </div>
+  );
+}
+
 interface HistoryListProps {
   items: HistoryItem[];
   laneCount: number;
@@ -255,6 +324,7 @@ interface HistoryListProps {
   loadMore: () => void;
   selectedId: string | null;
   onSelect: (commitId: string) => void;
+  onCopyHash: (commitId: string, near: Element) => void;
   onOpenMenu: (commitId: string, x: number, y: number) => void;
 }
 
@@ -267,6 +337,7 @@ function HistoryList({
   loadMore,
   selectedId,
   onSelect,
+  onCopyHash,
   onOpenMenu,
 }: HistoryListProps) {
   const size = itemSize(orientation);
@@ -312,7 +383,11 @@ function HistoryList({
         aria-label="Commit history"
         className="history-list"
         data-orientation={orientation}
-        style={horizontal ? { width: items.length * size } : { height: items.length * size }}
+        style={
+          horizontal
+            ? { width: items.length * size, minHeight: minimumHeight(laneCount) }
+            : { height: items.length * size }
+        }
       >
         {items.slice(first, last).map((item, offset) => {
           const index = first + offset;
@@ -328,6 +403,7 @@ function HistoryList({
               style={style}
               selectedId={selectedId}
               onSelect={onSelect}
+              onCopyHash={onCopyHash}
               onOpenMenu={onOpenMenu}
             />
           );
@@ -357,6 +433,7 @@ interface HistoryItemViewProps {
   style: GraphStyle;
   selectedId: string | null;
   onSelect: (commitId: string) => void;
+  onCopyHash: (commitId: string, near: Element) => void;
   onOpenMenu: (commitId: string, x: number, y: number) => void;
 }
 
@@ -370,6 +447,7 @@ const HistoryItemView = memo(function HistoryItemView({
   style,
   selectedId,
   onSelect,
+  onCopyHash,
   onOpenMenu,
 }: HistoryItemViewProps) {
   const size = itemSize(orientation);
@@ -393,6 +471,7 @@ const HistoryItemView = memo(function HistoryItemView({
       style={position}
       selected={item.row.id === selectedId}
       onSelect={onSelect}
+      onCopyHash={onCopyHash}
       onOpenMenu={onOpenMenu}
     />
   );
@@ -405,10 +484,20 @@ interface CommitItemProps {
   style: { top: number; height: number } | { left: number; width: number };
   selected: boolean;
   onSelect: (commitId: string) => void;
+  onCopyHash: (commitId: string, near: Element) => void;
   onOpenMenu: (commitId: string, x: number, y: number) => void;
 }
 
-function CommitItem({ row, connections, graph, style, selected, onSelect, onOpenMenu }: CommitItemProps) {
+function CommitItem({
+  row,
+  connections,
+  graph,
+  style,
+  selected,
+  onSelect,
+  onCopyHash,
+  onOpenMenu,
+}: CommitItemProps) {
   return (
     <div
       role="listitem"
@@ -436,13 +525,22 @@ function CommitItem({ row, connections, graph, style, selected, onSelect, onOpen
       <CommitGraph row={row} connections={connections} {...graph} />
       <Avatar name={row.authorName} email={row.authorEmail} />
       <span className="commit-message">
-        <span className="commit-subject">{row.subject}</span>
-        {row.refs.map((label) => (
-          <RefBadge key={`${label.kind}-${label.name}`} label={label} />
-        ))}
+        <TruncatedText className="commit-subject" text={row.subject} />
+        <RefBadges refs={row.refs} />
       </span>
-      <span className="commit-author">{row.authorName}</span>
-      <span className="commit-hash">{row.shortId}</span>
+      <TruncatedText className="commit-author" text={row.authorName} />
+      <Button
+        variant="plain"
+        className="commit-hash"
+        aria-label={`Copy hash ${row.shortId}`}
+        onClick={(event) => {
+          event.stopPropagation();
+          onCopyHash(row.id, event.currentTarget);
+        }}
+        onKeyDown={(event) => event.stopPropagation()}
+      >
+        {row.shortId}
+      </Button>
       <time className="commit-time" dateTime={new Date(row.timestamp * 1000).toISOString()}>
         {formatTime(row.timestamp)}
       </time>

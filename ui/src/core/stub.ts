@@ -7,6 +7,7 @@ import {
   type CoreEvent,
   type DiffLine,
   type DiffRequest,
+  type Editor,
   type BranchInfo,
   type ConflictFile,
   type ConflictSide,
@@ -15,6 +16,7 @@ import {
   type FoundRepository,
   type GitHubAuthStatus,
   type GitHubRepository,
+  type PullRequestsUnavailable,
   type GitSetup,
   type Group,
   type GitIdentity,
@@ -48,6 +50,7 @@ import {
   type TokenSource,
   type WorktreeStatus,
   type Settings,
+  HISTORY_SHORT_ID_LENGTH,
   defaultSettings,
 } from "./api";
 
@@ -58,6 +61,11 @@ export function diffKey({ list, path }: Pick<DiffRequest, "list" | "path">) {
 }
 
 const ready: GitSetup = { kind: "ready", version: "2.47.1" };
+
+const defaultEditors: Editor[] = [
+  { id: "vscode", label: "VS Code", opensFolders: true, available: true, unavailableReason: null },
+  { id: "zed", label: "Zed", opensFolders: true, available: true, unavailableReason: null },
+];
 
 export interface StubGitHub {
   /** GitHub remote by Worktree path; a Worktree that is not listed has no GitHub remote. */
@@ -97,6 +105,10 @@ export interface StubCoreState {
   registry?: RepositoryEntry[];
   settings?: Settings;
   identity?: GitIdentity;
+  /** What every Repository's own Git configuration holds, before anything is saved to it. */
+  repositoryIdentity?: GitIdentity;
+  /** What the platform layer reports as the editors of this OS; both usable by default. */
+  editors?: Editor[];
 }
 
 export function commitKey(commit: string, parent: number) {
@@ -146,6 +158,10 @@ export interface StubCoreApi extends CoreApi {
   setOperation(path: string, operation: OperationInProgress | null): void;
   /** Everything the UI did with pull requests, such as `create:Title:draft`, `update:#7:Title`, `ready:#7`, `open:url`. */
   readonly pullRequestActions: readonly string[];
+  /** The Worktree folders opened in an editor, in order. */
+  readonly openedInEditor: readonly { editorId: string; path: string }[];
+  /** The files opened in an editor, in order. */
+  readonly openedFilesInEditor: readonly { editorId: string; worktreePath: string; file: string }[];
   /** The tags and remotes the Branches view lists. */
   setTagsAndRemotes(path: string, tags: TagInfo[], remotes: RemoteInfo[]): void;
   /** The Worktrees the Worktrees view lists. */
@@ -178,7 +194,7 @@ export interface StubCoreApi extends CoreApi {
   readonly assessedMutations: readonly MutationKind[];
   readonly discards: readonly { worktreePath: string; paths: string[] }[];
   /** The lines the UI staged or unstaged, in order. */
-  /** The Repositories the UI cloned, initialised or imported, in order. */
+  /** The Repositories the UI cloned, initialized or imported, in order. */
   readonly added: readonly { how: "clone" | "init" | "import"; source: string; groupId: string | null }[];
   /** Every commit action the UI ran, in order. */
   readonly commitActions: readonly CommitActionCall[];
@@ -266,6 +282,8 @@ export function createStubCoreApi(
   const remoteLists = new Map<string, RemoteInfo[]>();
   const tagRemoteActions: string[] = [];
   const pullRequestActions: string[] = [];
+  const openedInEditor: { editorId: string; path: string }[] = [];
+  const openedFilesInEditor: { editorId: string; worktreePath: string; file: string }[] = [];
   const pullRequestBodies = new Map<number, string>();
   let nextPullRequest = 100;
   const stagedLines: { direction: "stage" | "unstage"; selection: LineSelection }[] = [];
@@ -280,6 +298,7 @@ export function createStubCoreApi(
   let savedView: string | null = null;
   let settings = state.settings ?? defaultSettings;
   let identity = state.identity ?? { name: null, email: null };
+  const repositoryIdentities = new Map<string, GitIdentity>();
   const emit = (event: CoreEvent) => handlers.forEach((handler) => handler(event));
   let active: string | null = null;
   let held: Promise<void> | null = null;
@@ -299,7 +318,10 @@ export function createStubCoreApi(
     change: (status: WorktreeStatus) => WorktreeStatus,
   ): MutationOutcome {
     const mutationId = nextMutationId++;
-    emit({ type: "mutationQueued", mutation: { id: mutationId, worktreePath: path, title } });
+    emit({
+      type: "mutationQueued",
+      mutation: { id: mutationId, worktreePath: path, title, command: `git ${title.toLowerCase()}` },
+    });
     emit({ type: "mutationStarted", mutationId });
 
     const failure = failures.shift();
@@ -320,6 +342,24 @@ export function createStubCoreApi(
 
   let source: TokenSource | null = github.signedInWith ?? null;
   const authStatus = (): GitHubAuthStatus => ({ source });
+  const remoteUrl = (path: string) => {
+    const remote = github.remotes?.[path];
+    return remote ? `https://github.com/${remote.owner}/${remote.name}.git` : null;
+  };
+  const noRemotes = (): PullRequestsUnavailable => ({
+    kind: "pullRequestsUnavailable",
+    reason: { kind: "noRemotes" },
+    message: "This Repository has no remotes.",
+    url: null,
+    hint: "Add the GitHub remote with `git remote add origin <url>`.",
+  });
+  const noToken = (url: string | null): PullRequestsUnavailable => ({
+    kind: "pullRequestsUnavailable",
+    reason: { kind: "noToken" },
+    message: "You are not signed in to GitHub.",
+    url,
+    hint: "Run `gh auth login`, or paste a personal access token.",
+  });
 
   for (const tab of session.tabs) tabs.set(tab.worktreePath, tab);
 
@@ -562,7 +602,7 @@ export function createStubCoreApi(
       return found ? detailsOf(found) : null;
     },
     async createPullRequest(path, title, body, draft) {
-      if (source === null) throw { kind: "githubNotSignedIn" };
+      if (source === null) throw noToken(remoteUrl(path));
       pullRequestActions.push(`create:${title}${draft ? ":draft" : ""}`);
       const created: PullRequest = {
         number: nextPullRequest++,
@@ -594,6 +634,15 @@ export function createStubCoreApi(
     },
     async openInBrowser(url) {
       pullRequestActions.push(`open:${url}`);
+    },
+    async listEditors() {
+      return state.editors ?? defaultEditors;
+    },
+    async openInEditor(editorId, path) {
+      openedInEditor.push({ editorId, path });
+    },
+    async openFileInEditor(editorId, worktreePath, file) {
+      openedFilesInEditor.push({ editorId, worktreePath, file });
     },
     async listTags(path) {
       return tagLists.get(path) ?? [];
@@ -737,15 +786,15 @@ export function createStubCoreApi(
     },
     async cherryPickCommit(path, commit) {
       commitActions.push({ kind: "cherryPick", commit });
-      return mutate(path, `Cherry-pick ${commit.slice(0, 7)}`, (status) => status);
+      return mutate(path, `Cherry-pick ${commit.slice(0, HISTORY_SHORT_ID_LENGTH)}`, (status) => status);
     },
     async revertCommit(path, commit) {
       commitActions.push({ kind: "revert", commit });
-      return mutate(path, `Revert ${commit.slice(0, 7)}`, (status) => status);
+      return mutate(path, `Revert ${commit.slice(0, HISTORY_SHORT_ID_LENGTH)}`, (status) => status);
     },
     async resetToCommit(path, commit, mode) {
       commitActions.push({ kind: "reset", commit, mode });
-      return mutate(path, `Reset ${mode} to ${commit.slice(0, 7)}`, (status) => status);
+      return mutate(path, `Reset ${mode} to ${commit.slice(0, HISTORY_SHORT_ID_LENGTH)}`, (status) => status);
     },
     async rebasePlan(path, from) {
       const found = rebasePlans.get(`${path}\0${from ?? ""}`);
@@ -810,6 +859,12 @@ export function createStubCoreApi(
         list.filter((branch) => !(branch.kind === "local" && branch.name === name)),
       );
     },
+    async deleteRemoteBranch(path, remote, name) {
+      branchActions.push(`delete-remote:${remote}:${name}`);
+      return changeBranches(path, `Delete branch ${name} on ${remote}`, (list) =>
+        list.filter((branch) => !(branch.kind === "remote" && branch.name === `${remote}/${name}`)),
+      );
+    },
     async setBranchUpstream(path, name, upstream) {
       branchActions.push(`upstream:${name}:${upstream ?? ""}`);
       return changeBranches(path, `Track ${upstream ?? "nothing"} from ${name}`, (list) =>
@@ -863,7 +918,7 @@ export function createStubCoreApi(
     },
     async checkoutCommit(path, commit) {
       commitActions.push({ kind: "checkout", commit });
-      return mutate(path, `Check out ${commit.slice(0, 7)}`, (status) => status);
+      return mutate(path, `Check out ${commit.slice(0, HISTORY_SHORT_ID_LENGTH)}`, (status) => status);
     },
     async createBranch(path, name, commit) {
       commitActions.push({ kind: "createBranch", name, commit });
@@ -875,7 +930,7 @@ export function createStubCoreApi(
     },
     async rewordLatestCommit(path, commit, message) {
       commitActions.push({ kind: "reword", commit, message });
-      return mutate(path, `Reword ${commit.slice(0, 7)}`, (status) => status);
+      return mutate(path, `Reword ${commit.slice(0, HISTORY_SHORT_ID_LENGTH)}`, (status) => status);
     },
     async compareWithWorktree(_worktreePath, commit) {
       return comparisons[commit] ?? [];
@@ -930,6 +985,10 @@ export function createStubCoreApi(
       watched.add(path);
       active = path;
     },
+    async closeTab(path) {
+      watched.delete(path);
+      if (openTabs.delete(path)) emit({ type: "tabClosed", worktreePath: path });
+    },
     async refreshTab(path) {
       return known(path);
     },
@@ -951,8 +1010,8 @@ export function createStubCoreApi(
       return authStatus();
     },
     async pullRequests(path) {
-      if (!github.remotes?.[path]) throw { kind: "notGithub", path };
-      if (source === null) throw { kind: "githubNotSignedIn" };
+      if (!github.remotes?.[path]) throw noRemotes();
+      if (source === null) throw noToken(remoteUrl(path));
       return github.pullRequests?.[path] ?? [];
     },
     async checkGit() {
@@ -1034,7 +1093,7 @@ export function createStubCoreApi(
       assessed.push(kind);
       if (kind.kind === "deleteTag") {
         return kind.name.startsWith("only-")
-          ? { kind: "destructive", loss: { files: [], commits: 2, unpushedCommits: 2 } }
+          ? { kind: "destructive", loss: { files: [], commits: 2, unpushedCommits: 2, commitList: [] } }
           : { kind: "safe" };
       }
       if (kind.kind === "deleteRemoteTag") return { kind: "safe" };
@@ -1047,6 +1106,7 @@ export function createStubCoreApi(
                 files: [{ path: "unsaved.ts", originalPath: null, kind: "modified", added: 1, removed: 0 }],
                 commits: 0,
                 unpushedCommits: 0,
+                commitList: [],
               },
             }
           : { kind: "safe" };
@@ -1054,7 +1114,7 @@ export function createStubCoreApi(
       if (kind.kind === "dropStash") {
         const found = (stashLists.get(path) ?? []).find(({ info }) => info.id === kind.stash);
         return found
-          ? { kind: "destructive", loss: { files: found.preview.files, commits: 0, unpushedCommits: 0 } }
+          ? { kind: "destructive", loss: { files: found.preview.files, commits: 0, unpushedCommits: 0, commitList: [] } }
           : { kind: "safe" };
       }
       if (kind.kind === "reset") {
@@ -1063,33 +1123,50 @@ export function createStubCoreApi(
         const commits = resetDrops.get(kind.commit) ?? 0;
         return files.length === 0 && commits === 0
           ? { kind: "safe" }
-          : { kind: "destructive", loss: { files, commits, unpushedCommits: commits } };
+          : { kind: "destructive", loss: { files, commits, unpushedCommits: commits, commitList: [] } };
       }
       if (kind.kind === "deleteBranch") {
         const branch = branchesOf(path).find((candidate) => candidate.name === kind.name);
         return branch && !branch.merged && branch.upstream === null
-          ? { kind: "destructive", loss: { files: [], commits: 2, unpushedCommits: 2 } }
+          ? { kind: "destructive", loss: { files: [], commits: 2, unpushedCommits: 2, commitList: [] } }
           : { kind: "safe" };
+      }
+      if (kind.kind === "deleteRemoteBranch") {
+        const keptLocally = branchesOf(path).some((b) => b.kind === "local" && b.name === kind.name);
+        return keptLocally
+          ? { kind: "safe" }
+          : {
+              kind: "destructive",
+              loss: {
+                files: [],
+                commits: 2,
+                unpushedCommits: 0,
+                commitList: [
+                  { shortId: "a1b2c3d", subject: `Work only on ${kind.remote}` },
+                  { shortId: "d4e5f6a", subject: "Earlier work only there" },
+                ],
+              },
+            };
       }
       if (kind.kind === "forcePush") {
         const { behind } = syncOf(path);
         return behind === 0
           ? { kind: "safe" }
-          : { kind: "destructive", loss: { files: [], commits: behind, unpushedCommits: 0 } };
+          : { kind: "destructive", loss: { files: [], commits: behind, unpushedCommits: 0, commitList: [] } };
       }
       if (kind.kind === "abortOperation") {
         const status = statusOf(path);
         const files = [...status.conflicts, ...status.staged, ...status.unstaged];
         return files.length === 0
           ? { kind: "safe" }
-          : { kind: "destructive", loss: { files, commits: 0, unpushedCommits: 0 } };
+          : { kind: "destructive", loss: { files, commits: 0, unpushedCommits: 0, commitList: [] } };
       }
       if (kind.kind !== "discardChanges") return { kind: "safe" };
       const files = statusOf(path).unstaged.filter((file) => kind.paths.includes(file.path));
       const assessment: Assessment =
         files.length === 0
           ? { kind: "safe" }
-          : { kind: "destructive", loss: { files, commits: 0, unpushedCommits: 0 } };
+          : { kind: "destructive", loss: { files, commits: 0, unpushedCommits: 0, commitList: [] } };
       return assessment;
     },
     async discardChanges(path, paths) {
@@ -1116,6 +1193,19 @@ export function createStubCoreApi(
     async setGitIdentity(updated) {
       identity = { name: blankToNull(updated.name), email: blankToNull(updated.email) };
       return identity;
+    },
+    async repositoryGitIdentity(worktreePath) {
+      const { repositoryName } = known(worktreePath);
+      return (
+        repositoryIdentities.get(repositoryName) ??
+        state.repositoryIdentity ?? { name: null, email: null }
+      );
+    },
+    async setRepositoryGitIdentity(worktreePath, updated) {
+      const { repositoryName } = known(worktreePath);
+      const stored = { name: blankToNull(updated.name), email: blankToNull(updated.email) };
+      repositoryIdentities.set(repositoryName, stored);
+      return stored;
     },
     async onEvent(handler) {
       handlers.add(handler);
@@ -1206,6 +1296,8 @@ export function createStubCoreApi(
     discards,
     stagedLines,
     pullRequestActions,
+    openedInEditor,
+    openedFilesInEditor,
     tagRemoteActions,
     worktreeActions,
     stashActions,

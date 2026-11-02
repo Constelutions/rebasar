@@ -18,13 +18,20 @@ const confirmationTexts: Partial<Record<MutationKind["kind"], ConfirmationText>>
   dropStash: { title: "Drop stash", confirmLabel: "Drop" },
   removeWorktree: { title: "Remove worktree", confirmLabel: "Remove" },
   deleteTag: { title: "Delete tag", confirmLabel: "Delete" },
+  deleteRemoteBranch: { title: "Delete remote branch", confirmLabel: "Delete" },
 };
 
 const fallbackText: ConfirmationText = { title: "Are you sure?", confirmLabel: "Continue" };
 
+function warningFor(kind: MutationKind): string | undefined {
+  if (kind.kind !== "deleteRemoteBranch") return undefined;
+  return `Everyone who shares ${kind.remote} is affected: ${kind.name} disappears there for them too.`;
+}
+
 interface Pending {
   text: ConfirmationText;
   loss: Loss;
+  warning: string | undefined;
   run: () => void;
 }
 
@@ -51,6 +58,7 @@ export function useConfirmation(api: CoreApi, worktreePath: string): Confirmatio
     setPending({
       text: confirmationTexts[kind.kind] ?? fallbackText,
       loss: assessment.loss,
+      warning: warningFor(kind),
       run,
     });
   }
@@ -60,6 +68,7 @@ export function useConfirmation(api: CoreApi, worktreePath: string): Confirmatio
       title={pending.text.title}
       confirmLabel={pending.text.confirmLabel}
       loss={pending.loss}
+      warning={pending.warning}
       onCancel={() => setPending(null)}
       onConfirm={() => {
         setPending(null);

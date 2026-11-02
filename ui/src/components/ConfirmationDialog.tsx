@@ -1,12 +1,15 @@
 import { type KeyboardEvent, useEffect, useId, useRef } from "react";
 
 import type { Loss } from "../core/api";
+import { Button } from "./Button";
 import { LineCounts, statusLetters } from "./FileTree";
 
 export interface ConfirmationDialogProps {
   title: string;
   confirmLabel: string;
   loss: Loss;
+  /** Who else is affected, for a Mutation that reaches beyond this machine. */
+  warning?: string;
   onConfirm: () => void;
   onCancel: () => void;
 }
@@ -15,6 +18,7 @@ export function ConfirmationDialog({
   title,
   confirmLabel,
   loss,
+  warning,
   onConfirm,
   onCancel,
 }: ConfirmationDialogProps) {
@@ -85,18 +89,34 @@ export function ConfirmationDialog({
               .
             </p>
           )}
+          {loss.commitList.length > 0 && (
+            <>
+              <ul className="loss-commits" aria-label="Commits that will be lost">
+                {loss.commitList.map((commit) => (
+                  <li key={commit.shortId}>
+                    <code className="loss-id">{commit.shortId}</code>
+                    <span className="loss-path">{commit.subject}</span>
+                  </li>
+                ))}
+              </ul>
+              {loss.commits > loss.commitList.length && (
+                <p>and {loss.commits - loss.commitList.length} more</p>
+              )}
+            </>
+          )}
+          {warning && <p className="dialog-warning">{warning}</p>}
           <p className="dialog-recovery">
             Rebasar has no undo. Git&apos;s reflog is the only recovery path
             {loss.files.length > 0 && ", and it does not record uncommitted changes"}.
           </p>
         </div>
         <div className="dialog-actions">
-          <button type="button" ref={cancelRef} onClick={onCancel}>
+          <Button type="button" ref={cancelRef} onClick={onCancel}>
             Cancel
-          </button>
-          <button type="button" ref={confirmRef} className="danger" onClick={onConfirm}>
+          </Button>
+          <Button type="button" ref={confirmRef} variant="danger" onClick={onConfirm}>
             {confirmLabel}
-          </button>
+          </Button>
         </div>
       </div>
     </div>

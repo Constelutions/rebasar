@@ -18,10 +18,13 @@ interface ShellCommandHandlers {
   view: ViewName;
   openFolder: () => void;
   selectTab: (worktreePath: string) => void;
+  closeTab: (worktreePath: string) => void;
   showView: (view: ViewName) => void;
   /** Shows History narrowed by the filter `query`. */
   showCommits: (query: string) => void;
   addRepository: (kind: AddKind) => void;
+  sidebarCollapsed: boolean;
+  toggleSidebar: () => void;
 }
 
 /** Registers what the title bar, the sidebar and the Tab strip let the user do. */
@@ -33,9 +36,12 @@ export function useShellCommands({
   view,
   openFolder,
   selectTab,
+  closeTab,
   showView,
   showCommits,
   addRepository,
+  sidebarCollapsed,
+  toggleSidebar,
 }: ShellCommandHandlers) {
   const windowCommands = useMemo<PaletteCommand[]>(
     () => [
@@ -56,7 +62,7 @@ export function useShellCommands({
       },
       {
         id: "shell.init-repository",
-        title: "Initialise repository…",
+        title: "Initialize repository…",
         group: "Repository",
         keywords: ["add", "new", "git init"],
         run: () => addRepository("init"),
@@ -129,9 +135,32 @@ export function useShellCommands({
     [showView],
   );
 
+  const sidebarCommands = useMemo<PaletteCommand[]>(
+    () => [
+      {
+        id: "sidebar.toggle",
+        title: sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar",
+        group: "Navigate",
+        keywords: ["icons", "rail", "navigation"],
+        run: toggleSidebar,
+      },
+    ],
+    [sidebarCollapsed, toggleSidebar],
+  );
+
   const tabCommands = useMemo<PaletteCommand[]>(
-    () =>
-      openTabs.map(({ tab }) => ({
+    () => [
+      {
+        id: "tab.close",
+        title: "Close Tab",
+        group: "Tabs",
+        keywords: ["worktree"],
+        when: (context) => context.activeTab !== undefined,
+        run: ({ activeTab }) => {
+          if (activeTab) closeTab(activeTab.tab.worktreePath);
+        },
+      },
+      ...openTabs.map(({ tab }): PaletteCommand => ({
         id: `tab.${tab.worktreePath}`,
         title: `Go to Tab ${tab.repositoryName} · ${describeHead(tab.head)}`,
         group: "Tabs",
@@ -139,7 +168,8 @@ export function useShellCommands({
         when: (context) => context.activeTab?.tab.worktreePath !== tab.worktreePath,
         run: () => selectTab(tab.worktreePath),
       })),
-    [openTabs, selectTab],
+    ],
+    [openTabs, selectTab, closeTab],
   );
 
   const branches = useBranches(api, activeTab?.tab.worktreePath);
@@ -179,6 +209,7 @@ export function useShellCommands({
   usePaletteCommands(windowCommands);
   usePaletteCommands(operationCommands);
   usePaletteCommands(viewCommands);
+  usePaletteCommands(sidebarCommands);
   usePaletteCommands(tabCommands);
   usePaletteCommands(branchCommands);
 }

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { type AddKind, AddRepositoryDialog } from "./components/AddRepositoryDialog";
+import { OpenInEditor } from "./components/OpenInEditor";
 import { OperationBanner } from "./components/OperationBanner";
 import { SyncControls } from "./components/SyncControls";
 import { OutputPanel } from "./components/OutputPanel";
@@ -13,10 +14,12 @@ import { describeError } from "./core/describeError";
 import { type Highlighter, HighlighterProvider, defaultHighlighter } from "./highlight/highlighter";
 import { PaletteProvider } from "./palette/PaletteProvider";
 import type { PaletteContext } from "./palette/registry";
-import { SettingsProvider, useStoredSettings } from "./settings/SettingsContext";
+import { SettingsProvider, useSettings, useStoredSettings } from "./settings/SettingsContext";
 import type { AppWindow } from "./shell/appWindow";
 import { shortcuts, useShortcut } from "./shortcuts";
 import { useShellCommands } from "./shellCommands";
+import { useCloseTab } from "./useCloseTab";
+import { type CommitDrafts, useCommitDrafts } from "./useCommitDrafts";
 import { useMutations } from "./useMutations";
 import { type OpenTab, useOpenTabs } from "./useOpenTabs";
 import { isViewName, type ViewName } from "./views";
@@ -37,6 +40,7 @@ export function App({ api, pickFolder, appWindow, highlighter = defaultHighlight
   const [adding, setAdding] = useState<AddKind | null>(null);
   const [repositoriesVersion, setRepositoriesVersion] = useState(0);
   const runs = useMutations(api);
+  const commitDrafts = useCommitDrafts();
   const storedSettings = useStoredSettings(api);
 
   useEffect(() => {
@@ -102,6 +106,7 @@ export function App({ api, pickFolder, appWindow, highlighter = defaultHighlight
             commitSearch={commitSearch}
             gitSetup={gitSetup}
             runs={runs}
+            commitDrafts={commitDrafts}
             openFolder={openFolder}
             selectTab={select}
             showView={changeView}
@@ -130,6 +135,7 @@ interface ShellProps {
   commitSearch: CommitSearch;
   gitSetup: GitSetup | null;
   runs: ReturnType<typeof useMutations>;
+  commitDrafts: CommitDrafts;
   openFolder: () => void;
   selectTab: (worktreePath: string) => void;
   showView: (view: ViewName) => void;
@@ -153,6 +159,7 @@ function Shell({
   commitSearch,
   gitSetup,
   runs,
+  commitDrafts,
   openFolder,
   selectTab,
   showView,
@@ -164,6 +171,18 @@ function Shell({
   onRepositoriesChanged,
   onError,
 }: ShellProps) {
+  const { requestClose, dialog: closeTabDialog } = useCloseTab(api, openTabs, commitDrafts, onError);
+  const { settings, update: updateSettings } = useSettings();
+  const sidebarCollapsed = settings.appearance.sidebarCollapsed;
+  const toggleSidebar = useCallback(
+    () =>
+      updateSettings({
+        ...settings,
+        appearance: { ...settings.appearance, sidebarCollapsed: !sidebarCollapsed },
+      }),
+    [settings, sidebarCollapsed, updateSettings],
+  );
+
   useShellCommands({
     api,
     appWindow,
@@ -172,9 +191,12 @@ function Shell({
     view,
     openFolder,
     selectTab,
+    closeTab: requestClose,
     showView,
     showCommits,
     addRepository: onAdd,
+    sidebarCollapsed,
+    toggleSidebar,
   });
 
   return (
@@ -184,15 +206,23 @@ function Shell({
         activePath={activeTab?.tab.worktreePath}
         appWindow={appWindow}
         onSelectTab={selectTab}
+        onCloseTab={requestClose}
         onOpenFolder={openFolder}
         actions={
           activeTab && (
-            <SyncControls
-              key={activeTab.tab.worktreePath}
-              api={api}
-              worktreePath={activeTab.tab.worktreePath}
-              onError={onError}
-            />
+            <>
+              <OpenInEditor
+                api={api}
+                worktreePath={activeTab.tab.worktreePath}
+                onError={onError}
+              />
+              <SyncControls
+                key={activeTab.tab.worktreePath}
+                api={api}
+                worktreePath={activeTab.tab.worktreePath}
+                onError={onError}
+              />
+            </>
           )
         }
       />
@@ -221,7 +251,12 @@ function Shell({
             />
           )}
           <div className="app-body">
-            <Sidebar selected={view} onSelect={showView} />
+            <Sidebar
+              selected={view}
+              collapsed={sidebarCollapsed}
+              onSelect={showView}
+              onToggleCollapsed={toggleSidebar}
+            />
             <ViewPane
               view={view}
               api={api}
@@ -231,11 +266,13 @@ function Shell({
               onAddRepository={onAdd}
               onNavigate={showView}
               repositoriesVersion={repositoriesVersion}
+              commitDrafts={commitDrafts}
             />
           </div>
           <OutputPanel runs={runs} onCancel={(run) => void api.cancelMutation(run.id)} />
         </>
       )}
+      {closeTabDialog}
       {adding && (
         <AddRepositoryDialog
           api={api}

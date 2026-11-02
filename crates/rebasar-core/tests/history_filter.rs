@@ -1,5 +1,5 @@
 use rebasar_core::{ApiError, Core, EdgeKind, HistoryCount, HistoryFilter, HistoryRow, RefKind};
-use rebasar_testkit::TempRepo;
+use rebasar_testkit::{IsolatedGitConfig, TempRepo};
 
 const ADA: (&str, &str) = ("Ada Lovelace", "ada@example.com");
 const GRACE: (&str, &str) = ("Grace Hopper", "grace@example.com");
@@ -197,19 +197,66 @@ fn the_merges_chip_keeps_only_merge_commits() {
 }
 
 #[test]
-fn the_mine_chip_keeps_only_commits_authored_with_the_configured_email() {
+fn the_me_author_is_the_email_in_the_repository_configuration() {
     let repo = TempRepo::init("sample");
     repo.git(&["config", "user.email", "grace@example.com"]);
     repo.commit_file_as(ADA, "a", "1", "By Ada")
         .commit_file_as(("G. Hopper", "GRACE@example.com"), "a", "2", "By Grace")
         .commit_file_as(ADA, "a", "3", "By Ada again");
 
-    let mine = HistoryFilter {
-        mine: true,
-        ..HistoryFilter::default()
-    };
+    assert_eq!(found(&repo, "author:@me"), ["By Grace"]);
+}
 
-    assert_eq!(subjects(&repo, &mine), ["By Grace"]);
+#[test]
+fn the_me_author_is_matched_ignoring_case() {
+    let repo = TempRepo::init("sample");
+    repo.git(&["config", "user.email", "grace@example.com"]);
+    repo.commit_file_as(ADA, "a", "1", "By Ada")
+        .commit_file_as(GRACE, "a", "2", "By Grace");
+
+    assert_eq!(found(&repo, "author:@ME"), ["By Grace"]);
+    assert_eq!(found(&repo, "author:@Me"), ["By Grace"]);
+}
+
+#[test]
+fn the_me_author_needs_an_email_in_the_configuration() {
+    let _git = IsolatedGitConfig::new();
+    let repo = TempRepo::init("sample");
+    repo.git(&["config", "--unset", "user.email"]);
+    repo.commit_file_as(ADA, "a", "1", "By Ada");
+
+    let error = Core::new(|_| {})
+        .history_page(repo.path(), 0, 10, &query("author:@me"))
+        .expect_err("no email to stand for me");
+
+    assert!(matches!(error, ApiError::Unexpected { .. }), "{error:?}");
+}
+
+#[test]
+fn several_author_terms_match_the_commits_of_any_of_them() {
+    let repo = team_repo();
+
+    assert_eq!(
+        found(&repo, "author:ada author:grace"),
+        ["Update docs", "Feature work", "Fix lexer", "Add parser"]
+    );
+    assert_eq!(
+        found(&repo, "author:ada author:nobody"),
+        ["Update docs", "Add parser"]
+    );
+    assert_eq!(found(&repo, "author:ada author:grace fix"), ["Fix lexer"]);
+}
+
+#[test]
+fn me_joins_the_other_author_terms_as_one_more_alternative() {
+    let repo = team_repo();
+    repo.git(&["config", "user.email", "grace@example.com"]);
+
+    assert_eq!(
+        found(&repo, "author:@me author:ada"),
+        ["Update docs", "Feature work", "Fix lexer", "Add parser"]
+    );
+    assert_eq!(found(&repo, "author:@me author:nobody"), ["Feature work", "Fix lexer"]);
 }
 
 #[test]
@@ -263,11 +310,10 @@ fn every_key_and_chip_combines_with_and() {
     };
     assert_eq!(subjects(&repo, &merges), Vec::<String>::new());
     repo.git(&["config", "user.email", "grace@example.com"]);
-    let mine = HistoryFilter {
-        mine: true,
-        ..query("path:src")
-    };
-    assert_eq!(subjects(&repo, &mine), ["Feature work", "Fix lexer"]);
+    assert_eq!(
+        found(&repo, "author:@me path:src"),
+        ["Feature work", "Fix lexer"]
+    );
 }
 
 #[test]
@@ -412,6 +458,7 @@ fn the_count_covers_every_key_and_chip() {
 #[test]
 fn the_count_matches_the_rows_the_pages_deliver() {
     let repo = team_repo();
+    repo.git(&["config", "user.email", "grace@example.com"]);
     repo.git(&["branch", "release", "HEAD~1"]);
 
     for filter in [
@@ -423,10 +470,8 @@ fn the_count_matches_the_rows_the_pages_deliver() {
             merges: true,
             ..HistoryFilter::default()
         },
-        HistoryFilter {
-            mine: true,
-            ..query("lexer")
-        },
+        query("author:ada author:grace"),
+        query("author:@me lexer"),
     ] {
         assert_eq!(
             count(&repo, &filter).matching,

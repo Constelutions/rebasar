@@ -1,11 +1,14 @@
-import { useEffect, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
 
+import { Button } from "../components/Button";
 import { DiffView } from "../components/DiffView";
 import { FileTree } from "../components/FileTree";
+import { ResizableColumns } from "../components/ResizableColumns";
 import { type GroupTree, buildGroupTrees, firstFile } from "../components/changeTree";
-import type { CommitDetail, CoreApi, DiffMode, FileChange } from "../core/api";
+import type { CommitDetail, CoreApi, DiffMode, FileChange, FilesView } from "../core/api";
 import { describeError } from "../core/describeError";
 import { useSettings } from "../settings/SettingsContext";
+import { useFileOpener } from "../useEditors";
 import { formatDateTime } from "./items";
 import { type DiffBase, useCommitFileDiff } from "./useCommitFileDiff";
 
@@ -32,6 +35,19 @@ export function CommitDetailPane({
   const { loaded, error } = useCommitDetail(api, worktreePath, commitId, parent);
   const comparison = useWorktreeComparison(api, worktreePath, commitId, comparing);
 
+  const closeButton = (
+    <Button
+      variant="plain"
+      type="button"
+      className="commit-detail-close"
+      aria-label="Close commit detail"
+      onClick={onClose}
+    >
+      ×
+    </Button>
+  );
+  const ready = loaded !== null && (!comparing || comparison.files !== null);
+
   return (
     <section className="commit-detail" aria-label="Commit detail">
       {(error ?? comparison.error) && (
@@ -39,7 +55,7 @@ export function CommitDetailPane({
           {error ?? comparison.error}
         </p>
       )}
-      {loaded && (!comparing || comparison.files) && (
+      {loaded && ready ? (
         <CommitBody
           api={api}
           worktreePath={worktreePath}
@@ -49,16 +65,11 @@ export function CommitDetailPane({
           comparing={comparing}
           onComparingChange={onComparingChange}
           onParentChange={setParent}
+          closeButton={closeButton}
         />
+      ) : (
+        closeButton
       )}
-      <button
-        type="button"
-        className="commit-detail-close"
-        aria-label="Close commit detail"
-        onClick={onClose}
-      >
-        ×
-      </button>
     </section>
   );
 }
@@ -72,6 +83,7 @@ interface CommitBodyProps {
   comparing: boolean;
   onComparingChange: (comparing: boolean) => void;
   onParentChange: (parent: number) => void;
+  closeButton: ReactNode;
 }
 
 function CommitBody({
@@ -83,9 +95,12 @@ function CommitBody({
   comparing,
   onComparingChange,
   onParentChange,
+  closeButton,
 }: CommitBodyProps) {
   const [pickedPath, setPickedPath] = useState<string | null>(null);
-  const { settings } = useSettings();
+  const [openError, setOpenError] = useState<string | null>(null);
+  const { settings, update } = useSettings();
+  const filesView = settings.history.filesView;
   const [pickedMode, setPickedMode] = useState<DiffMode | null>(null);
   const mode = pickedMode ?? settings.diff.defaultMode;
   const [subject, ...bodyLines] = detail.message.split("\n");
@@ -106,12 +121,16 @@ function CommitBody({
       ),
     [files, comparing],
   );
-  const selected = resolveSelection(files, pickedPath, trees);
+  const selected = resolveSelection(files, pickedPath, trees, filesView);
   const diff = useCommitFileDiff(api, worktreePath, detail.id, base, selected);
+  const fileOpener = useFileOpener(api, worktreePath, selected, setOpenError);
 
-  return (
-    <>
-      <h2 className="commit-detail-subject">{subject}</h2>
+  const info = (
+    <div className="commit-detail-info">
+      <header className="commit-detail-heading">
+        <h2 className="commit-detail-subject">{subject}</h2>
+        {closeButton}
+      </header>
       {body && <p className="commit-detail-body">{body}</p>}
       <dl className="commit-meta">
         <dt>Author</dt>
@@ -141,61 +160,80 @@ function CommitBody({
           )}
         </dd>
       </dl>
-      <button
+      <Button
+        size="sm"
         type="button"
         aria-pressed={comparing}
         className="compare-toggle"
         onClick={() => onComparingChange(!comparing)}
       >
         Compare with working tree
-      </button>
+      </Button>
       {!comparing && detail.parents.length > 1 && (
         <div role="group" aria-label="Compare with parent" className="mode-toggle parent-toggle">
           {detail.parents.map((parent, index) => (
-            <button
+            <Button
+              variant="plain"
               key={parent.id}
               type="button"
               aria-pressed={base === index}
               onClick={() => onParentChange(index)}
             >
               Parent {index + 1}
-            </button>
+            </Button>
           ))}
         </div>
       )}
+      {openError && (
+        <p role="alert" className="error">
+          {openError}
+        </p>
+      )}
+    </div>
+  );
+
+  const start = (
+    <>
+      {info}
       {files.length === 0 ? (
         <p className="placeholder">
           {comparing ? "The working tree matches this commit." : "No files changed."}
         </p>
       ) : (
-        <div className="changes">
-          <div className="changes-files">
-            <FileTree
-              trees={trees}
-              selected={selected && { list: "commit", path: selected.path }}
-              onSelect={(_, change) => setPickedPath(change.path)}
-            />
-          </div>
-          <div className="changes-diff">
-            {diff.error && (
-              <p role="alert" className="error">
-                {diff.error}
-              </p>
-            )}
-            {diff.value && (
-              <DiffView
-                key={`${base}:${diff.value.path}`}
-                diff={diff.value}
-                mode={mode}
-                onModeChange={setPickedMode}
-                onLoadLarge={diff.loadLarge}
-              />
-            )}
-          </div>
+        <div className="changes-files commit-detail-files">
+          <FileTree
+            trees={trees}
+            selected={selected && { list: "commit", path: selected.path }}
+            onSelect={(_, change) => setPickedPath(change.path)}
+            view={filesView}
+            onViewChange={(view) => update({ ...settings, history: { ...settings.history, filesView: view } })}
+            fileOpener={fileOpener}
+          />
         </div>
       )}
     </>
   );
+
+  const end = (
+    <div className="changes-diff">
+      {diff.error && (
+        <p role="alert" className="error">
+          {diff.error}
+        </p>
+      )}
+      {diff.value && (
+        <DiffView
+          key={`${base}:${diff.value.path}`}
+          diff={diff.value}
+          mode={mode}
+          onModeChange={setPickedMode}
+          onLoadLarge={diff.loadLarge}
+        />
+      )}
+    </div>
+  );
+
+  return <ResizableColumns className="commit-detail-columns" label="Resize commit info and diff" start={start} end={end} />;
 }
 
 /** Keeps the file the user picked while the commit still lists it; otherwise falls back to the first. */
@@ -203,8 +241,9 @@ function resolveSelection(
   files: FileChange[],
   pickedPath: string | null,
   trees: GroupTree<"commit">[],
+  view: FilesView,
 ): FileChange | null {
-  return files.find((file) => file.path === pickedPath) ?? firstFile(trees)?.change ?? null;
+  return files.find((file) => file.path === pickedPath) ?? firstFile(trees, view)?.change ?? null;
 }
 
 function useCommitDetail(api: CoreApi, worktreePath: string, commitId: string, parent: number) {

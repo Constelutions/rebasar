@@ -3,7 +3,9 @@ use std::path::Path;
 use serde::Serialize;
 use serde_json::{Map, Value};
 
-use crate::{is_repository_folder, open_worktree, ApiError, Core, CoreEvent, Tab, WindowBounds};
+use crate::{
+    is_repository_folder, open_worktree, platform, ApiError, Core, CoreEvent, Tab, WindowBounds,
+};
 
 /// What the user had open when the app last ran.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -20,9 +22,11 @@ impl Core {
     /// its folder is still there, so that a launch with many Tabs stays fast. Tabs whose
     /// Repository or Worktree folder is gone are dropped for good.
     pub fn restore_session(&self) -> Session {
+        let restore_tabs = self.settings().unwrap_or_default().tabs.restore_on_launch;
         self.registry.remember(|data| {
             data.open_tabs.retain(|open| {
-                Path::new(&open.tab.worktree_path).exists()
+                restore_tabs
+                    && Path::new(&open.tab.worktree_path).exists()
                     && is_repository_folder(Path::new(&open.repository))
             });
             let active_is_open = data
@@ -91,6 +95,12 @@ impl Core {
             data.settings = settings;
             Ok(())
         })
+    }
+
+    /// Closes one Tab the user asked to close; the Repository stays listed.
+    pub fn close_tab(&self, path: &Path) {
+        let canonical = platform::canonical(path).unwrap_or_else(|_| path.to_path_buf());
+        self.drop_tab(path, &canonical);
     }
 
     pub(crate) fn close_tabs_of(&self, repository: &str) {

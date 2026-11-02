@@ -6,6 +6,7 @@ import type {
   DiffMode,
   FileChange,
   FileDiff,
+  FilesView,
   OutgoingCommit,
   PullRequestDetails,
   WhitespaceMode,
@@ -14,34 +15,45 @@ import type {
 import { describeError } from "../core/describeError";
 import { useSettings } from "../settings/SettingsContext";
 import { useConfirmation } from "../useConfirmation";
+import { useFileOpener } from "../useEditors";
+import type { CommitDrafts } from "../useCommitDrafts";
+import { Button } from "./Button";
 import { type ChangeGroup, type GroupTree, buildGroupTrees, firstFile } from "./changeTree";
 import { CommitComposer } from "./CommitComposer";
 import { DiffView, type LineStaging } from "./DiffView";
 import { PullRequestDialog } from "./PullRequestDialog";
 import { type FileAction, FileTree, type FileSelection } from "./FileTree";
+import { SplitPane, SplitPositionToggle } from "./SplitPane";
 
 interface ChangesViewProps {
   api: CoreApi;
   worktreePath: string;
   status: WorktreeStatus | null;
   error: string | null;
+  commitDrafts: CommitDrafts;
 }
 
-export function ChangesView({ api, worktreePath, status, error }: ChangesViewProps) {
+export function ChangesView({ api, worktreePath, status, error, commitDrafts }: ChangesViewProps) {
   const [picked, setPicked] = useState<FileSelection<ChangeList> | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [pushedPullRequest, setPushedPullRequest] = useState<PullRequestDetails | null>(null);
   const [editingPullRequest, setEditingPullRequest] = useState(false);
   const { outgoing, outgoingError } = useOutgoingCommits(api, worktreePath);
   const { confirm, dialog } = useConfirmation(api, worktreePath);
-  const { settings, ready } = useSettings();
+  const { settings, ready, update } = useSettings();
   const [pickedMode, setPickedMode] = useState<DiffMode | null>(null);
   const mode = pickedMode ?? settings.diff.defaultMode;
 
+  const { filesView, diffPosition } = settings.changes;
+
   const trees = useMemo(() => buildGroupTrees(status ? changeGroups(status) : []), [status]);
-  const selected = useMemo(() => resolveSelection(trees, picked), [trees, picked]);
+  const selected = useMemo(
+    () => resolveSelection(trees, picked, filesView),
+    [trees, picked, filesView],
+  );
   const whitespace = ready ? settings.diff.whitespace : null;
   const diff = useFileDiff(api, worktreePath, status, selected, whitespace);
+  const fileOpener = useFileOpener(api, worktreePath, selected?.change ?? null, setActionError);
 
   if (error) {
     return (
@@ -119,43 +131,61 @@ export function ChangesView({ api, worktreePath, status, error }: ChangesViewPro
         {trees.length === 0 ? (
           <p className="placeholder">No changes.</p>
         ) : (
-          <div className="changes">
-            <div className="changes-files">
+          <>
+            <div className="changes-toolbar">
+              <SplitPositionToggle
+                label="Diff position"
+                value={diffPosition}
+                onChange={(position) =>
+                  update({ ...settings, changes: { ...settings.changes, diffPosition: position } })
+                }
+              />
+            </div>
+            <SplitPane
+              className="changes-split"
+              position={diffPosition}
+              secondary={
+                <div className="changes-diff">
+                  {diff.error && (
+                    <p role="alert" className="error">
+                      {diff.error}
+                    </p>
+                  )}
+                  {diff.value && (
+                    <DiffView
+                      key={`${selected?.list}:${diff.value.path}`}
+                      diff={diff.value}
+                      mode={mode}
+                      onModeChange={setPickedMode}
+                      onLoadLarge={diff.loadLarge}
+                      staging={staging}
+                    />
+                  )}
+                </div>
+              }
+            >
               <FileTree
                 trees={trees}
                 selected={selected && { list: selected.list, path: selected.change.path }}
                 onSelect={(list, change) => setPicked({ list, path: change.path })}
                 actionsFor={actionsFor}
                 groupActionFor={groupActionFor}
+                view={filesView}
+                onViewChange={(view) => update({ ...settings, changes: { ...settings.changes, filesView: view } })}
+                viewToggleFor={(list) => list !== "conflicts"}
+                fileOpener={fileOpener}
               />
-            </div>
-            <div className="changes-diff">
-              {diff.error && (
-                <p role="alert" className="error">
-                  {diff.error}
-                </p>
-              )}
-              {diff.value && (
-                <DiffView
-                  key={`${selected?.list}:${diff.value.path}`}
-                  diff={diff.value}
-                  mode={mode}
-                  onModeChange={setPickedMode}
-                  onLoadLarge={diff.loadLarge}
-                  staging={staging}
-                />
-              )}
-            </div>
-          </div>
+            </SplitPane>
+          </>
         )}
       </div>
       {dialog}
       {pushedPullRequest && (
         <p role="status" className="pull-request-offer">
           Pushed. Pull request #{pushedPullRequest.number} is open for this branch.{" "}
-          <button type="button" onClick={() => setEditingPullRequest(true)}>
+          <Button type="button" onClick={() => setEditingPullRequest(true)}>
             Update pull request
-          </button>
+          </Button>
         </p>
       )}
       {editingPullRequest && (
@@ -168,6 +198,8 @@ export function ChangesView({ api, worktreePath, status, error }: ChangesViewPro
         />
       )}
       <CommitComposer
+        draft={commitDrafts.draftOf(worktreePath)}
+        onDraftChange={(draft) => commitDrafts.setDraft(worktreePath, draft)}
         hasStagedFiles={status.staged.length > 0}
         outgoing={outgoing}
         outgoingError={outgoingError}
@@ -209,12 +241,13 @@ interface Selected {
 function resolveSelection(
   trees: GroupTree<ChangeList>[],
   picked: FileSelection<ChangeList> | null,
+  view: FilesView,
 ): Selected | null {
   const change = trees
     .find(({ group }) => group.list === picked?.list)
     ?.group.changes.find((candidate) => candidate.path === picked?.path);
   if (picked && change) return { list: picked.list, change };
-  return firstFile(trees);
+  return firstFile(trees, view);
 }
 
 function useFileDiff(

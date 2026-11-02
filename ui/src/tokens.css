@@ -24,6 +24,8 @@
   --color-danger: oklch(0.72 0.17 25);
   --color-danger-strong: oklch(0.55 0.19 25);
   --color-on-danger: oklch(0.98 0.01 25);
+  --color-scrollbar-thumb: oklch(0.32 0.014 265);
+  --color-scrollbar-track: oklch(0 0 0 / 0);
   --color-scrim: oklch(0.1 0.01 265 / 0.6);
 
   --color-added-surface: oklch(0.78 0.14 150 / 0.14);
@@ -67,6 +69,7 @@
 
   --title-bar-height: 48px;
   --control-height: 34px;
+  --control-height-sm: 26px;
   --window-control-width: 46px;
   --window-control-icon: 10px;
   --diff-row-height: 20px;
@@ -75,11 +78,19 @@
   --diff-pick-width: 24px;
   --changes-files-width: 340px;
   --sidebar-width: 208px;
+  --sidebar-width-collapsed: 52px;
   --avatar-size: 22px;
+  --commit-hash-width: 72px;
+  --commit-time-width: 64px;
   --status-dot-size: 8px;
   --tab-max-width: 260px;
+  --tab-close-size: 22px;
   --switcher-width: 320px;
+  --switcher-button-max-width: 220px;
   --switcher-max-height: 360px;
+  --multi-select-width: 260px;
+  --multi-select-button-max-width: 240px;
+  --multi-select-max-height: 280px;
   --output-body-height: 220px;
   --palette-width: 600px;
   --palette-list-height: 380px;

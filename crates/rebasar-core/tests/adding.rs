@@ -227,7 +227,7 @@ fn a_running_clone_can_be_cancelled_and_leaves_nothing_behind() {
 }
 
 #[test]
-fn initialising_a_folder_creates_a_repository_and_opens_it() {
+fn initializing_a_folder_creates_a_repository_and_opens_it() {
     let harness = Harness::new();
     let workspace = Workspace::new();
     let folder = workspace.create_folder("fresh");
@@ -236,7 +236,7 @@ fn initialising_a_folder_creates_a_repository_and_opens_it() {
         .core
         .init_repository(&folder, None)
         .unwrap()
-        .expect("the initialisation finished");
+        .expect("the initialization finished");
 
     assert!(folder.join(".git").is_dir());
     assert_eq!(tab.repository_name, "fresh");
@@ -246,7 +246,7 @@ fn initialising_a_folder_creates_a_repository_and_opens_it() {
 }
 
 #[test]
-fn an_initialised_repository_can_be_placed_in_a_group() {
+fn an_initialized_repository_can_be_placed_in_a_group() {
     let harness = Harness::new();
     let workspace = Workspace::new();
     let folder = workspace.create_folder("fresh");
@@ -261,7 +261,7 @@ fn an_initialised_repository_can_be_placed_in_a_group() {
 }
 
 #[test]
-fn initialising_a_folder_that_is_a_repository_already_is_an_error() {
+fn initializing_a_folder_that_is_a_repository_already_is_an_error() {
     let harness = Harness::new();
     let source = origin();
 
@@ -274,7 +274,7 @@ fn initialising_a_folder_that_is_a_repository_already_is_an_error() {
 }
 
 #[test]
-fn initialising_a_folder_that_does_not_exist_is_an_error() {
+fn initializing_a_folder_that_does_not_exist_is_an_error() {
     let harness = Harness::new();
     let workspace = Workspace::new();
 

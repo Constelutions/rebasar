@@ -159,6 +159,48 @@ it("shows the last-known view at once when switching and refreshes it in the bac
   expect(screen.queryByText("notes.md", { selector: ".changes-files *" })).not.toBeInTheDocument();
 });
 
+const longBranch: Tab = {
+  repositoryName: "app",
+  worktreePath: "C:\\work\\app-consolidate-pull-request-views",
+  head: { kind: "branch", name: "feat/304-consolidate-pull-request-views" },
+};
+
+it("shows the Worktree name above the branch on the switcher button", async () => {
+  await openTabs([app, hotfix]);
+
+  const button = screen.getByRole("button", { name: "Switch repository" });
+  const [worktree, branch] = Array.from(button.querySelectorAll(".switcher-worktree, .switcher-head"));
+  expect(worktree).toHaveClass("switcher-worktree");
+  expect(worktree).toHaveTextContent("app-hotfix");
+  expect(branch).toHaveClass("switcher-head");
+  expect(branch).toHaveTextContent("hotfix");
+});
+
+it("keeps the full Worktree and branch names reachable when the switcher button truncates them", async () => {
+  await openTabs([longBranch]);
+
+  const button = screen.getByRole("button", { name: "Switch repository" });
+  expect(button.querySelector(".switcher-head")).toHaveAttribute(
+    "title",
+    "feat/304-consolidate-pull-request-views",
+  );
+  expect(button.querySelector(".switcher-worktree")).toHaveAttribute(
+    "title",
+    "app-consolidate-pull-request-views",
+  );
+});
+
+it("follows the active Tab on the switcher button", async () => {
+  const { user } = await openTabs([app, tools]);
+  const button = screen.getByRole("button", { name: "Switch repository" });
+  expect(button).toHaveTextContent("tools");
+
+  await user.click(tabFor(app));
+
+  expect(button).toHaveTextContent("main");
+  expect(button).not.toHaveTextContent("tools");
+});
+
 it("lists the open Repositories and Worktrees in the repository switcher", async () => {
   const { user } = await openTabs([app, hotfix, tools]);
 

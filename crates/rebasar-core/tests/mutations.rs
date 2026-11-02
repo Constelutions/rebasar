@@ -728,3 +728,87 @@ fn mutating_a_folder_that_is_not_a_repository_is_an_error() {
         Err(rebasar_core::ApiError::NotARepository { .. })
     ));
 }
+
+fn queued_commands(harness: &Harness) -> Vec<String> {
+    harness
+        .events()
+        .into_iter()
+        .filter_map(|event| match event {
+            CoreEvent::MutationQueued { mutation } => Some(mutation.command),
+            _ => None,
+        })
+        .collect()
+}
+
+#[test]
+fn a_queued_mutation_reports_the_git_command_line_it_will_run() {
+    let repo = repo_with_initial_commit();
+    repo.write_file("notes.txt", "a\n");
+    let harness = Harness::new();
+
+    harness
+        .core
+        .stage(repo.path(), &one("notes.txt"))
+        .expect("stage");
+
+    assert_eq!(
+        queued_commands(&harness),
+        ["git --literal-pathspecs add --all -- notes.txt"]
+    );
+}
+
+#[test]
+fn the_reported_command_line_quotes_arguments_so_it_can_be_pasted_into_a_terminal() {
+    let repo = repo_with_initial_commit();
+    repo.write_file("staged.txt", "x\n").stage("staged.txt");
+    let harness = Harness::new();
+
+    harness
+        .core
+        .commit(repo.path(), "Don't panic", CommitOptions::default())
+        .expect("commit");
+
+    let quoted = if cfg!(windows) {
+        r#""Don't panic""#
+    } else {
+        r"'Don'\''t panic'"
+    };
+    assert_eq!(
+        queued_commands(&harness),
+        [format!("git commit --message {quoted}")]
+    );
+}
+
+#[test]
+fn the_reported_command_line_quotes_an_empty_argument() {
+    let repo = repo_with_initial_commit();
+    repo.write_file("staged.txt", "x\n").stage("staged.txt");
+    let harness = Harness::new();
+
+    harness
+        .core
+        .commit(repo.path(), "", CommitOptions::default())
+        .ok();
+
+    let empty = if cfg!(windows) { r#""""# } else { "''" };
+    assert_eq!(
+        queued_commands(&harness),
+        [format!("git commit --message {empty}")]
+    );
+}
+
+#[test]
+fn the_reported_command_line_leaves_out_environment_variables() {
+    let repo = repo_with_initial_commit();
+    repo.write_file("notes.txt", "a\n");
+    let harness = Harness::new();
+
+    harness
+        .core
+        .stage(repo.path(), &one("notes.txt"))
+        .expect("stage");
+
+    let command = &queued_commands(&harness)[0];
+    assert!(!command.contains("GIT_TERMINAL_PROMPT"));
+    assert!(!command.contains("GIT_EDITOR"));
+}

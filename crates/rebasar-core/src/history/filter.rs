@@ -7,15 +7,17 @@ use super::RefKind;
 use crate::query::{Query, Term};
 use crate::ApiError;
 
-/// What the History filter bar asks for: a typed query plus the quick chips.
+/// The `author:` value that stands for the user instead of naming someone.
+const ME: &str = "@me";
+
+/// What the History filter bar asks for: a typed query plus the quick chips. Whose commits to show
+/// is part of the query (`author:`), so the filter bar and the palette share one syntax.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct HistoryFilter {
     pub query: String,
     /// Off narrows History to the commits reachable from HEAD.
     pub all_branches: bool,
-    /// Only commits authored by the identity in the Repository's Git configuration.
-    pub mine: bool,
     pub merges: bool,
 }
 
@@ -24,7 +26,6 @@ impl Default for HistoryFilter {
         Self {
             query: String::new(),
             all_branches: true,
-            mine: false,
             merges: false,
         }
     }
@@ -41,9 +42,10 @@ pub struct HistoryCount {
 /// A [`HistoryFilter`] with its query parsed and the identity looked up, ready to test commits.
 /// Comparing two of them tells whether a laid-out History is still the one being asked for.
 ///
-/// Every term must hold. The exception is `branch:`, which does not test a commit but picks
-/// which branches the History starts from, so several `branch:` terms show all of them. A
-/// `branch:` term wins over the All branches chip.
+/// Every term must hold. The exceptions are `branch:`, which does not test a commit but picks
+/// which branches the History starts from, and `author:`, which names who may have written it:
+/// several of either widen the result instead of narrowing it. `author:@me` stands for the email
+/// in the Repository's Git configuration. A `branch:` term wins over the All branches chip.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub(crate) struct Filter {
     texts: Vec<String>,
@@ -53,7 +55,7 @@ pub(crate) struct Filter {
     since: Option<i64>,
     until: Option<i64>,
     all_branches: bool,
-    mine: Option<String>,
+    me: Option<String>,
     merges: bool,
 }
 
@@ -76,6 +78,7 @@ impl Filter {
         for term in Query::parse(&filter.query)?.terms {
             match term {
                 Term::Text(text) => resolved.texts.push(text.to_lowercase()),
+                Term::Author(author) if author.eq_ignore_ascii_case(ME) => resolved.me = Some(configured_email(repo)?),
                 Term::Author(author) => resolved.authors.push(author.to_lowercase()),
                 Term::Path(path) => resolved.paths.push(path),
                 Term::Branch(branch) => resolved.branches.push(branch.to_lowercase()),
@@ -90,9 +93,6 @@ impl Filter {
                 }
             }
         }
-        if filter.mine {
-            resolved.mine = Some(configured_email(repo)?);
-        }
         Ok(resolved)
     }
 
@@ -102,10 +102,10 @@ impl Filter {
             && self.branches.is_empty()
             && self.texts.is_empty()
             && self.authors.is_empty()
+            && self.me.is_none()
             && self.paths.is_empty()
             && self.since.is_none()
             && self.until.is_none()
-            && self.mine.is_none()
             && !self.merges
     }
 
@@ -144,16 +144,8 @@ impl Filter {
         {
             return Ok(false);
         }
-        if let Some(mine) = &self.mine {
-            if !commit.author_email.eq_ignore_ascii_case(mine) {
-                return Ok(false);
-            }
-        }
-        if !self.authors.is_empty() {
-            let author = format!("{} <{}>", commit.author_name, commit.author_email).to_lowercase();
-            if !self.authors.iter().all(|wanted| author.contains(wanted)) {
-                return Ok(false);
-            }
+        if (!self.authors.is_empty() || self.me.is_some()) && !self.by_wanted_author(commit) {
+            return Ok(false);
         }
         if !self.texts.is_empty() {
             let message = commit.message.to_str_lossy().to_lowercase();
@@ -170,12 +162,24 @@ impl Filter {
     }
 }
 
+impl Filter {
+    fn by_wanted_author(&self, commit: &Candidate<'_>) -> bool {
+        if let Some(me) = &self.me {
+            if commit.author_email.eq_ignore_ascii_case(me) {
+                return true;
+            }
+        }
+        let author = format!("{} <{}>", commit.author_name, commit.author_email).to_lowercase();
+        self.authors.iter().any(|wanted| author.contains(wanted))
+    }
+}
+
 fn configured_email(repo: &gix::Repository) -> Result<String, ApiError> {
     let email = repo.config_snapshot().string("user.email");
     match email {
         Some(email) if !email.trim().is_empty() => Ok(email.to_string()),
         _ => Err(ApiError::Unexpected {
-            message: "Mine needs your email: set user.email in the Git configuration".to_owned(),
+            message: "Showing your commits needs your email: set user.email in the Git configuration".to_owned(),
         }),
     }
 }

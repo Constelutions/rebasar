@@ -3,7 +3,8 @@ import { useCallback, useEffect, useState } from "react";
 import type { CoreApi, RepositoryEntry, RepositoryList } from "../core/api";
 import { describeError } from "../core/describeError";
 import type { AddKind } from "./AddRepositoryDialog";
-import { GroupHeader, GroupNameForm } from "./GroupHeader";
+import { Button } from "./Button";
+import { FixedTab, GroupNameForm, GroupTab } from "./GroupTabs";
 import { RepositoryRow } from "./RepositoryRow";
 
 interface RepositoriesViewProps {
@@ -14,10 +15,14 @@ interface RepositoriesViewProps {
   version: number;
 }
 
+type Selection = "all" | "ungrouped" | { group: string };
+
 export function RepositoriesView({ api, pickFolder, onAdd, version }: RepositoriesViewProps) {
   const [list, setList] = useState<RepositoryList | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  const [selection, setSelection] = useState<Selection>("all");
+  const [renaming, setRenaming] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
     setList(await api.listRepositories());
@@ -65,6 +70,24 @@ export function RepositoriesView({ api, pickFolder, onAdd, version }: Repositori
 
   const { groups, repositories } = list;
   const ungrouped = repositories.filter((repository) => repository.groupId === null);
+  const current: Selection =
+    selection === "ungrouped" && (ungrouped.length === 0 || groups.length === 0)
+      ? "all"
+      : typeof selection === "object" && !groups.some((group) => group.id === selection.group)
+        ? "all"
+        : selection;
+  const shown =
+    current === "all"
+      ? repositories
+      : current === "ungrouped"
+        ? ungrouped
+        : repositories.filter((repository) => repository.groupId === current.group);
+  const panelLabel =
+    current === "all"
+      ? "All"
+      : current === "ungrouped"
+        ? "Ungrouped"
+        : (groups.find((group) => group.id === current.group)?.name ?? "All");
   const rowActions = {
     groups,
     onMove: (repository: RepositoryEntry, groupId: string | null) =>
@@ -76,15 +99,15 @@ export function RepositoriesView({ api, pickFolder, onAdd, version }: Repositori
   return (
     <div className="repositories">
       <div className="repositories-toolbar">
-        <button type="button" className="text-button" onClick={() => onAdd("clone")}>
+        <Button type="button" size="sm" onClick={() => onAdd("clone")}>
           Clone…
-        </button>
-        <button type="button" className="text-button" onClick={() => onAdd("init")}>
-          Initialise…
-        </button>
-        <button type="button" className="text-button" onClick={() => onAdd("scan")}>
+        </Button>
+        <Button type="button" size="sm" onClick={() => onAdd("init")}>
+          Initialize…
+        </Button>
+        <Button type="button" size="sm" onClick={() => onAdd("scan")}>
           Scan folder…
-        </button>
+        </Button>
         {creating ? (
           <GroupNameForm
             initialName=""
@@ -93,9 +116,9 @@ export function RepositoriesView({ api, pickFolder, onAdd, version }: Repositori
             onCancel={() => setCreating(false)}
           />
         ) : (
-          <button type="button" className="text-button" onClick={() => setCreating(true)}>
+          <Button type="button" size="sm" onClick={() => setCreating(true)}>
             New group
-          </button>
+          </Button>
         )}
       </div>
       {error && (
@@ -106,30 +129,57 @@ export function RepositoriesView({ api, pickFolder, onAdd, version }: Repositori
       {repositories.length === 0 && groups.length === 0 && (
         <p className="placeholder">No Repositories yet. Open a folder to add one.</p>
       )}
-      {groups.map((group, index) => {
-        const members = repositories.filter((repository) => repository.groupId === group.id);
-        return (
-          <section key={group.id} aria-label={group.name} className="repository-group">
-            <GroupHeader
-              group={group}
-              count={members.length}
-              isFirst={index === 0}
-              isLast={index === groups.length - 1}
-              onRename={(name) => run(() => api.renameGroup(group.id, name))}
-              onMove={(offset) => run(() => api.moveGroup(group.id, index + offset))}
+      {(repositories.length > 0 || groups.length > 0) && (
+        <>
+          <div role="tablist" aria-label="Groups" className="group-tabs">
+            <FixedTab
+              label="All"
+              count={repositories.length}
+              selected={current === "all"}
+              onSelect={() => setSelection("all")}
             />
-            <RepositoryItems repositories={members} {...rowActions} />
-          </section>
-        );
-      })}
-      {(ungrouped.length > 0 || groups.length > 0) && (
-        <section aria-label="Ungrouped" className="repository-group">
-          <header className="group-header">
-            <h2>Ungrouped</h2>
-            <span className="group-count">{ungrouped.length}</span>
-          </header>
-          <RepositoryItems repositories={ungrouped} {...rowActions} />
-        </section>
+            {groups.map((group, index) =>
+              renaming === group.id ? (
+                <GroupNameForm
+                  key={group.id}
+                  initialName={group.name}
+                  submitLabel="Rename"
+                  onSubmit={async (name) => {
+                    if (await run(() => api.renameGroup(group.id, name))) setRenaming(null);
+                  }}
+                  onCancel={() => setRenaming(null)}
+                />
+              ) : (
+                <GroupTab
+                  key={group.id}
+                  group={group}
+                  count={repositories.filter((repository) => repository.groupId === group.id).length}
+                  selected={typeof current === "object" && current.group === group.id}
+                  isFirst={index === 0}
+                  isLast={index === groups.length - 1}
+                  onSelect={() => setSelection({ group: group.id })}
+                  onRename={() => setRenaming(group.id)}
+                  onMove={(offset) => void run(() => api.moveGroup(group.id, index + offset))}
+                />
+              ),
+            )}
+            {ungrouped.length > 0 && groups.length > 0 && (
+              <FixedTab
+                label="Ungrouped"
+                count={ungrouped.length}
+                selected={current === "ungrouped"}
+                onSelect={() => setSelection("ungrouped")}
+              />
+            )}
+          </div>
+          <div role="tabpanel" aria-label={panelLabel} className="repository-group">
+            {shown.length === 0 ? (
+              <p className="placeholder">No Repositories here.</p>
+            ) : (
+              <RepositoryItems repositories={shown} {...rowActions} />
+            )}
+          </div>
+        </>
       )}
     </div>
   );

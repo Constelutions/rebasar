@@ -1,5 +1,6 @@
 import type { Group, RepositoryEntry } from "../core/api";
-import { describeHead } from "./TabStrip";
+import { Button } from "./Button";
+import { TruncatedText } from "./TruncatedText";
 
 interface RepositoryRowProps {
   repository: RepositoryEntry;
@@ -21,28 +22,26 @@ export function RepositoryRow({
   return (
     <li aria-label={repository.name} className="repository">
       <div className="repository-header">
-        <span className="repository-name">{repository.name}</span>
+        <TruncatedText className="repository-name" text={repository.name} />
         {repository.missing && <span className="missing-badge">missing</span>}
-        <span className="repository-path">{repository.path}</span>
+        <TruncatedText path className="repository-path" text={repository.path} />
         <div className="repository-actions">
           {repository.missing && (
             <>
-              <button
-                type="button"
-                className="text-button"
+              <Button
+                type="button" size="sm"
                 aria-label={`Locate ${repository.name}`}
                 onClick={() => onLocate(repository)}
               >
                 Locate…
-              </button>
-              <button
-                type="button"
-                className="text-button"
+              </Button>
+              <Button
+                type="button" size="sm"
                 aria-label={`Remove ${repository.name}`}
                 onClick={() => onRemove(repository)}
               >
                 Remove
-              </button>
+              </Button>
             </>
           )}
           <select
@@ -60,20 +59,6 @@ export function RepositoryRow({
           </select>
         </div>
       </div>
-      {repository.worktrees.length > 0 && (
-        <ul className="worktree-list">
-          {repository.worktrees.map((worktree) => (
-            <li
-              key={worktree.path}
-              aria-label={`Worktree ${describeHead(worktree.head)}`}
-              className="worktree"
-            >
-              <span className="tab-head">{describeHead(worktree.head)}</span>
-              <span className="repository-path">{worktree.path}</span>
-            </li>
-          ))}
-        </ul>
-      )}
     </li>
   );
 }

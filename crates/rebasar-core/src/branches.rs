@@ -6,9 +6,13 @@ use gix::refs::Category;
 use serde::{Deserialize, Serialize};
 
 use crate::mutation::Mutation;
-use crate::safety::Loss;
+use crate::outgoing::unreached_commits;
+use crate::safety::{Loss, LostCommit};
 use crate::sync::count_unreached;
 use crate::{open_worktree, ApiError, Core, MutationOutcome};
+
+/// Enough to recognise what is at stake without a dialog that scrolls for a long branch.
+const MAX_LISTED_COMMITS: usize = 10;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -165,6 +169,25 @@ impl Core {
         )
     }
 
+    /// Deletes the branch on the remote with `git push --delete`; a local branch of the same
+    /// name stays. Confirm through `MutationKind::DeleteRemoteBranch` first.
+    pub fn delete_remote_branch(
+        &self,
+        worktree: &Path,
+        remote: &str,
+        name: &str,
+    ) -> Result<MutationOutcome, ApiError> {
+        require_ref_name(remote)?;
+        require_ref_name(name)?;
+        self.mutations.run(
+            worktree,
+            Mutation::new(
+                format!("Delete branch {name} on {remote}"),
+                ["push", remote, "--delete", name],
+            ),
+        )
+    }
+
     /// `upstream` such as `origin/main`; `None` stops the branch tracking anything.
     pub fn set_branch_upstream(
         &self,
@@ -236,6 +259,46 @@ pub(crate) fn delete_loss(repo: &gix::Repository, name: &str) -> Result<Loss, Ap
     };
     let tip = branch.peel_to_id().map_err(ApiError::unexpected)?.detach();
 
+    let unique = count_unreached(repo, tip, other_tips(repo, &full_name)?)?;
+    Ok(Loss {
+        commits: unique,
+        unpushed_commits: unique,
+        ..Loss::default()
+    })
+}
+
+/// What deleting the branch on the remote would lose: the commits only it reaches, which no
+/// local branch, tag, HEAD or other remote branch has. None count as unpushed because the
+/// remote is the only place they exist.
+pub(crate) fn delete_remote_loss(
+    repo: &gix::Repository,
+    remote: &str,
+    name: &str,
+) -> Result<Loss, ApiError> {
+    let full_name = format!("refs/remotes/{remote}/{name}");
+    let Some(mut branch) = repo.try_find_reference(full_name.as_str()).map_err(ApiError::unexpected)?
+    else {
+        return Ok(Loss::default());
+    };
+    let tip = branch.peel_to_id().map_err(ApiError::unexpected)?.detach();
+    let others = other_tips(repo, &full_name)?;
+
+    let commit_list = unreached_commits(repo, tip, others.clone(), MAX_LISTED_COMMITS)?
+        .into_iter()
+        .map(|commit| LostCommit {
+            short_id: commit.short_id,
+            subject: commit.subject,
+        })
+        .collect();
+    Ok(Loss {
+        commits: count_unreached(repo, tip, others)?,
+        commit_list,
+        ..Loss::default()
+    })
+}
+
+/// The tips of every branch and tag except `excluded`, plus HEAD.
+fn other_tips(repo: &gix::Repository, excluded: &str) -> Result<Vec<gix::ObjectId>, ApiError> {
     let mut others = Vec::new();
     for reference in repo
         .references()
@@ -244,7 +307,7 @@ pub(crate) fn delete_loss(repo: &gix::Repository, name: &str) -> Result<Loss, Ap
         .map_err(ApiError::unexpected)?
     {
         let mut reference = reference.map_err(ApiError::unexpected)?;
-        if reference.name().as_bstr() == full_name.as_bytes() {
+        if reference.name().as_bstr() == excluded.as_bytes() {
             continue;
         }
         let Some((category, _)) = reference.name().category_and_short_name() else {
@@ -262,13 +325,7 @@ pub(crate) fn delete_loss(repo: &gix::Repository, name: &str) -> Result<Loss, Ap
     if let Ok(head) = repo.head_id() {
         others.push(head.detach());
     }
-
-    let unique = count_unreached(repo, tip, others)?;
-    Ok(Loss {
-        commits: unique,
-        unpushed_commits: unique,
-        ..Loss::default()
-    })
+    Ok(others)
 }
 
 fn tracking_of(

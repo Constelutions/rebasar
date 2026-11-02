@@ -43,7 +43,7 @@ Rules of thumb:
 
 ## Commit search
 
-Text that matches no command is a commit search. The palette sends it to `CoreApi.findCommits`, which parses it with the same query parser as the History filter (`crates/rebasar-core/src/query.rs`: `author:`, `path:`, `msg:` or bare words, `branch:`, `since:`, `until:`). A query that is one hexadecimal word of 4 to 40 digits also finds commits by the start of their hash, ahead of the message matches. Choosing a result, or the "Search commits for…" row, shows History filtered by that query.
+Text that matches no command is a commit search. The palette sends it to `CoreApi.findCommits`, which parses it with the same query parser as the History filter (`crates/rebasar-core/src/query.rs`: `author:` (`author:@me` is the email in the Repository's Git configuration; several authors match any of them), `path:`, `msg:` or bare words, `branch:`, `since:`, `until:`). A query that is one hexadecimal word of 4 to 40 digits also finds commits by the start of their hash, ahead of the message matches. Choosing a result, or the "Search commits for…" row, shows History filtered by that query.
 
 ## Branches, Worktrees, Repositories and Tabs
 

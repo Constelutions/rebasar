@@ -2,6 +2,7 @@ import { useEffect, useId, useMemo, useState } from "react";
 
 import type { CoreApi, PlanAction, RebasePlan, RebasePlanEntry } from "../core/api";
 import { describeError } from "../core/describeError";
+import { Button } from "./Button";
 
 type CommitEntry = Extract<RebasePlanEntry, { kind: "commit" }>;
 
@@ -162,16 +163,16 @@ export function RebaseEditor({ api, worktreePath, from, onClose }: RebaseEditorP
           </p>
         )}
         <div className="dialog-actions">
-          <button type="button" onClick={onClose} disabled={busy}>
+          <Button type="button" onClick={onClose} disabled={busy}>
             Cancel
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
             disabled={!plan || busy || startsWithFold || emptyReword}
             onClick={() => void start()}
           >
             {plan?.inProgress ? "Update plan" : "Start rebase"}
-          </button>
+          </Button>
         </div>
       </div>
     </div>
@@ -225,22 +226,24 @@ function CommitRow({
       <span className="commit-subject">{entry.subject}</span>
       {!readOnly && (
         <span className="rebase-moves">
-          <button
+          <Button
+            size="sm"
             type="button"
             aria-label={`Move ${entry.shortId} up`}
             disabled={!canMoveUp}
             onClick={() => onMove(-1)}
           >
             ↑
-          </button>
-          <button
+          </Button>
+          <Button
+            size="sm"
             type="button"
             aria-label={`Move ${entry.shortId} down`}
             disabled={!canMoveDown}
             onClick={() => onMove(1)}
           >
             ↓
-          </button>
+          </Button>
         </span>
       )}
       {entry.action === "reword" && (

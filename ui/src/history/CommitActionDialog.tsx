@@ -1,5 +1,6 @@
 import { type FormEvent, useEffect, useId, useState } from "react";
 
+import { Button } from "../components/Button";
 import type { CoreApi, MutationOutcome } from "../core/api";
 import { describeError } from "../core/describeError";
 
@@ -36,12 +37,12 @@ export function CommitActionDialog({
           rebase from it and choose reword: the interactive rebase editor applies the new message.
         </p>
         <div className="dialog-actions">
-          <button type="button" onClick={onClose}>
+          <Button type="button" onClick={onClose}>
             Close
-          </button>
-          <button type="button" onClick={onOpenRebaseEditor}>
+          </Button>
+          <Button type="button" onClick={onOpenRebaseEditor}>
             Open the interactive rebase editor
-          </button>
+          </Button>
         </div>
       </Frame>
     );
@@ -159,12 +160,12 @@ function NameForm({
           </p>
         )}
         <div className="dialog-actions">
-          <button type="button" onClick={onClose}>
+          <Button type="button" onClick={onClose}>
             Cancel
-          </button>
-          <button type="submit" disabled={name.trim() === "" || busy}>
+          </Button>
+          <Button variant="primary" type="submit" disabled={name.trim() === "" || busy}>
             Create {kind}
-          </button>
+          </Button>
         </div>
       </form>
     </Frame>
@@ -220,12 +221,12 @@ function RewordForm({
           </p>
         )}
         <div className="dialog-actions">
-          <button type="button" onClick={onClose}>
+          <Button type="button" onClick={onClose}>
             Cancel
-          </button>
-          <button type="submit" disabled={message === null || message.trim() === "" || busy}>
+          </Button>
+          <Button variant="primary" type="submit" disabled={message === null || message.trim() === "" || busy}>
             Reword
-          </button>
+          </Button>
         </div>
       </form>
     </Frame>

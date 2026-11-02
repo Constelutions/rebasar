@@ -32,7 +32,8 @@ it("clones a URL into the chosen folder, opens it as a Tab and lists it", async 
   expect(api.added).toEqual([
     { how: "clone", source: "https://example.com/team/app.git", groupId: "work" },
   ]);
-  expect(await within(screen.getByRole("region", { name: "Work" })).findByText("app")).toBeInTheDocument();
+  await user.click(await screen.findByRole("tab", { name: /^Work/ }));
+  expect(await within(screen.getByRole("tabpanel")).findByText("app")).toBeInTheDocument();
 });
 
 it("cannot clone before a URL and a folder are given", async () => {
@@ -54,12 +55,12 @@ it("shows why a clone failed", async () => {
   expect(await screen.findByRole("alert")).toHaveTextContent("Could not reach the server");
 });
 
-it("initialises a folder as a Repository and opens it", async () => {
+it("initializes a folder as a Repository and opens it", async () => {
   const { user, api } = await openRepositoriesView("C:\\code\\fresh");
 
-  await user.click(screen.getByRole("button", { name: "Initialise…" }));
+  await user.click(screen.getByRole("button", { name: "Initialize…" }));
   await user.click(dialog().getByRole("button", { name: "Choose folder…" }));
-  await user.click(dialog().getByRole("button", { name: "Initialise" }));
+  await user.click(dialog().getByRole("button", { name: "Initialize" }));
 
   expect(await screen.findByRole("tab", { name: /fresh/ })).toBeInTheDocument();
   expect(api.added).toEqual([{ how: "init", source: "C:\\code\\fresh", groupId: null }]);
@@ -69,9 +70,9 @@ it("initialises a folder as a Repository and opens it", async () => {
 it("keeps the dialog open and explains when the folder is a Repository already", async () => {
   const { user } = await openRepositoriesView("C:\\code\\fresh");
   for (let attempt = 0; attempt < 2; attempt++) {
-    await user.click(screen.getByRole("button", { name: "Initialise…" }));
+    await user.click(screen.getByRole("button", { name: "Initialize…" }));
     await user.click(dialog().getByRole("button", { name: "Choose folder…" }));
-    await user.click(dialog().getByRole("button", { name: "Initialise" }));
+    await user.click(dialog().getByRole("button", { name: "Initialize" }));
     if (attempt === 0) await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
   }
 
@@ -97,8 +98,9 @@ it("lists what a scan finds and imports only the selected Repositories", async (
   await waitFor(() =>
     expect(api.added).toEqual([{ how: "import", source: "C:\\code\\alpha", groupId: "work" }]),
   );
-  expect(await within(screen.getByRole("region", { name: "Work" })).findByText("alpha")).toBeInTheDocument();
-  expect(screen.queryByRole("tab")).not.toBeInTheDocument();
+  await user.click(await screen.findByRole("tab", { name: /^Work/ }));
+  expect(await within(screen.getByRole("tabpanel")).findByText("alpha")).toBeInTheDocument();
+  expect(screen.queryByRole("tab", { name: /alpha/ })).not.toBeInTheDocument();
 });
 
 it("says so when a scan finds nothing", async () => {
@@ -114,7 +116,7 @@ it("says so when a scan finds nothing", async () => {
 it("closes the dialog on Cancel without adding anything", async () => {
   const { user, api } = await openRepositoriesView();
 
-  await user.click(screen.getByRole("button", { name: "Initialise…" }));
+  await user.click(screen.getByRole("button", { name: "Initialize…" }));
   await user.click(dialog().getByRole("button", { name: "Cancel" }));
 
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();

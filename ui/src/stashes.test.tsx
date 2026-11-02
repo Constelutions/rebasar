@@ -32,6 +32,11 @@ async function openStashes(stashes = [first, second]) {
   return { user, api };
 }
 
+async function chooseFromMenu(user: ReturnType<typeof userEvent.setup>, stash: string, item: string) {
+  await user.click(await screen.findByRole("button", { name: `Options for ${stash}` }));
+  await user.click(screen.getByRole("menuitem", { name: item }));
+}
+
 it("lists stashes with their message, branch and time", async () => {
   await openStashes();
 
@@ -112,7 +117,7 @@ it("applies a stash and keeps it", async () => {
 it("pops a stash and removes it from the list", async () => {
   const { user, api } = await openStashes();
 
-  await user.click(await screen.findByRole("button", { name: "Pop On main: Park login" }));
+  await chooseFromMenu(user, "On main: Park login", "Pop");
 
   await waitFor(() => expect(api.stashActions).toEqual([`pop:${"a".repeat(40)}`]));
   await waitFor(() =>
@@ -123,7 +128,7 @@ it("pops a stash and removes it from the list", async () => {
 it("asks before dropping, naming the files it holds, and drops only once confirmed", async () => {
   const { user, api } = await openStashes();
 
-  await user.click(await screen.findByRole("button", { name: "Drop On main: Park login" }));
+  await chooseFromMenu(user, "On main: Park login", "Drop");
   const dialog = await screen.findByRole("alertdialog", { name: "Drop stash" });
 
   expect(dialog).toHaveTextContent("On-main-Park-login.ts");
@@ -135,7 +140,7 @@ it("asks before dropping, naming the files it holds, and drops only once confirm
 it("keeps the stash when the drop is cancelled", async () => {
   const { user, api } = await openStashes();
 
-  await user.click(await screen.findByRole("button", { name: "Drop On main: Park login" }));
+  await chooseFromMenu(user, "On main: Park login", "Drop");
   await user.click(await screen.findByRole("button", { name: "Cancel" }));
 
   expect(api.stashActions).toEqual([]);

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import type { CoreApi, SyncStatus, Tab, WorktreeStatus } from "../core/api";
 import type { ViewName } from "../views";
+import { Button } from "./Button";
 
 interface HomeViewProps {
   api: CoreApi;
@@ -108,10 +109,10 @@ function Count({
 }) {
   return (
     <li>
-      <button type="button" className="home-count" onClick={onClick}>
+      <Button variant="plain" type="button" className="home-count" onClick={onClick}>
         <span className="home-count-value">{value}</span>
         <span className="home-count-label">{label}</span>
-      </button>
+      </Button>
     </li>
   );
 }

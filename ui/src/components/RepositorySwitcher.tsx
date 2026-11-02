@@ -1,35 +1,32 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 
+import { useDismiss } from "../useDismiss";
 import type { OpenTab } from "../useOpenTabs";
+import { Button } from "./Button";
 import { StatusDot } from "./StatusDot";
 import { describeHead } from "./TabStrip";
+import { TruncatedText } from "./TruncatedText";
 
 interface RepositorySwitcherProps {
   tabs: OpenTab[];
+  activePath: string | undefined;
   onSelect: (path: string) => void;
 }
 
-export function RepositorySwitcher({ tabs, onSelect }: RepositorySwitcherProps) {
+function worktreeName(path: string): string {
+  return path.split(/[/\\]/).filter(Boolean).pop() ?? path;
+}
+
+export function RepositorySwitcher({ tabs, activePath, onSelect }: RepositorySwitcherProps) {
   const [open, setOpen] = useState(false);
   const [filter, setFilter] = useState("");
   const container = useRef<HTMLDivElement>(null);
+  const close = useCallback(() => setOpen(false), []);
 
-  useEffect(() => {
-    if (!open) return;
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") setOpen(false);
-    }
-    function onPointerDown(event: PointerEvent) {
-      if (!container.current?.contains(event.target as Node)) setOpen(false);
-    }
-    window.addEventListener("keydown", onKeyDown);
-    window.addEventListener("pointerdown", onPointerDown);
-    return () => {
-      window.removeEventListener("keydown", onKeyDown);
-      window.removeEventListener("pointerdown", onPointerDown);
-    };
-  }, [open]);
+  useDismiss(open, container, close);
 
+  const active = tabs.find(({ tab }) => tab.worktreePath === activePath)?.tab;
+  const activeWorktreeName = active && worktreeName(active.worktreePath);
   const needle = filter.trim().toLowerCase();
   const matches = tabs.filter(({ tab }) =>
     `${tab.repositoryName} ${describeHead(tab.head)}`.toLowerCase().includes(needle),
@@ -42,7 +39,8 @@ export function RepositorySwitcher({ tabs, onSelect }: RepositorySwitcherProps) 
 
   return (
     <div ref={container} className="repository-switcher">
-      <button
+      <Button
+        variant="plain"
         type="button"
         aria-label="Switch repository"
         aria-haspopup="menu"
@@ -51,8 +49,18 @@ export function RepositorySwitcher({ tabs, onSelect }: RepositorySwitcherProps) 
         className="switcher-button"
         onClick={toggle}
       >
-        ⇅
-      </button>
+        <span aria-hidden="true">⇅</span>
+        {active && (
+          <span className="switcher-names">
+            <span className="switcher-worktree" title={activeWorktreeName}>
+              {activeWorktreeName}
+            </span>
+            <span className="switcher-head" title={describeHead(active.head)}>
+              {describeHead(active.head)}
+            </span>
+          </span>
+        )}
+      </Button>
       {open && (
         <div className="switcher-popover">
           <input
@@ -66,7 +74,8 @@ export function RepositorySwitcher({ tabs, onSelect }: RepositorySwitcherProps) 
           />
           <div role="menu" aria-label="Repositories" className="switcher-list">
             {matches.map(({ tab, status }) => (
-              <button
+              <Button
+                variant="plain"
                 key={tab.worktreePath}
                 type="button"
                 role="menuitem"
@@ -78,9 +87,9 @@ export function RepositorySwitcher({ tabs, onSelect }: RepositorySwitcherProps) 
                 }}
               >
                 <StatusDot status={status} />
-                <span className="tab-name">{tab.repositoryName}</span>
-                <span className="tab-head">{describeHead(tab.head)}</span>
-              </button>
+                <TruncatedText className="tab-name" text={tab.repositoryName} />
+                <TruncatedText className="tab-head" text={describeHead(tab.head)} />
+              </Button>
             ))}
           </div>
         </div>

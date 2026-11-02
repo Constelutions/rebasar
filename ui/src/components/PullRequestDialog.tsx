@@ -2,6 +2,7 @@ import { type FormEvent, useId, useState } from "react";
 
 import type { CoreApi, PullRequestDetails } from "../core/api";
 import { describeError } from "../core/describeError";
+import { Button } from "./Button";
 
 interface PullRequestDialogProps {
   api: CoreApi;
@@ -77,12 +78,12 @@ export function PullRequestDialog({
             </p>
           )}
           <div className="dialog-actions">
-            <button type="button" onClick={onClose} disabled={busy}>
+            <Button type="button" onClick={onClose} disabled={busy}>
               Cancel
-            </button>
-            <button type="submit" disabled={title.trim() === "" || busy}>
+            </Button>
+            <Button variant="primary" type="submit" disabled={title.trim() === "" || busy}>
               {existing ? "Update pull request" : "Create pull request"}
-            </button>
+            </Button>
           </div>
         </form>
       </div>

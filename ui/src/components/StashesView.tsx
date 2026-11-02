@@ -14,9 +14,12 @@ import { formatDateTime } from "../history/items";
 import { useCommitFileDiff } from "../history/useCommitFileDiff";
 import { useSettings } from "../settings/SettingsContext";
 import { useConfirmation } from "../useConfirmation";
+import { ActionMenu, type MenuItem, OptionsButton, useActionMenu } from "./ActionMenu";
+import { Button } from "./Button";
 import { buildGroupTrees, firstFile } from "./changeTree";
 import { DiffView } from "./DiffView";
 import { FileTree } from "./FileTree";
+import { TruncatedText } from "./TruncatedText";
 
 interface StashesViewProps {
   api: CoreApi;
@@ -89,50 +92,19 @@ export function StashesView({ api, tab }: StashesViewProps) {
         <div className="stash-layout">
           <ul className="stash-list" aria-label="Stashes">
             {stashes.map((stash) => (
-              <li key={stash.id} aria-current={stash.id === selected?.id || undefined}>
-                <button
-                  type="button"
-                  className="stash-select"
-                  onClick={() => setPicked(stash.id)}
-                  aria-label={`Show stash ${stash.message}`}
-                >
-                  <span className="stash-message">{stash.message}</span>
-                  <span className="stash-meta">
-                    {stash.branch && `${stash.branch} · `}
-                    <time dateTime={new Date(stash.timestamp * 1000).toISOString()}>
-                      {formatDateTime(stash.timestamp)}
-                    </time>
-                  </span>
-                </button>
-                <span className="stash-actions">
-                  <button
-                    type="button"
-                    aria-label={`Apply ${stash.message}`}
-                    onClick={() => void run("Apply", () => api.applyStash(path, stash.id))}
-                  >
-                    Apply
-                  </button>
-                  <button
-                    type="button"
-                    aria-label={`Pop ${stash.message}`}
-                    onClick={() => void run("Pop", () => api.popStash(path, stash.id))}
-                  >
-                    Pop
-                  </button>
-                  <button
-                    type="button"
-                    className="danger"
-                    aria-label={`Drop ${stash.message}`}
-                    onClick={() =>
-                      void confirm({ kind: "dropStash", stash: stash.id }, () =>
-                        void run("Drop", () => api.dropStash(path, stash.id)),
-                      ).catch((failure) => setError(describeError(failure)))
-                    }
-                  >
-                    Drop
-                  </button>
-                </span>
-              </li>
+              <StashRow
+                key={stash.id}
+                stash={stash}
+                selected={stash.id === selected?.id}
+                onShow={() => setPicked(stash.id)}
+                onApply={() => void run("Apply", () => api.applyStash(path, stash.id))}
+                onPop={() => void run("Pop", () => api.popStash(path, stash.id))}
+                onDrop={() =>
+                  void confirm({ kind: "dropStash", stash: stash.id }, () =>
+                    void run("Drop", () => api.dropStash(path, stash.id)),
+                  ).catch((failure) => setError(describeError(failure)))
+                }
+              />
             ))}
           </ul>
           {selected && (
@@ -172,8 +144,63 @@ function CreateStashForm({
         />
         Include untracked files
       </label>
-      <button type="submit">Stash changes</button>
+      <Button variant="primary" type="submit">Stash changes</Button>
     </form>
+  );
+}
+
+interface StashRowProps {
+  stash: StashInfo;
+  selected: boolean;
+  onShow: () => void;
+  onApply: () => void;
+  onPop: () => void;
+  onDrop: () => void;
+}
+
+/** Apply stays on the row because it keeps the stash; Pop and Drop, which remove it, wait in the menu. */
+function StashRow({ stash, selected, onShow, onApply, onPop, onDrop }: StashRowProps) {
+  const menu = useActionMenu();
+  const items: MenuItem[] = [
+    { key: "pop", label: "Pop", run: onPop },
+    { key: "drop", label: "Drop", destructive: true, separated: true, run: onDrop },
+  ];
+
+  return (
+    <li aria-current={selected || undefined} onContextMenu={menu.openFromContextMenu}>
+      <Button
+        variant="plain"
+        type="button"
+        className="stash-select"
+        onClick={onShow}
+        aria-label={`Show stash ${stash.message}`}
+      >
+        <TruncatedText className="stash-message" text={stash.message} />
+        <span className="stash-meta">
+          {stash.branch && `${stash.branch} · `}
+          <time dateTime={new Date(stash.timestamp * 1000).toISOString()}>{formatDateTime(stash.timestamp)}</time>
+        </span>
+      </Button>
+      <span className="stash-actions">
+        <Button size="sm" type="button" aria-label={`Apply ${stash.message}`} onClick={onApply}>
+          Apply
+        </Button>
+        <OptionsButton
+          label={`Options for ${stash.message}`}
+          expanded={menu.open !== null}
+          onClick={menu.openFromButton}
+        />
+      </span>
+      {menu.open && (
+        <ActionMenu
+          label={`Actions for ${stash.message}`}
+          items={items}
+          x={menu.open.x}
+          y={menu.open.y}
+          onClose={menu.close}
+        />
+      )}
+    </li>
   );
 }
 

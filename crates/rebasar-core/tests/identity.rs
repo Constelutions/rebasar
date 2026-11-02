@@ -1,5 +1,5 @@
 use rebasar_core::{Core, GitIdentity};
-use rebasar_testkit::IsolatedGitConfig;
+use rebasar_testkit::{IsolatedGitConfig, TempRepo};
 
 fn identity(name: Option<&str>, email: Option<&str>) -> GitIdentity {
     GitIdentity {
@@ -88,4 +88,117 @@ fn clearing_a_value_that_was_never_set_is_not_an_error() {
         .expect("save identity");
 
     assert_eq!(git.global("user.name"), None);
+}
+
+fn repository_without_identity() -> TempRepo {
+    let repo = TempRepo::init("project");
+    repo.git(&["config", "--unset", "user.name"]);
+    repo.git(&["config", "--unset", "user.email"]);
+    repo
+}
+
+fn local(repo: &TempRepo, key: &str) -> Option<String> {
+    let output = std::process::Command::new("git")
+        .current_dir(repo.path())
+        .args(["config", "--local", "--get", key])
+        .output()
+        .expect("run git");
+    output
+        .status
+        .success()
+        .then(|| String::from_utf8_lossy(&output.stdout).trim().to_owned())
+}
+
+#[test]
+fn a_repository_that_sets_no_identity_reads_as_unset_whatever_the_global_one_is() {
+    let git = IsolatedGitConfig::new();
+    git.set_global("user.name", "Ada Lovelace");
+    git.set_global("user.email", "ada@example.com");
+    let repo = repository_without_identity();
+
+    let read = Core::new(|_| {})
+        .repository_git_identity(repo.path())
+        .expect("identity");
+
+    assert_eq!(read, identity(None, None));
+}
+
+#[test]
+fn the_repository_identity_is_written_to_its_local_configuration_and_not_to_the_global_one() {
+    let git = IsolatedGitConfig::new();
+    git.set_global("user.name", "Ada Lovelace");
+    git.set_global("user.email", "ada@example.com");
+    let repo = repository_without_identity();
+
+    let saved = Core::new(|_| {})
+        .set_repository_git_identity(
+            repo.path(),
+            &identity(Some(" Grace Hopper "), Some("grace@work.example")),
+        )
+        .expect("save identity");
+
+    assert_eq!(
+        saved,
+        identity(Some("Grace Hopper"), Some("grace@work.example"))
+    );
+    assert_eq!(local(&repo, "user.name").as_deref(), Some("Grace Hopper"));
+    assert_eq!(
+        local(&repo, "user.email").as_deref(),
+        Some("grace@work.example")
+    );
+    assert_eq!(git.global("user.name").as_deref(), Some("Ada Lovelace"));
+    assert_eq!(git.global("user.email").as_deref(), Some("ada@example.com"));
+}
+
+#[test]
+fn clearing_the_repository_identity_falls_back_to_the_global_one() {
+    let git = IsolatedGitConfig::new();
+    git.set_global("user.name", "Ada Lovelace");
+    git.set_global("user.email", "ada@example.com");
+    let repo = repository_without_identity();
+    let core = Core::new(|_| {});
+    core.set_repository_git_identity(
+        repo.path(),
+        &identity(Some("Grace Hopper"), Some("grace@work.example")),
+    )
+    .expect("save identity");
+
+    let cleared = core
+        .set_repository_git_identity(repo.path(), &identity(None, Some("  ")))
+        .expect("clear identity");
+
+    assert_eq!(cleared, identity(None, None));
+    assert_eq!(local(&repo, "user.name"), None);
+    assert_eq!(local(&repo, "user.email"), None);
+    assert_eq!(git.global("user.name").as_deref(), Some("Ada Lovelace"));
+}
+
+#[test]
+fn the_repository_identity_applies_to_every_worktree_of_the_repository() {
+    let _git = IsolatedGitConfig::new();
+    let repo = repository_without_identity();
+    repo.commit_file("a.txt", "a", "first");
+    let linked = repo.add_worktree("linked", "feature");
+    let core = Core::new(|_| {});
+
+    core.set_repository_git_identity(
+        repo.path(),
+        &identity(Some("Grace Hopper"), Some("grace@work.example")),
+    )
+    .expect("save identity");
+
+    assert_eq!(
+        core.repository_git_identity(&linked).expect("identity"),
+        identity(Some("Grace Hopper"), Some("grace@work.example"))
+    );
+}
+
+#[test]
+fn the_repository_identity_cannot_be_read_outside_a_repository() {
+    let _git = IsolatedGitConfig::new();
+    let folder = tempfile::tempdir().unwrap();
+
+    let result = Core::new(|_| {}).repository_git_identity(folder.path());
+
+    assert!(result.is_err());
 }

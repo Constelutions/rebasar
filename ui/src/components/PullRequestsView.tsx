@@ -5,18 +5,20 @@ import {
   type CoreApi,
   type PullRequest,
   type PullRequestDetails,
+  type PullRequestsUnavailable,
   type ReviewState,
   type Tab,
   type TokenSource,
   isApiError,
 } from "../core/api";
 import { describeError } from "../core/describeError";
+import { Button } from "./Button";
 import { PullRequestDialog } from "./PullRequestDialog";
 
 type Load =
   | { phase: "loading" }
-  | { phase: "notGithub" }
-  | { phase: "signedOut"; notice: string | null }
+  | { phase: "unavailable"; error: PullRequestsUnavailable }
+  | { phase: "signedOut"; reason: PullRequestsUnavailable }
   | { phase: "ready"; pullRequests: PullRequest[]; source: TokenSource }
   | { phase: "failed"; message: string };
 
@@ -52,11 +54,11 @@ export function PullRequestsView({ api, tab }: { api: CoreApi; tab: Tab }) {
   switch (load.phase) {
     case "loading":
       return null;
-    case "notGithub":
+    case "unavailable":
       return (
-        <p className="placeholder">
-          Pull requests are disabled: this Repository has no GitHub remote.
-        </p>
+        <div role="alert" className="error">
+          <UnavailableReason error={load.error} />
+        </div>
       );
     case "failed":
       return (
@@ -65,7 +67,7 @@ export function PullRequestsView({ api, tab }: { api: CoreApi; tab: Tab }) {
         </p>
       );
     case "signedOut":
-      return <SignIn api={api} notice={load.notice} onSignedIn={reload} />;
+      return <SignIn api={api} reason={load.reason} onSignedIn={reload} />;
     case "ready":
       return (
         <PullRequestList
@@ -86,37 +88,54 @@ export function PullRequestsView({ api, tab }: { api: CoreApi; tab: Tab }) {
 
 async function loadPullRequests(api: CoreApi, worktreePath: string): Promise<Load> {
   try {
-    const remote = await api.githubRemote(worktreePath);
-    if (remote === null) return { phase: "notGithub" };
-
-    const { source } = await api.githubAuthStatus();
-    if (source === null) return { phase: "signedOut", notice: null };
-
     const pullRequests = await api.pullRequests(worktreePath);
+    const { source } = await api.githubAuthStatus();
+    if (source === null) throw new Error("pull requests were listed without a token");
     return { phase: "ready", pullRequests, source };
   } catch (failure) {
-    if (isApiError(failure) && failure.kind === "githubNotSignedIn") {
-      return { phase: "signedOut", notice: null };
-    }
-    if (isApiError(failure) && failure.kind === "githubTokenRejected") {
-      return { phase: "signedOut", notice: describeError(failure) };
+    if (isApiError(failure) && failure.kind === "pullRequestsUnavailable") {
+      const needsToken = failure.reason.kind === "noToken" || failure.reason.kind === "tokenRejected";
+      return needsToken
+        ? { phase: "signedOut", reason: failure }
+        : { phase: "unavailable", error: failure };
     }
     return { phase: "failed", message: describeError(failure) };
   }
 }
 
+function UnavailableReason({ error }: { error: PullRequestsUnavailable }) {
+  return (
+    <>
+      <p>{error.message}</p>
+      {error.url && (
+        <p>
+          Looked at <code>{error.url}</code>
+        </p>
+      )}
+      {error.hint && <p>{withCode(error.hint)}</p>}
+    </>
+  );
+}
+
+/** Renders the `quoted` parts of a sentence as code. */
+function withCode(text: string) {
+  return text
+    .split("`")
+    .map((part, index) => (index % 2 === 1 ? <code key={index}>{part}</code> : part));
+}
+
 function SignIn({
   api,
-  notice,
+  reason,
   onSignedIn,
 }: {
   api: CoreApi;
-  notice: string | null;
+  reason: PullRequestsUnavailable;
   onSignedIn: () => void;
 }) {
   const inputId = useId();
   const [token, setToken] = useState("");
-  const [error, setError] = useState<string | null>(notice);
+  const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   async function signIn(event: FormEvent) {
@@ -134,11 +153,11 @@ function SignIn({
 
   return (
     <form className="github-sign-in" onSubmit={signIn}>
+      <UnavailableReason error={reason} />
       <p>
-        Sign in to GitHub to see pull requests. Rebasar uses the token of the GitHub CLI when you
-        are signed in there (<code>gh auth login</code>); otherwise paste a personal access token
-        with access to the repository. It is kept in the Windows credential store and used only
-        for GitHub, never by Git.
+        Rebasar uses the token of the GitHub CLI when you are signed in there; otherwise paste a
+        personal access token with access to the repository. It is kept in the Windows credential
+        store and used only for GitHub, never by Git.
       </p>
       <label htmlFor={inputId}>Personal access token</label>
       <input
@@ -148,9 +167,9 @@ function SignIn({
         value={token}
         onChange={(event) => setToken(event.target.value)}
       />
-      <button type="submit" disabled={busy || token.trim() === ""}>
+      <Button variant="primary" type="submit" disabled={busy || token.trim() === ""}>
         Sign in
-      </button>
+      </Button>
       {error && (
         <p role="alert" className="error">
           {error}
@@ -207,21 +226,21 @@ function PullRequestList({
         <div className="pull-request-toolbar">
           {current ? (
             <>
-              <button type="button" onClick={() => setEditing(true)}>
+              <Button type="button" onClick={() => setEditing(true)}>
                 Edit pull request #{current.number}
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
                 aria-label={`Open the current branch's pull request #${current.number} in the browser`}
                 onClick={() => attempt(api.openInBrowser(current.url))}
               >
                 Open #{current.number} in the browser
-              </button>
+              </Button>
             </>
           ) : (
-            <button type="button" onClick={() => setEditing(true)}>
+            <Button type="button" onClick={() => setEditing(true)}>
               Create pull request
-            </button>
+            </Button>
           )}
         </div>
       )}
@@ -257,9 +276,9 @@ function PullRequestList({
         </ul>
       )}
       {canSignOut && (
-        <button type="button" className="github-sign-out" onClick={() => void onSignOut()}>
+        <Button type="button" className="github-sign-out" onClick={() => void onSignOut()}>
           Sign out of GitHub
-        </button>
+        </Button>
       )}
     </div>
   );
@@ -292,17 +311,18 @@ function PullRequestRow({
         </span>
       )}
       <span className="pull-request-actions">
-        <button type="button" aria-label={`Open #${pullRequest.number} in the browser`} onClick={onOpen}>
+        <Button size="sm" type="button" aria-label={`Open #${pullRequest.number} in the browser`} onClick={onOpen}>
           Open
-        </button>
+        </Button>
         {pullRequest.isDraft && (
-          <button
+          <Button
+            size="sm"
             type="button"
             aria-label={`Mark #${pullRequest.number} ready for review`}
             onClick={onReady}
           >
             Ready for review
-          </button>
+          </Button>
         )}
       </span>
     </li>

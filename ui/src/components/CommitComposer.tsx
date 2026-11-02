@@ -1,15 +1,17 @@
 import { type FormEvent, useId, useState } from "react";
 
 import type { CommitOptions, OutgoingCommit } from "../core/api";
-import {
-  COMMIT_TYPES,
-  SUBJECT_LIMIT,
-  messageOf,
-  typeOf,
-  withType,
-} from "./conventionalCommit";
+import { useSettings } from "../settings/SettingsContext";
+import { type CommitDraft, emptyDraft } from "../useCommitDrafts";
+import { Button } from "./Button";
+import { COMMIT_TYPES, SUBJECT_LIMIT, subjectOf, typeOf, withType } from "./conventionalCommit";
+
+const MESSAGE_EXAMPLE = "feat(history): filter commits by author\n\nExplain what changed and why.";
+const AMEND_HINT = "Leave empty to keep the previous message";
 
 interface CommitComposerProps {
+  draft: CommitDraft;
+  onDraftChange: (draft: CommitDraft) => void;
   hasStagedFiles: boolean;
   outgoing: OutgoingCommit[];
   outgoingError: string | null;
@@ -20,6 +22,8 @@ interface CommitComposerProps {
 }
 
 export function CommitComposer({
+  draft,
+  onDraftChange,
   hasStagedFiles,
   outgoing,
   outgoingError,
@@ -27,31 +31,29 @@ export function CommitComposer({
   onPush,
   onFailure,
 }: CommitComposerProps) {
-  const [subject, setSubject] = useState("");
-  const [body, setBody] = useState("");
+  const { message } = draft;
+  const { settings } = useSettings();
   const [amend, setAmend] = useState(false);
-  const [signOff, setSignOff] = useState(false);
-  const [pushAfter, setPushAfter] = useState(false);
+  const [signOffChoice, setSignOffChoice] = useState<boolean | null>(null);
   const [committing, setCommitting] = useState(false);
-  const subjectId = useId();
+  const messageId = useId();
   const counterId = useId();
-  const bodyId = useId();
 
-  const selectedType = typeOf(subject);
-  const hasSubject = subject.trim() !== "";
-  const hasValidMessage = hasSubject || (amend && body.trim() === "");
+  const signOff = signOffChoice ?? settings.commit.signOffByDefault;
+  const subject = subjectOf(message);
+  const selectedType = typeOf(message);
+  const hasValidMessage = subject.trim() !== "" || (amend && message.trim() === "");
   const canCommit = hasValidMessage && (amend || hasStagedFiles) && !committing;
+  const action = amend ? "Amend" : "Commit";
 
-  async function submit(event: FormEvent) {
-    event.preventDefault();
+  async function run(push: boolean) {
     setCommitting(true);
     try {
-      const outcome = await onCommit(messageOf(subject, body), { amend, signOff });
+      const outcome = await onCommit(message.trim(), { amend, signOff });
       if (outcome.kind === "succeeded") {
-        setSubject("");
-        setBody("");
+        onDraftChange(emptyDraft);
         setAmend(false);
-        if (pushAfter) await onPush();
+        if (push) await onPush();
       }
     } catch (failure) {
       onFailure(failure);
@@ -60,25 +62,33 @@ export function CommitComposer({
     }
   }
 
+  function submit(event: FormEvent) {
+    event.preventDefault();
+    void run(false);
+  }
+
   return (
     <aside className="commit-dock">
       <form className="commit-composer" aria-label="Commit" onSubmit={submit}>
         <div className="type-chips" role="group" aria-label="Commit type">
           {COMMIT_TYPES.map((type) => (
-            <button
+            <Button
+              variant="plain"
               key={type}
               type="button"
               className="type-chip"
               aria-pressed={selectedType === type}
-              onClick={() => setSubject(withType(subject, selectedType === type ? undefined : type))}
+              onClick={() =>
+                onDraftChange({ message: withType(message, selectedType === type ? undefined : type) })
+              }
             >
               {type}
-            </button>
+            </Button>
           ))}
         </div>
 
         <div className="subject-line">
-          <label htmlFor={subjectId}>Subject</label>
+          <label htmlFor={messageId}>Commit message</label>
           <span
             id={counterId}
             className="subject-counter"
@@ -87,21 +97,13 @@ export function CommitComposer({
             {subject.length} / {SUBJECT_LIMIT}
           </span>
         </div>
-        <input
-          id={subjectId}
-          type="text"
-          value={subject}
-          aria-describedby={counterId}
-          placeholder={amend ? "Leave empty to keep the previous message" : undefined}
-          onChange={(event) => setSubject(event.target.value)}
-        />
-
-        <label htmlFor={bodyId}>Body</label>
         <textarea
-          id={bodyId}
-          rows={5}
-          value={body}
-          onChange={(event) => setBody(event.target.value)}
+          id={messageId}
+          rows={8}
+          value={message}
+          aria-describedby={counterId}
+          placeholder={amend ? AMEND_HINT : MESSAGE_EXAMPLE}
+          onChange={(event) => onDraftChange({ message: event.target.value })}
         />
 
         <label className="option">
@@ -112,22 +114,19 @@ export function CommitComposer({
           <input
             type="checkbox"
             checked={signOff}
-            onChange={(event) => setSignOff(event.target.checked)}
+            onChange={(event) => setSignOffChoice(event.target.checked)}
           />
           Sign off
         </label>
-        <label className="option">
-          <input
-            type="checkbox"
-            checked={pushAfter}
-            onChange={(event) => setPushAfter(event.target.checked)}
-          />
-          Push after commit
-        </label>
 
-        <button type="submit" disabled={!canCommit}>
-          {amend ? "Amend commit" : "Commit"}
-        </button>
+        <div className="commit-actions">
+          <Button variant="primary" type="submit" disabled={!canCommit}>
+            {amend ? "Amend commit" : "Commit"}
+          </Button>
+          <Button type="button" disabled={!canCommit} onClick={() => void run(true)}>
+            {action} &amp; Push
+          </Button>
+        </div>
       </form>
 
       <OutgoingList

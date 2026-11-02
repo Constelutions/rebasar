@@ -3,10 +3,12 @@
 //! A query is a list of whitespace-separated terms that must all hold. A term is either
 //! `key:value` for one of the keys below or plain text; a value with spaces is double-quoted,
 //! and inside quotes `\"` and `\\` stand for a quote and a backslash.
+//! Several `author:` terms, like several `branch:` terms, widen the result: a commit by any of
+//! those authors holds.
 //!
 //! | Term              | Meaning                                                              |
 //! |-------------------|----------------------------------------------------------------------|
-//! | `author:ada`      | the author's name or email contains the text                         |
+//! | `author:ada`      | the author's name or email contains the text; `author:@me` is you    |
 //! | `path:src/ui`     | the commit changed that file, or anything inside that folder         |
 //! | `msg:fix`, `fix`  | the commit message contains the text                                 |
 //! | `branch:feature`  | selects the branches whose name contains the text                    |

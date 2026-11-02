@@ -201,24 +201,23 @@ it("explains what to do when authentication fails instead of hanging", async () 
   expect(await screen.findByRole("alert")).toHaveTextContent("Credential Manager");
 });
 
-it("pushes after committing when the option is ticked", async () => {
+it("pushes after committing with Commit & Push", async () => {
   const { user, api, mount } = await open({ staged: true });
   await mount();
   await user.click(screen.getByRole("button", { name: "Changes" }));
 
-  await user.type(await screen.findByLabelText("Subject"), "feat: add things");
-  await user.click(screen.getByRole("checkbox", { name: "Push after commit" }));
-  await user.click(screen.getByRole("button", { name: "Commit" }));
+  await user.type(await screen.findByLabelText("Commit message"), "feat: add things");
+  await user.click(screen.getByRole("button", { name: "Commit & Push" }));
 
   await waitFor(() => expect(api.syncActions).toContain("push"));
 });
 
-it("does not push after a commit unless asked", async () => {
+it("does not push after a plain Commit", async () => {
   const { user, api, mount } = await open({ staged: true });
   await mount();
   await user.click(screen.getByRole("button", { name: "Changes" }));
 
-  await user.type(await screen.findByLabelText("Subject"), "feat: add things");
+  await user.type(await screen.findByLabelText("Commit message"), "feat: add things");
   await user.click(screen.getByRole("button", { name: "Commit" }));
 
   await waitFor(() => expect(api.commits).toHaveLength(1));

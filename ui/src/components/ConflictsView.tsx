@@ -9,6 +9,7 @@ import type {
   WorktreeStatus,
 } from "../core/api";
 import { describeError } from "../core/describeError";
+import { Button } from "./Button";
 
 interface ConflictsViewProps {
   api: CoreApi;
@@ -31,13 +32,13 @@ export function ConflictsView({ api, worktreePath, status }: ConflictsViewProps)
       <ul className="conflict-files" aria-label="Conflicted files">
         {conflicts.map((change) => (
           <li key={change.path}>
-            <button
+            <Button
               type="button"
               aria-pressed={change.path === selected?.path}
               onClick={() => setPicked(change.path)}
             >
               {change.path}
-            </button>
+            </Button>
           </li>
         ))}
       </ul>
@@ -118,12 +119,12 @@ function ConflictResolver({
             here.
           </p>
           {file.mergeToolConfigured ? (
-            <button
+            <Button
               type="button"
               onClick={() => void run("The merge tool", () => api.openMergeTool(worktreePath, path))}
             >
               Open merge tool
-            </button>
+            </Button>
           ) : (
             <p>
               Resolve in terminal: run <code>git mergetool</code>, or fix the file by hand and run{" "}
@@ -187,7 +188,7 @@ function TextResolver({
             <li key={hunk}>
               <span>Hunk {hunk + 1}</span>
               {(["ours", "theirs", "both"] as const).map((choice) => (
-                <button
+                <Button
                   key={choice}
                   type="button"
                   aria-label={`Accept ${choice} for hunk ${hunk + 1}`}
@@ -195,7 +196,7 @@ function TextResolver({
                   onClick={() => choose(hunk, choice)}
                 >
                   Accept {choice}
-                </button>
+                </Button>
               ))}
             </li>
           ))}
@@ -203,9 +204,9 @@ function TextResolver({
       )}
       <div className="conflict-actions">
         {unresolved && <span className="settings-hint">Conflict markers are still in the result.</span>}
-        <button type="button" disabled={unresolved} onClick={() => onResolve(result)}>
+        <Button type="button" disabled={unresolved} onClick={() => onResolve(result)}>
           Mark resolved
-        </button>
+        </Button>
       </div>
     </>
   );
@@ -230,12 +231,12 @@ function SideChooser({
   return (
     <div className="conflict-sides">
       <p>{note}</p>
-      <button type="button" onClick={() => onChoose("ours")}>
+      <Button type="button" onClick={() => onChoose("ours")}>
         {label("ours")}
-      </button>
-      <button type="button" onClick={() => onChoose("theirs")}>
+      </Button>
+      <Button type="button" onClick={() => onChoose("theirs")}>
         {label("theirs")}
-      </button>
+      </Button>
     </div>
   );
 }

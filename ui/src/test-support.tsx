@@ -22,7 +22,7 @@ export function commitRow(overrides: Partial<HistoryRow> = {}): HistoryRow {
   const id = overrides.id ?? "0123456789abcdef0123456789abcdef01234567";
   return {
     id,
-    shortId: id.slice(0, 7),
+    shortId: id.slice(0, 8),
     subject: "A commit",
     authorName: "Ada Lovelace",
     authorEmail: "ada@example.com",

@@ -1,12 +1,13 @@
 use rebasar_core::{
+    platform, BranchesFilter, BranchesSettings, ChangesSettings, CommitSettings, ConfirmTabClose, CopySettings, EditorSettings, FilesView, GraphStyle, HistoryOrientation, HistorySettings, SplitPosition,
     ApiError, AppearanceSettings, Assessment, ChangeKind, ChangeList, CheckState, CommitDetail,
     CommitDiffRequest, CommitHit, CommitOptions, CommitParent, CoreEvent, DiffContent, DiffLine,
     DiffMode, DiffRequest, DiffSettings, Edge, EdgeKind, FileChange, FileDiff, GitHubAuthStatus,
     GitHubRepository, GitIdentity, GitSetup, Group, Head, HistoryCount, HistoryFilter,
-    HistoryPage, HistoryRow, Hunk, LineKind, Loss, ModeChange, MutationId, MutationInfo,
+    HistoryPage, HistoryRow, Hunk, LineKind, Loss, LostCommit, ModeChange, MutationId, MutationInfo,
     MutationKind, MutationOutcome, OutgoingCommit, OutputStream, PullRequest, RefKind, RefLabel,
-    RepositoryEntry, RepositoryList, ReviewState, Session, Settings, Tab, TokenSource,
-    WhitespaceMode, WorktreeEntry, WorktreeStatus,
+    RepositoryEntry, RepositoryList, ReviewState, Session, Settings, SyncSettings, Tab, TabSettings, TokenSource,
+    UnavailableReason, WhitespaceMode, WorktreeEntry, WorktreeStatus,
 };
 use serde_json::json;
 
@@ -212,7 +213,6 @@ fn a_history_filter_deserialises_from_the_shape_the_ui_sends() {
     let filter: HistoryFilter = serde_json::from_value(json!({
         "query": "author:ada",
         "allBranches": false,
-        "mine": true,
         "merges": false,
     }))
     .unwrap();
@@ -222,7 +222,6 @@ fn a_history_filter_deserialises_from_the_shape_the_ui_sends() {
         HistoryFilter {
             query: "author:ada".to_owned(),
             all_branches: false,
-            mine: true,
             merges: false,
         }
     );
@@ -413,14 +412,29 @@ fn github_errors_serialise_to_the_shape_the_ui_expects() {
     let serialised = |error: ApiError| serde_json::to_value(error).unwrap();
 
     assert_eq!(
-        serialised(ApiError::NotGithub {
-            path: "/work/sample".to_owned()
-        }),
-        json!({ "kind": "notGithub", "path": "/work/sample" })
+        serialised(
+            UnavailableReason::NotGithub {
+                host: "gitlab.com".to_owned()
+            }
+            .into_error(Some("https://gitlab.com/acme/widgets.git".to_owned()))
+        ),
+        json!({
+            "kind": "pullRequestsUnavailable",
+            "reason": { "kind": "notGithub", "host": "gitlab.com" },
+            "message": "The remote (gitlab.com) is not on GitHub.",
+            "url": "https://gitlab.com/acme/widgets.git",
+            "hint": null,
+        })
     );
     assert_eq!(
-        serialised(ApiError::GithubNotSignedIn),
-        json!({ "kind": "githubNotSignedIn" })
+        serialised(UnavailableReason::NoToken.into_error(None)),
+        json!({
+            "kind": "pullRequestsUnavailable",
+            "reason": { "kind": "noToken" },
+            "message": "You are not signed in to GitHub.",
+            "url": null,
+            "hint": "Run `gh auth login`, or paste a personal access token.",
+        })
     );
     assert_eq!(
         serialised(ApiError::GithubTokenRejected),
@@ -444,12 +458,18 @@ fn mutation_events_serialise_to_the_shape_the_ui_expects() {
                 id,
                 worktree_path: "/work/sample".to_owned(),
                 title: "Commit".to_owned(),
+                command: "git commit --message 'Fix'".to_owned(),
             }
         })
         .unwrap(),
         json!({
             "type": "mutationQueued",
-            "mutation": { "id": 7, "worktreePath": "/work/sample", "title": "Commit" },
+            "mutation": {
+                "id": 7,
+                "worktreePath": "/work/sample",
+                "title": "Commit",
+                "command": "git commit --message 'Fix'",
+            },
         })
     );
     assert_eq!(
@@ -524,15 +544,88 @@ fn settings_serialise_to_the_shape_the_ui_expects() {
             whitespace: WhitespaceMode::IgnoreAll,
             default_mode: DiffMode::SideBySide,
         },
-        appearance: AppearanceSettings { code_font_size: 13 },
+        appearance: AppearanceSettings {
+            code_font_size: 13,
+            sidebar_collapsed: true,
+        },
+        sync: SyncSettings {
+            auto_fetch: false,
+            fetch_interval_minutes: 10,
+        },
+        copy: CopySettings {
+            on_select: false,
+            hash_length: Some(12),
+        },
+        tabs: TabSettings {
+            confirm_close: ConfirmTabClose::WhenLost,
+            restore_on_launch: false,
+        },
+        history: HistorySettings {
+            mine: true,
+            merges: false,
+            all_branches: false,
+            orientation: HistoryOrientation::Horizontal,
+            graph_style: GraphStyle::Tree,
+            files_view: FilesView::Flat,
+            detail_position: SplitPosition::Bottom,
+        },
+        changes: ChangesSettings {
+            files_view: FilesView::Flat,
+            diff_position: SplitPosition::Bottom,
+        },
+        commit: CommitSettings {
+            sign_off_by_default: true,
+        },
+        editor: EditorSettings {
+            last_used: Some("zed".to_owned()),
+        },
+        branches: BranchesSettings {
+            filter: BranchesFilter::Local,
+        },
     };
 
     assert_eq!(
         serde_json::to_value(settings).unwrap(),
         json!({
             "diff": { "whitespace": "ignoreAll", "defaultMode": "sideBySide" },
-            "appearance": { "codeFontSize": 13 },
+            "appearance": { "codeFontSize": 13, "sidebarCollapsed": true },
+            "sync": { "autoFetch": false, "fetchIntervalMinutes": 10 },
+            "copy": { "onSelect": false, "hashLength": 12 },
+            "tabs": { "confirmClose": "whenLost", "restoreOnLaunch": false },
+            "history": {
+                "mine": true,
+                "merges": false,
+                "allBranches": false,
+                "orientation": "horizontal",
+                "graphStyle": "tree",
+                "filesView": "flat",
+                "detailPosition": "bottom",
+            },
+            "changes": { "filesView": "flat", "diffPosition": "bottom" },
+            "commit": { "signOffByDefault": true },
+            "editor": { "lastUsed": "zed" },
+            "branches": { "filter": "local" },
         })
+    );
+}
+
+#[test]
+fn editors_serialise_to_the_shape_the_ui_expects() {
+    let editors = platform::detect_editors(
+        platform::EDITORS,
+        platform::Os::Linux,
+        &std::ffi::OsString::new(),
+    );
+
+    assert_eq!(
+        serde_json::to_value(&editors[2..3]).unwrap(),
+        json!([{
+            "id": "vscode",
+            "label": "VS Code",
+            "opensFolders": true,
+            "available": false,
+            "unavailableReason": "The code command was not found on the PATH.",
+        }])
     );
 }
 
@@ -788,6 +881,16 @@ fn a_mutation_kind_deserialises_from_the_shape_the_ui_sends() {
             paths: vec!["a.txt".to_owned()]
         }
     );
+    assert_eq!(
+        serde_json::from_value::<MutationKind>(
+            json!({ "kind": "deleteRemoteBranch", "remote": "origin", "name": "topic" })
+        )
+        .unwrap(),
+        MutationKind::DeleteRemoteBranch {
+            remote: "origin".to_owned(),
+            name: "topic".to_owned()
+        }
+    );
 }
 
 #[test]
@@ -808,6 +911,10 @@ fn an_assessment_serialises_to_the_shape_the_ui_expects() {
                 }],
                 commits: 3,
                 unpushed_commits: 1,
+                commit_list: vec![LostCommit {
+                    short_id: "abc1234".to_owned(),
+                    subject: "Add notes".to_owned(),
+                }],
             }
         })
         .unwrap(),
@@ -823,6 +930,7 @@ fn an_assessment_serialises_to_the_shape_the_ui_expects() {
                 }],
                 "commits": 3,
                 "unpushedCommits": 1,
+                "commitList": [{ "shortId": "abc1234", "subject": "Add notes" }],
             },
         })
     );

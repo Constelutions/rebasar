@@ -243,5 +243,6 @@ pub(crate) fn reset_loss(
         files,
         commits: dropped,
         unpushed_commits: dropped,
+        ..Loss::default()
     })
 }

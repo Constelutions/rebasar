@@ -48,7 +48,7 @@ fn a_hit_carries_what_the_palette_lists() {
 
     assert_eq!(hits.len(), 1);
     assert_eq!(hits[0].id, head);
-    assert_eq!(hits[0].short_id, head[..7]);
+    assert_eq!(hits[0].short_id, head[..8]);
     assert_eq!(hits[0].author_name, "Ada Lovelace");
     assert_eq!(hits[0].subject, "Add a");
 }
@@ -69,6 +69,21 @@ fn the_filter_syntax_of_history_applies() {
     assert_eq!(
         subjects(&find(&repo, "branch:feature msg:lexer")),
         ["Fix lexer"]
+    );
+}
+
+#[test]
+fn several_authors_and_me_widen_the_search() {
+    let repo = team_repo();
+    repo.git(&["config", "user.email", "ada@example.com"]);
+
+    assert_eq!(
+        subjects(&find(&repo, "author:grace author:@me parser")),
+        ["Fix feature parser", "Add parser"]
+    );
+    assert_eq!(
+        subjects(&find(&repo, "author:@me")),
+        ["Update docs", "Add parser"]
     );
 }
 

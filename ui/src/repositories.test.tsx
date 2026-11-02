@@ -59,39 +59,45 @@ async function openRepositoriesView(
   return { user, api };
 }
 
-function section(name: string) {
-  return within(screen.getByRole("region", { name }));
+function panel() {
+  return within(screen.getByRole("tabpanel"));
 }
 
-function sectionNames() {
-  return within(screen.getByRole("main"))
-    .getAllByRole("region")
-    .map((region) => region.getAttribute("aria-label"));
+function tabNames() {
+  return within(screen.getByRole("tablist", { name: "Groups" }))
+    .getAllByRole("tab")
+    .map((tab) => tab.querySelector(".group-tab-name")?.textContent);
 }
 
-it("lists every Repository with its Worktrees nested under it", async () => {
+function windowTabs() {
+  return screen.getAllByRole("tab").filter((tab) => !tab.closest("[aria-label=Groups]"));
+}
+
+function groupTab(name: string) {
+  return screen.getByRole("tab", { name: new RegExp("^" + name) });
+}
+
+async function showTab(user: ReturnType<typeof userEvent.setup>, name: string) {
+  await user.click(await screen.findByRole("tab", { name: new RegExp("^" + name) }));
+}
+
+async function chooseGroupAction(user: ReturnType<typeof userEvent.setup>, group: string, item: string) {
+  await showTab(user, group);
+  await user.click(screen.getByRole("button", { name: "Options for " + group }));
+  await user.click(screen.getByRole("menuitem", { name: item }));
+}
+
+it("lists every Repository on the All tab without its Worktrees", async () => {
   await openRepositoriesView([repository("app", {}, ["hotfix"]), repository("tools")]);
 
-  const app = await section("Ungrouped").findByRole("listitem", { name: "app" });
-  const worktrees = within(app).getAllByRole("listitem", { name: /Worktree/ });
-  expect(worktrees).toHaveLength(2);
-  expect(worktrees[0]).toHaveTextContent("main");
-  expect(worktrees[1]).toHaveTextContent("hotfix");
-  expect(worktrees[1]).toHaveTextContent("C:\\work\\app-hotfix");
-  expect(section("Ungrouped").getAllByRole("listitem", { name: /^(app|tools)$/ })).toHaveLength(2);
+  expect(await panel().findAllByRole("listitem", { name: /^(app|tools)$/ })).toHaveLength(2);
+  expect(screen.queryByText("hotfix")).not.toBeInTheDocument();
+  expect(screen.queryByText(/detached at/)).not.toBeInTheDocument();
 });
 
-it("shows a detached Worktree by its commit", async () => {
-  const detached = repository("app");
-  detached.worktrees[0]!.head = { kind: "detached", commit: "abc1234" };
 
-  await openRepositoriesView([detached]);
-
-  expect(await screen.findByText(/detached at abc1234/)).toBeInTheDocument();
-});
-
-it("puts each Repository under its Group, with the ungrouped ones in a default section last", async () => {
-  await openRepositoriesView(
+it("groups Repositories in tabs: All first, one per Group, and Ungrouped last", async () => {
+  const { user } = await openRepositoriesView(
     [
       repository("app", { groupId: "work" }),
       repository("notes", { groupId: "personal" }),
@@ -100,12 +106,23 @@ it("puts each Repository under its Group, with the ungrouped ones in a default s
     [work, personal],
   );
 
-  await screen.findByRole("region", { name: "Work" });
-  expect(sectionNames()).toEqual(["Work", "Personal", "Ungrouped"]);
-  expect(section("Work").getByRole("listitem", { name: "app" })).toBeInTheDocument();
-  expect(section("Personal").getByRole("listitem", { name: "notes" })).toBeInTheDocument();
-  expect(section("Ungrouped").getByRole("listitem", { name: "scratch" })).toBeInTheDocument();
-  expect(section("Work").queryByRole("listitem", { name: "scratch" })).not.toBeInTheDocument();
+  await screen.findByRole("tab", { name: /^Work/ });
+  expect(tabNames()).toEqual(["All", "Work", "Personal", "Ungrouped"]);
+  expect(panel().getAllByRole("listitem")).toHaveLength(3);
+
+  await showTab(user, "Work");
+  expect(panel().getByRole("listitem", { name: "app" })).toBeInTheDocument();
+  expect(panel().queryByRole("listitem", { name: "scratch" })).not.toBeInTheDocument();
+
+  await showTab(user, "Ungrouped");
+  expect(panel().getByRole("listitem", { name: "scratch" })).toBeInTheDocument();
+});
+
+it("shows no Ungrouped tab while every Repository is in a Group", async () => {
+  await openRepositoriesView([repository("app", { groupId: "work" })], [work]);
+
+  await screen.findByRole("tab", { name: /^Work/ });
+  expect(tabNames()).toEqual(["All", "Work"]);
 });
 
 it("invites the user to open a folder when no Repository is known yet", async () => {
@@ -124,7 +141,7 @@ it("lists a Repository opened from the title bar", async () => {
 
   await user.click(screen.getByRole("button", { name: "Repositories" }));
 
-  expect(await section("Ungrouped").findByRole("listitem", { name: "app" })).toBeInTheDocument();
+  expect(await panel().findByRole("listitem", { name: "app" })).toBeInTheDocument();
 });
 
 it("creates a Group", async () => {
@@ -133,7 +150,7 @@ it("creates a Group", async () => {
   await user.click(await screen.findByRole("button", { name: "New group" }));
   await user.type(screen.getByRole("textbox", { name: "Group name" }), "Work{Enter}");
 
-  expect(await screen.findByRole("region", { name: "Work" })).toBeInTheDocument();
+  expect(await screen.findByRole("tab", { name: /^Work/ })).toBeInTheDocument();
   expect(screen.queryByRole("textbox", { name: "Group name" })).not.toBeInTheDocument();
 });
 
@@ -157,38 +174,43 @@ it("cancels creating a Group with Escape", async () => {
   expect(screen.getByRole("button", { name: "New group" })).toBeInTheDocument();
 });
 
-it("renames a Group", async () => {
+it("renames a Group from its menu", async () => {
   const { user } = await openRepositoriesView([repository("app", { groupId: "work" })], [work]);
 
-  await user.click(await screen.findByRole("button", { name: "Rename Work" }));
+  await chooseGroupAction(user, "Work", "Rename");
   const field = screen.getByRole("textbox", { name: "Group name" });
   expect(field).toHaveValue("Work");
   await user.clear(field);
   await user.type(field, "Day job{Enter}");
 
-  expect(await screen.findByRole("region", { name: "Day job" })).toBeInTheDocument();
-  expect(screen.queryByRole("region", { name: "Work" })).not.toBeInTheDocument();
-  expect(section("Day job").getByRole("listitem", { name: "app" })).toBeInTheDocument();
+  await showTab(user, "Day job");
+  expect(tabNames()).toEqual(["All", "Day job"]);
+  expect(panel().getByRole("listitem", { name: "app" })).toBeInTheDocument();
 });
 
-it("reorders Groups with the move buttons", async () => {
+it("reorders Groups from the menu of a tab", async () => {
   const { user } = await openRepositoriesView([], [work, personal]);
 
-  await user.click(await screen.findByRole("button", { name: "Move Personal up" }));
+  await chooseGroupAction(user, "Personal", "Move left");
 
-  await vi.waitFor(() => expect(sectionNames()).toEqual(["Personal", "Work", "Ungrouped"]));
+  await vi.waitFor(() => expect(tabNames()).toEqual(["All", "Personal", "Work"]));
 
-  await user.click(screen.getByRole("button", { name: "Move Personal down" }));
+  await chooseGroupAction(user, "Personal", "Move right");
 
-  await vi.waitFor(() => expect(sectionNames()).toEqual(["Work", "Personal", "Ungrouped"]));
+  await vi.waitFor(() => expect(tabNames()).toEqual(["All", "Work", "Personal"]));
 });
 
-it("cannot move the first Group up or the last Group down", async () => {
-  await openRepositoriesView([], [work, personal]);
+it("cannot move the first Group left or the last Group right, and a right-click opens the menu", async () => {
+  const { user } = await openRepositoriesView([], [work, personal]);
 
-  expect(await screen.findByRole("button", { name: "Move Work up" })).toBeDisabled();
-  expect(screen.getByRole("button", { name: "Move Personal down" })).toBeDisabled();
-  expect(screen.getByRole("button", { name: "Move Work down" })).toBeEnabled();
+  await screen.findByRole("tab", { name: /^Work/ });
+  await user.pointer({ keys: "[MouseRight]", target: groupTab("Work") });
+  expect(screen.getByRole("menuitem", { name: "Move left" })).toBeDisabled();
+  expect(screen.getByRole("menuitem", { name: "Move right" })).toBeEnabled();
+  await user.keyboard("{Escape}");
+
+  await user.pointer({ keys: "[MouseRight]", target: groupTab("Personal") });
+  expect(screen.getByRole("menuitem", { name: "Move right" })).toBeDisabled();
 });
 
 it("moves a Repository into a Group and back to Ungrouped", async () => {
@@ -197,26 +219,17 @@ it("moves a Repository into a Group and back to Ungrouped", async () => {
 
   await user.selectOptions(mover, "Work");
 
-  await vi.waitFor(() =>
-    expect(section("Work").getByRole("listitem", { name: "app" })).toBeInTheDocument(),
-  );
-  expect(section("Ungrouped").queryByRole("listitem", { name: "app" })).not.toBeInTheDocument();
+  await vi.waitFor(() => expect(groupTab("Work")).toHaveTextContent("1"));
+  expect(screen.queryByRole("tab", { name: /^Ungrouped/ })).not.toBeInTheDocument();
 
   await user.selectOptions(screen.getByRole("combobox", { name: "Move app to group" }), "Personal");
 
-  await vi.waitFor(() =>
-    expect(section("Personal").getByRole("listitem", { name: "app" })).toBeInTheDocument(),
-  );
-  expect(section("Work").queryByRole("listitem", { name: "app" })).not.toBeInTheDocument();
+  await vi.waitFor(() => expect(groupTab("Personal")).toHaveTextContent("1"));
+  expect(groupTab("Work")).toHaveTextContent("0");
 
-  await user.selectOptions(
-    screen.getByRole("combobox", { name: "Move app to group" }),
-    "Ungrouped",
-  );
+  await user.selectOptions(screen.getByRole("combobox", { name: "Move app to group" }), "Ungrouped");
 
-  await vi.waitFor(() =>
-    expect(section("Ungrouped").getByRole("listitem", { name: "app" })).toBeInTheDocument(),
-  );
+  await vi.waitFor(() => expect(groupTab("Ungrouped")).toHaveTextContent("1"));
 });
 
 it("offers Locate and Remove only for a Repository whose folder is gone", async () => {
@@ -228,7 +241,7 @@ it("offers Locate and Remove only for a Repository whose folder is gone", async 
   expect(screen.queryByRole("button", { name: "Remove app" })).not.toBeInTheDocument();
 });
 
-it("lists a Repository that disappeared as missing, in its Group, without Worktrees", async () => {
+it("lists a Repository that disappeared as missing, in its Group", async () => {
   const gone = repository("gone", { groupId: "work" });
   const user = userEvent.setup();
   const api = createStubCoreApi({ [gone.path]: tabOf(gone) }, {}, {}, {}, {}, undefined, { registry: [gone], groups: [work] });
@@ -236,10 +249,9 @@ it("lists a Repository that disappeared as missing, in its Group, without Worktr
   renderApp({ api });
 
   await user.click(screen.getByRole("button", { name: "Repositories" }));
+  await showTab(user, "Work");
 
-  const row = await section("Work").findByRole("listitem", { name: "gone" });
-  expect(row).toHaveTextContent("missing");
-  expect(within(row).queryByRole("listitem")).not.toBeInTheDocument();
+  expect(await panel().findByRole("listitem", { name: "gone" })).toHaveTextContent("missing");
 });
 
 it("removes a missing Repository from the list", async () => {
@@ -277,9 +289,8 @@ it("locates a missing Repository at the folder the user picks", async () => {
 
   await user.click(await screen.findByRole("button", { name: "Locate gone" }));
 
-  const row = await section("Work").findByRole("listitem", { name: "moved" });
+  const row = await panel().findByRole("listitem", { name: "moved" });
   expect(row).not.toHaveTextContent("missing");
-  expect(within(row).getAllByRole("listitem")).toHaveLength(1);
   expect(screen.queryByRole("button", { name: /Locate/ })).not.toBeInTheDocument();
 });
 
@@ -328,14 +339,14 @@ it("closes the Tabs of a Repository found missing", async () => {
   renderApp({ api, pickFolder: async () => folders.shift() ?? null });
   await user.click(screen.getByRole("button", { name: /open folder/i }));
   await user.click(screen.getByRole("button", { name: /open folder/i }));
-  await vi.waitFor(() => expect(screen.getAllByRole("tab")).toHaveLength(2));
+  await vi.waitFor(() => expect(windowTabs()).toHaveLength(2));
   api.loseRepository(tools.path);
 
   await user.click(screen.getByRole("button", { name: "Repositories" }));
 
-  await vi.waitFor(() => expect(screen.getAllByRole("tab")).toHaveLength(1));
-  expect(screen.getByRole("tab")).toHaveTextContent("app");
-  expect(screen.getByRole("tab")).toHaveAttribute("aria-selected", "true");
+  await vi.waitFor(() => expect(windowTabs()).toHaveLength(1));
+  expect(windowTabs()[0]).toHaveTextContent("app");
+  expect(windowTabs()[0]).toHaveAttribute("aria-selected", "true");
 });
 
 it("closes the Tabs of a Repository that is removed", async () => {

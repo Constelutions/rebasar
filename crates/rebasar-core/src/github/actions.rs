@@ -5,7 +5,7 @@ use serde_json::json;
 
 use super::graphql;
 use super::http::HttpClient;
-use super::GitHubRepository;
+use super::{not_visible, GitHubRepository};
 use crate::ApiError;
 
 const FIND: &str = "
@@ -250,13 +250,4 @@ fn node_id(
         .ok_or_else(|| ApiError::GithubRequestFailed {
             message: format!("GitHub has no pull request #{number} in this repository"),
         })
-}
-
-fn not_visible(repository: &GitHubRepository) -> ApiError {
-    ApiError::GithubRequestFailed {
-        message: format!(
-            "GitHub has no repository {}/{} visible to this token",
-            repository.owner, repository.name
-        ),
-    }
 }

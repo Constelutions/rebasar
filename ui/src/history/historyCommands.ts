@@ -3,8 +3,9 @@ import { useMemo } from "react";
 import { usePaletteCommands } from "../palette/PaletteProvider";
 import type { PaletteCommand } from "../palette/registry";
 import type { Chips } from "./FilterBar";
+import { MY_COMMITS, addTerm, removeTerm, termValues } from "./historyQuery";
 
-export const defaultChips: Chips = { allBranches: true, mine: false, merges: false };
+export const defaultChips: Chips = { allBranches: true, merges: false };
 
 interface HistoryFilterControls {
   queryText: string;
@@ -20,11 +21,8 @@ export function useHistoryCommands({
   chips,
   setChips,
 }: HistoryFilterControls) {
-  const isFiltered =
-    queryText !== "" ||
-    chips.allBranches !== defaultChips.allBranches ||
-    chips.mine ||
-    chips.merges;
+  const isFiltered = queryText !== "" || chips.allBranches !== defaultChips.allBranches || chips.merges;
+  const showsMine = termValues(queryText, "author").some((author) => author.toLowerCase() === MY_COMMITS);
 
   const commands = useMemo<PaletteCommand[]>(
     () => [
@@ -37,10 +35,15 @@ export function useHistoryCommands({
       },
       {
         id: "history.toggle-mine",
-        title: chips.mine ? "Show everyone's commits" : "Show only my commits",
+        title: showsMine ? "Show everyone's commits" : "Show only my commits",
         group: "History",
         keywords: ["filter", "chip", "mine", "author"],
-        run: () => setChips({ ...chips, mine: !chips.mine }),
+        run: () =>
+          setQueryText(
+            showsMine
+              ? removeTerm(queryText, "author", MY_COMMITS)
+              : addTerm(queryText, "author", MY_COMMITS),
+          ),
       },
       {
         id: "history.toggle-merges",
@@ -61,7 +64,7 @@ export function useHistoryCommands({
         },
       },
     ],
-    [chips, isFiltered, setChips, setQueryText],
+    [chips, isFiltered, queryText, setChips, setQueryText, showsMine],
   );
 
   usePaletteCommands(commands);

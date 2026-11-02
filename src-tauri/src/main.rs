@@ -10,6 +10,7 @@ use rebasar_core::{
     OutgoingCommit, PullRequest, PullRequestDetails, RefLabel, RepositoryList, Session, Settings, Tab, WindowBounds,
     SyncStatus, WorktreeDiffRequest, WorktreeStatus,
 };
+use rebasar_core::platform::Editor;
 use tauri::{Emitter, Manager, PhysicalSize, State, WebviewWindow, WindowEvent};
 
 #[tauri::command]
@@ -268,6 +269,31 @@ async fn set_git_identity(
 }
 
 #[tauri::command]
+async fn repository_git_identity(
+    core: State<'_, Arc<Core>>,
+    worktree_path: PathBuf,
+) -> Result<GitIdentity, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.repository_git_identity(&worktree_path))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn set_repository_git_identity(
+    core: State<'_, Arc<Core>>,
+    worktree_path: PathBuf,
+    identity: GitIdentity,
+) -> Result<GitIdentity, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || {
+        core.set_repository_git_identity(&worktree_path, &identity)
+    })
+    .await
+    .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
 async fn commit_detail(
     core: State<'_, Arc<Core>>,
     worktree_path: PathBuf,
@@ -322,6 +348,14 @@ async fn list_branches(
 async fn restore_session(core: State<'_, Arc<Core>>) -> Result<Session, ApiError> {
     let core = Arc::clone(&core);
     tauri::async_runtime::spawn_blocking(move || core.restore_session())
+        .await
+        .map_err(ApiError::unexpected)
+}
+
+#[tauri::command]
+async fn close_tab(core: State<'_, Arc<Core>>, path: PathBuf) -> Result<(), ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.close_tab(&path))
         .await
         .map_err(ApiError::unexpected)
 }
@@ -699,6 +733,19 @@ async fn delete_branch(
 ) -> Result<MutationOutcome, ApiError> {
     let core = Arc::clone(&core);
     tauri::async_runtime::spawn_blocking(move || core.delete_branch(&path, &name))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn delete_remote_branch(
+    core: State<'_, Arc<Core>>,
+    path: PathBuf,
+    remote: String,
+    name: String,
+) -> Result<MutationOutcome, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.delete_remote_branch(&path, &remote, &name))
         .await
         .map_err(ApiError::unexpected)?
 }
@@ -1159,6 +1206,39 @@ async fn open_in_browser(
         .map_err(ApiError::unexpected)?
 }
 
+#[tauri::command]
+async fn list_editors(core: State<'_, Arc<Core>>) -> Result<Vec<Editor>, ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.list_editors())
+        .await
+        .map_err(ApiError::unexpected)
+}
+
+#[tauri::command]
+async fn open_in_editor(
+    core: State<'_, Arc<Core>>,
+    editor_id: String,
+    path: PathBuf,
+) -> Result<(), ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.open_in_editor(&editor_id, &path))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+async fn open_file_in_editor(
+    core: State<'_, Arc<Core>>,
+    editor_id: String,
+    worktree_path: PathBuf,
+    file: String,
+) -> Result<(), ApiError> {
+    let core = Arc::clone(&core);
+    tauri::async_runtime::spawn_blocking(move || core.open_file_in_editor(&editor_id, &worktree_path, &file))
+        .await
+        .map_err(ApiError::unexpected)?
+}
+
 fn restore_window(window: &WebviewWindow, bounds: WindowBounds) {
     if let Err(error) = window.set_size(PhysicalSize::new(bounds.width, bounds.height)) {
         eprintln!("failed to restore the window size: {error}");
@@ -1246,6 +1326,7 @@ fn main() {
             find_commits,
             list_branches,
             activate_tab,
+            close_tab,
             refresh_tab,
             github_remote,
             github_auth_status,
@@ -1266,6 +1347,8 @@ fn main() {
             update_settings,
             git_identity,
             set_git_identity,
+            repository_git_identity,
+            set_repository_git_identity,
             commit_detail,
             commit_file_diff,
             restore_session,
@@ -1302,6 +1385,7 @@ fn main() {
             checkout_branch,
             rename_branch,
             delete_branch,
+            delete_remote_branch,
             set_branch_upstream,
             merge_branch,
             rebase_onto,
@@ -1338,7 +1422,10 @@ fn main() {
             create_pull_request,
             update_pull_request,
             mark_pull_request_ready,
-            open_in_browser
+            open_in_browser,
+            list_editors,
+            open_in_editor,
+            open_file_in_editor
         ])
         .run(tauri::generate_context!())
         .expect("failed to run Rebasar");

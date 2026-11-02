@@ -125,7 +125,7 @@ impl Core {
         )?;
 
         if outcome == MutationOutcome::Succeeded {
-            self.close_tab(target, &canonical);
+            self.drop_tab(target, &canonical);
         }
         Ok(outcome)
     }
@@ -138,7 +138,7 @@ impl Core {
         )
     }
 
-    fn close_tab(&self, target: &Path, canonical: &Path) {
+    pub(crate) fn drop_tab(&self, target: &Path, canonical: &Path) {
         let path = canonical.to_string_lossy().into_owned();
         let target_path = target.to_string_lossy().into_owned();
         for candidate in [path, target_path] {

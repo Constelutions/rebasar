@@ -19,11 +19,30 @@ export type ApiError =
   | { kind: "gitFailed"; message: string }
   /** `start..end` are character offsets into the query text. */
   | { kind: "invalidQuery"; message: string; start: number; end: number }
-  | { kind: "notGithub"; path: string }
-  | { kind: "githubNotSignedIn" }
+  | PullRequestsUnavailable
   | { kind: "githubTokenRejected" }
   | { kind: "githubRequestFailed"; message: string }
   | { kind: "unexpected"; message: string };
+
+/** Why the Pull requests of a Repository cannot be shown. */
+export type PullRequestsUnavailableReason =
+  | { kind: "noRemotes" }
+  | { kind: "notGithub"; host: string }
+  | { kind: "unexpectedPath"; path: string }
+  | { kind: "aliasUnresolved"; alias: string; detail: string }
+  | { kind: "noToken" }
+  | { kind: "tokenRejected" }
+  | { kind: "repositoryNotVisible"; repository: string }
+  | { kind: "requestFailed"; message: string };
+
+export interface PullRequestsUnavailable {
+  kind: "pullRequestsUnavailable";
+  reason: PullRequestsUnavailableReason;
+  message: string;
+  /** The remote that was looked at, when there was one. */
+  url: string | null;
+  hint: string | null;
+}
 
 /** A commit the command palette offers to jump to. */
 export interface CommitHit {
@@ -74,6 +93,9 @@ export interface RefLabel {
   name: string;
 }
 
+/** Mirrors the core's `HISTORY_SHORT_ID_LENGTH`, for the short ids the UI has to make when the core sent none. */
+export const HISTORY_SHORT_ID_LENGTH = 8;
+
 export interface HistoryRow {
   id: string;
   shortId: string;
@@ -95,19 +117,20 @@ export interface HistoryPage {
   hasMore: boolean;
 }
 
-/** What the History filter bar asks for: the typed query plus the quick chips. */
+/**
+ * What the History filter bar asks for: the typed query plus the quick chips. Whose commits to
+ * show is in the query, as `author:` terms (`author:@me` is the Repository's Git identity).
+ */
 export interface HistoryFilter {
   query: string;
   /** Off narrows History to the commits reachable from HEAD. */
   allBranches: boolean;
-  mine: boolean;
   merges: boolean;
 }
 
 export const unfilteredHistory: HistoryFilter = {
   query: "",
   allBranches: true,
-  mine: false,
   merges: false,
 };
 
@@ -218,6 +241,8 @@ export interface MutationInfo {
   id: number;
   worktreePath: string;
   title: string;
+  /** As run, quoted for a terminal; environment variables are left out. */
+  command: string;
 }
 
 export type MutationOutcome =
@@ -229,9 +254,42 @@ export type OutputStream = "stdout" | "stderr";
 
 export interface Settings {
   diff: { whitespace: WhitespaceMode; defaultMode: DiffMode };
-  appearance: { codeFontSize: number };
+  appearance: { codeFontSize: number; sidebarCollapsed: boolean };
   sync: { autoFetch: boolean; fetchIntervalMinutes: number };
+  /** `hashLength` is how many characters of a hash a click copies; `null` copies all of it. */
+  copy: { onSelect: boolean; hashLength: number | null };
+  tabs: { confirmClose: ConfirmTabClose; restoreOnLaunch: boolean };
+  /** The filters History opens with, and the layout it keeps. */
+  history: {
+    mine: boolean;
+    merges: boolean;
+    allBranches: boolean;
+    /** Horizontal never combines with the Linear graph style; the core stores Tree instead. */
+    orientation: "vertical" | "horizontal";
+    graphStyle: "tree" | "linear";
+    /** How the changed files of a commit are listed. */
+    filesView: FilesView;
+    /** Where the details of the selected commit open. */
+    detailPosition: SplitPosition;
+  };
+  /** How the Staged and Unstaged lists open. */
+  changes: { filesView: FilesView; diffPosition: SplitPosition };
+  commit: { signOffByDefault: boolean };
+  /** `lastUsed` is the id of the editor the title bar opens with one click. */
+  editor: { lastUsed: string | null };
+  /** Which Branches the Branches page lists when it opens. */
+  branches: { filter: BranchesFilter };
 }
+
+export type BranchesFilter = "both" | "local" | "remote";
+
+/** A list of changed files, as a tree of folders or as one flat list of paths. */
+export type FilesView = "tree" | "flat";
+
+/** Where a view puts the pane that opens beside its list. */
+export type SplitPosition = "right" | "bottom";
+
+export type ConfirmTabClose = "always" | "whenLost" | "never";
 
 /** `null` is a value that is not set in the Git configuration. */
 export interface GitIdentity {
@@ -241,9 +299,34 @@ export interface GitIdentity {
 
 export const defaultSettings: Settings = {
   diff: { whitespace: "show", defaultMode: "unified" },
-  appearance: { codeFontSize: 12 },
+  appearance: { codeFontSize: 12, sidebarCollapsed: false },
   sync: { autoFetch: true, fetchIntervalMinutes: 5 },
+  copy: { onSelect: true, hashLength: null },
+  tabs: { confirmClose: "whenLost", restoreOnLaunch: true },
+  history: {
+    mine: false,
+    merges: false,
+    allBranches: true,
+    orientation: "vertical",
+    graphStyle: "tree",
+    filesView: "tree",
+    detailPosition: "right",
+  },
+  changes: { filesView: "tree", diffPosition: "right" },
+  commit: { signOffByDefault: false },
+  editor: { lastUsed: null },
+  branches: { filter: "both" },
 };
+
+export interface Editor {
+  id: string;
+  label: string;
+  /** Whether it can be started on a whole Worktree; the others only open files. */
+  opensFolders: boolean;
+  available: boolean;
+  /** Why it cannot be used; set exactly when it is not available. */
+  unavailableReason: string | null;
+}
 
 export interface Group {
   id: string;
@@ -298,6 +381,7 @@ export type MutationKind =
   | { kind: "abortOperation" }
   | { kind: "forcePush" }
   | { kind: "deleteBranch"; name: string }
+  | { kind: "deleteRemoteBranch"; remote: string; name: string }
   | { kind: "reset"; commit: string; mode: ResetMode }
   | { kind: "dropStash"; stash: string }
   | { kind: "removeWorktree"; path: string }
@@ -312,6 +396,13 @@ export interface Loss {
   commits: number;
   /** How many of those commits exist on no remote. */
   unpushedCommits: number;
+  /** The newest of those commits, to name them; empty unless the Mutation lists them. */
+  commitList: LostCommit[];
+}
+
+export interface LostCommit {
+  shortId: string;
+  subject: string;
 }
 
 export type Assessment = { kind: "safe" } | { kind: "destructive"; loss: Loss };
@@ -559,6 +650,8 @@ export interface CoreApi {
   compareFileDiff(worktreePath: string, request: WorktreeDiffRequest): Promise<FileDiff>;
   /** Makes the Tab the most recently used one, so it keeps its caches and a live watcher. */
   activateTab(path: string): Promise<void>;
+  /** Closes the Tab, announcing it with a `tabClosed` event; its Repository stays listed. */
+  closeTab(path: string): Promise<void>;
   /** Reads the Tab again, so that a branch switched outside the app shows. */
   refreshTab(path: string): Promise<Tab>;
   /** `null` when none of the Repository's remotes is on GitHub. */
@@ -605,6 +698,12 @@ export interface CoreApi {
   markPullRequestReady(path: string, number: number): Promise<PullRequestDetails>;
   /** Only `https` addresses. */
   openInBrowser(url: string): Promise<void>;
+  /** The editors this OS supports, alphabetically, with whether each was found on the PATH. */
+  listEditors(): Promise<Editor[]>;
+  /** Opens a Worktree folder in one of the listed editors that is available. */
+  openInEditor(editorId: string, path: string): Promise<void>;
+  /** Opens a file, named relative to the Worktree, in one of the listed editors that is available. */
+  openFileInEditor(editorId: string, worktreePath: string, file: string): Promise<void>;
   listTags(path: string): Promise<TagInfo[]>;
   /** At the current commit; annotated when a message is given. */
   createTagHere(path: string, name: string, message: string | null): Promise<MutationOutcome>;
@@ -673,6 +772,8 @@ export interface CoreApi {
   renameBranch(path: string, name: string, newName: string): Promise<MutationOutcome>;
   /** Confirm with `{ kind: "deleteBranch", name }` first. */
   deleteBranch(path: string, name: string): Promise<MutationOutcome>;
+  /** Confirm with `{ kind: "deleteRemoteBranch", remote, name }` first; a local branch stays. */
+  deleteRemoteBranch(path: string, remote: string, name: string): Promise<MutationOutcome>;
   /** `null` stops the branch tracking anything. */
   setBranchUpstream(path: string, name: string, upstream: string | null): Promise<MutationOutcome>;
   /** A merge or rebase that stops on a conflict leaves the Worktree for the banner to show. */
@@ -714,6 +815,10 @@ export interface CoreApi {
   gitIdentity(): Promise<GitIdentity>;
   /** Writes to the global Git configuration; a blank value removes it. */
   setGitIdentity(identity: GitIdentity): Promise<GitIdentity>;
+  /** The identity in the Repository's own Git configuration; `null` values fall back to the global one. */
+  repositoryGitIdentity(worktreePath: string): Promise<GitIdentity>;
+  /** Writes to the Repository's local Git configuration, shared by all its Worktrees; a blank value removes it. */
+  setRepositoryGitIdentity(worktreePath: string, identity: GitIdentity): Promise<GitIdentity>;
   /** The Tabs and view to show on launch; Tabs whose folders are gone are already left out. */
   restoreSession(): Promise<Session>;
   /** Watches a restored Tab without making it the most recently used one. */

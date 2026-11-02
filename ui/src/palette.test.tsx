@@ -1,4 +1,4 @@
-import { screen } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import type { CoreApi, HistoryRow, Tab } from "./core/api";
@@ -157,7 +157,7 @@ it("switches to another Tab", async () => {
   expect(screen.getByRole("tab", { name: /sample/ })).toHaveAttribute("aria-selected", "true");
 });
 
-it("toggles a History filter chip", async () => {
+it("filters History to my commits and back", async () => {
   const user = await openApp();
   await user.click(screen.getByRole("button", { name: "History" }));
 
@@ -165,11 +165,16 @@ it("toggles a History filter chip", async () => {
   await user.type(input, "my commits");
   await user.keyboard("{Enter}");
 
-  expect(screen.getByRole("button", { name: "Mine" })).toHaveAttribute("aria-pressed", "true");
+  expect(filterBox()).toHaveValue("author:@me");
+  expect(within(screen.getByRole("group", { name: "History filter" })).getByRole("button", { name: /^Authors/ })).toHaveTextContent("Me");
 
-  await openPalette(user);
+  const reopened = await openPalette(user);
   expect(listing()).toContain("Show everyone's commits");
   expect(listing()).toContain("Clear the History filter");
+  await user.type(reopened, "everyone");
+  await user.keyboard("{Enter}");
+
+  expect(filterBox()).toHaveValue("");
 });
 
 it("jumps to a branch of the Repository as a History filter", async () => {

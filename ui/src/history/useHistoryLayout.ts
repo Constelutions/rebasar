@@ -1,5 +1,4 @@
-import { useState } from "react";
-
+import { useSettings } from "../settings/SettingsContext";
 import type { GraphStyle, Orientation } from "./geometry";
 
 export interface HistoryLayout {
@@ -7,48 +6,20 @@ export interface HistoryLayout {
   style: GraphStyle;
 }
 
-const STORAGE_KEY = "rebasar.history.layout";
-const defaults: HistoryLayout = { orientation: "vertical", style: "tree" };
-
-function isOrientation(value: unknown): value is Orientation {
-  return value === "vertical" || value === "horizontal";
-}
-
-function isStyle(value: unknown): value is GraphStyle {
-  return value === "tree" || value === "linear";
-}
-
-function load(): HistoryLayout {
-  try {
-    const stored: unknown = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "null");
-    if (typeof stored !== "object" || stored === null) return defaults;
-    const { orientation, style } = stored as Record<string, unknown>;
-    return {
-      orientation: isOrientation(orientation) ? orientation : defaults.orientation,
-      style: isStyle(style) ? style : defaults.style,
-    };
-  } catch {
-    return defaults;
-  }
-}
-
-function save(layout: HistoryLayout) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(layout));
-  } catch {
-    // The choice then only lasts until the view is closed, which is no reason to fail.
-  }
-}
-
-/** The user's orientation and graph style, kept across sessions. */
+/** The user's orientation and graph style, which live in the settings so they survive restarts. */
 export function useHistoryLayout() {
-  const [layout, setLayout] = useState(load);
+  const { settings, update } = useSettings();
+  const { orientation } = settings.history;
+  const style = orientation === "horizontal" ? "tree" : settings.history.graphStyle;
 
   function change(changes: Partial<HistoryLayout>) {
-    const next = { ...layout, ...changes };
-    setLayout(next);
-    save(next);
+    const next = { orientation, style, ...changes };
+    if (next.orientation === "horizontal") next.style = "tree";
+    update({
+      ...settings,
+      history: { ...settings.history, orientation: next.orientation, graphStyle: next.style },
+    });
   }
 
-  return [layout, change] as const;
+  return [{ orientation, style }, change] as const;
 }

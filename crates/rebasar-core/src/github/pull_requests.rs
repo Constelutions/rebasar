@@ -3,7 +3,7 @@ use serde_json::json;
 
 use super::graphql;
 use super::http::HttpClient;
-use super::GitHubRepository;
+use super::{not_visible, GitHubRepository};
 use crate::ApiError;
 
 const QUERY: &str = "
@@ -71,12 +71,7 @@ pub fn list(
     )?;
     let repository = answer
         .repository
-        .ok_or_else(|| ApiError::GithubRequestFailed {
-            message: format!(
-                "GitHub has no repository {}/{} visible to this token",
-                repository.owner, repository.name
-            ),
-        })?;
+        .ok_or_else(|| not_visible(repository))?;
     Ok(repository
         .pull_requests
         .nodes

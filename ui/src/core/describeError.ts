@@ -21,10 +21,8 @@ function describeApiError(error: ApiError): string {
       return `${error.path} is already a Git repository.`;
     case "invalidRepositoryUrl":
       return `Cannot tell the name of a Repository from ${error.url}.`;
-    case "notGithub":
-      return `${error.path} has no GitHub remote.`;
-    case "githubNotSignedIn":
-      return "You are not signed in to GitHub.";
+    case "pullRequestsUnavailable":
+      return error.hint ? `${error.message} ${error.hint}` : error.message;
     case "githubTokenRejected":
       return "GitHub did not accept the token.";
     case "githubRequestFailed":

@@ -24,6 +24,11 @@ async function open(tags: TagInfo[] = [tag("v1.0"), tag("v2.0", true)], remotes:
   return { user, api };
 }
 
+async function chooseFromMenu(user: ReturnType<typeof userEvent.setup>, subject: string, item: string) {
+  await user.click(await screen.findByRole("button", { name: `Options for ${subject}` }));
+  await user.click(screen.getByRole("menuitem", { name: item }));
+}
+
 it("lists tags as lightweight or annotated", async () => {
   await open();
 
@@ -67,7 +72,7 @@ it("pushes a tag to the remote", async () => {
 it("deletes a tag that loses nothing straight away", async () => {
   const { user, api } = await open();
 
-  await user.click(await screen.findByRole("button", { name: "Delete tag v1.0" }));
+  await chooseFromMenu(user, "tag v1.0", "Delete");
 
   await waitFor(() => expect(api.tagRemoteActions).toEqual(["tag-delete:v1.0"]));
   await waitFor(() => expect(screen.queryByText("v1.0")).not.toBeInTheDocument());
@@ -76,7 +81,7 @@ it("deletes a tag that loses nothing straight away", async () => {
 it("asks before deleting a tag that is the only reference to commits", async () => {
   const { user, api } = await open([tag("only-me")]);
 
-  await user.click(await screen.findByRole("button", { name: "Delete tag only-me" }));
+  await chooseFromMenu(user, "tag only-me", "Delete");
   const dialog = await screen.findByRole("alertdialog", { name: "Delete tag" });
 
   expect(dialog).toHaveTextContent("2 commits will no longer be reachable");
@@ -88,7 +93,7 @@ it("asks before deleting a tag that is the only reference to commits", async () 
 it("deletes a tag on the remote and leaves the local one", async () => {
   const { user, api } = await open();
 
-  await user.click(await screen.findByRole("button", { name: "Delete tag v1.0 on origin" }));
+  await chooseFromMenu(user, "tag v1.0", "Delete on origin");
 
   await waitFor(() => expect(api.tagRemoteActions).toEqual(["tag-delete-remote:v1.0:origin"]));
   expect(screen.getByText("v1.0")).toBeInTheDocument();
@@ -126,7 +131,7 @@ it("adds a remote", async () => {
 it("renames a remote", async () => {
   const { user, api } = await open();
 
-  await user.click(await screen.findByRole("button", { name: "Rename remote origin" }));
+  await chooseFromMenu(user, "remote origin", "Rename");
   const dialog = await screen.findByRole("dialog", { name: "Rename origin" });
   await user.clear(within(dialog).getByLabelText("New name"));
   await user.type(within(dialog).getByLabelText("New name"), "upstream");
@@ -138,7 +143,7 @@ it("renames a remote", async () => {
 it("edits the address of a remote", async () => {
   const { user, api } = await open();
 
-  await user.click(await screen.findByRole("button", { name: "Edit address of origin" }));
+  await chooseFromMenu(user, "remote origin", "Edit address");
   const dialog = await screen.findByRole("dialog", { name: "Address of origin" });
   await user.clear(within(dialog).getByLabelText("New address"));
   await user.type(within(dialog).getByLabelText("New address"), "https://other.example/app.git");
@@ -151,7 +156,7 @@ it("edits the address of a remote", async () => {
 it("removes a remote", async () => {
   const { user, api } = await open();
 
-  await user.click(await screen.findByRole("button", { name: "Remove remote origin" }));
+  await chooseFromMenu(user, "remote origin", "Remove");
 
   await waitFor(() => expect(api.tagRemoteActions).toEqual(["remote-remove:origin"]));
   expect(await screen.findByText("No remotes.")).toBeInTheDocument();
