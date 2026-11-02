@@ -201,6 +201,8 @@ export type TokenSource = "ghCli" | "personalAccessToken";
 export interface GitHubAuthStatus {
   /** `null` when nobody is signed in. */
   source: TokenSource | null;
+  /** Whether a pasted token could be kept; without it only the `gh` token can be used. */
+  canStoreToken: boolean;
 }
 
 export type CheckState = "none" | "pending" | "success" | "failure";

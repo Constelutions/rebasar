@@ -247,6 +247,33 @@ describe("when nobody is signed in", () => {
   });
 });
 
+describe("when the app has nowhere to store a token on this platform", () => {
+  const noCredentialStore: StubGitHub = { ...github, signedInWith: null, canStoreToken: false };
+
+  it("says so and points to the gh CLI instead of offering a token field", async () => {
+    await openPullRequests(noCredentialStore);
+
+    const notice = await screen.findByText(/Credentials are not stored on this platform yet/);
+    expect(notice).toHaveAttribute("role", "status");
+    expect(notice).toHaveTextContent("gh auth login");
+    expect(screen.queryByLabelText("Personal access token")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Sign in" })).not.toBeInTheDocument();
+  });
+
+  it("still says which remote it looked at", async () => {
+    await openPullRequests(noCredentialStore);
+
+    expect(await screen.findByText("https://github.com/acme/widgets.git")).toBeInTheDocument();
+  });
+
+  it("does not show the notice where a token can be stored", async () => {
+    await openPullRequests({ ...github, signedInWith: null });
+
+    await screen.findByLabelText("Personal access token");
+    expect(screen.queryByText(/not stored on this platform/)).not.toBeInTheDocument();
+  });
+});
+
 describe("signing out", () => {
   it("is not offered when the token comes from the gh CLI", async () => {
     await openPullRequests();

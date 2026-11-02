@@ -74,6 +74,8 @@ export interface StubGitHub {
   signedInWith?: TokenSource | null;
   /** The pasted tokens GitHub accepts. */
   validTokens?: string[];
+  /** Whether the platform has a credential store to keep a pasted token in; defaults to true. */
+  canStoreToken?: boolean;
   /** Open pull requests by Worktree path. */
   pullRequests?: Record<string, PullRequest[]>;
 }
@@ -344,7 +346,10 @@ export function createStubCoreApi(
   }
 
   let source: TokenSource | null = github.signedInWith ?? null;
-  const authStatus = (): GitHubAuthStatus => ({ source });
+  const authStatus = (): GitHubAuthStatus => ({
+    source,
+    canStoreToken: github.canStoreToken ?? true,
+  });
   const remoteUrl = (path: string) => {
     const remote = github.remotes?.[path];
     return remote ? `https://github.com/${remote.owner}/${remote.name}.git` : null;

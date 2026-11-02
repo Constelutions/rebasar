@@ -18,6 +18,10 @@ pub trait CredentialStore: Send + Sync {
     fn save(&self, account: &str, secret: &str) -> Result<(), CredentialError>;
     /// Deleting a secret that is not stored succeeds.
     fn delete(&self, account: &str) -> Result<(), CredentialError>;
+    /// Whether secrets can be kept at all, so the UI can say so before the user tries to save one.
+    fn is_available(&self) -> bool {
+        true
+    }
 }
 
 #[cfg(windows)]
@@ -50,6 +54,10 @@ impl CredentialStore for UnavailableCredentialStore {
 
     fn delete(&self, _account: &str) -> Result<(), CredentialError> {
         Ok(())
+    }
+
+    fn is_available(&self) -> bool {
+        false
     }
 }
 

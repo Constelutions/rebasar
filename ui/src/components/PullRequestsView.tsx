@@ -18,7 +18,7 @@ import { PullRequestDialog } from "./PullRequestDialog";
 type Load =
   | { phase: "loading" }
   | { phase: "unavailable"; error: PullRequestsUnavailable }
-  | { phase: "signedOut"; reason: PullRequestsUnavailable }
+  | { phase: "signedOut"; reason: PullRequestsUnavailable; canStoreToken: boolean }
   | { phase: "ready"; pullRequests: PullRequest[]; source: TokenSource }
   | { phase: "failed"; message: string };
 
@@ -67,7 +67,11 @@ export function PullRequestsView({ api, tab }: { api: CoreApi; tab: Tab }) {
         </p>
       );
     case "signedOut":
-      return <SignIn api={api} reason={load.reason} onSignedIn={reload} />;
+      return load.canStoreToken ? (
+        <SignIn api={api} reason={load.reason} onSignedIn={reload} />
+      ) : (
+        <NoCredentialStore reason={load.reason} />
+      );
     case "ready":
       return (
         <PullRequestList
@@ -95,9 +99,12 @@ async function loadPullRequests(api: CoreApi, worktreePath: string): Promise<Loa
   } catch (failure) {
     if (isApiError(failure) && failure.kind === "pullRequestsUnavailable") {
       const needsToken = failure.reason.kind === "noToken" || failure.reason.kind === "tokenRejected";
-      return needsToken
-        ? { phase: "signedOut", reason: failure }
-        : { phase: "unavailable", error: failure };
+      if (!needsToken) return { phase: "unavailable", error: failure };
+      // Asked only now, when the form would be shown; if the status cannot be read, offer the form.
+      const { canStoreToken } = await api
+        .githubAuthStatus()
+        .catch(() => ({ canStoreToken: true }));
+      return { phase: "signedOut", reason: failure, canStoreToken };
     }
     return { phase: "failed", message: describeError(failure) };
   }
@@ -122,6 +129,19 @@ function withCode(text: string) {
   return text
     .split("`")
     .map((part, index) => (index % 2 === 1 ? <code key={index}>{part}</code> : part));
+}
+
+/** Shown instead of the sign-in form, which could never keep the token it was given. */
+function NoCredentialStore({ reason }: { reason: PullRequestsUnavailable }) {
+  return (
+    <div className="github-sign-in">
+      <UnavailableReason error={reason} />
+      <p role="status" className="notice">
+        Credentials are not stored on this platform yet, so a pasted token cannot be kept. Sign in
+        with the GitHub CLI by running <code>gh auth login</code>, then open this view again.
+      </p>
+    </div>
+  );
 }
 
 function SignIn({
@@ -156,8 +176,8 @@ function SignIn({
       <UnavailableReason error={reason} />
       <p>
         Rebasar uses the token of the GitHub CLI when you are signed in there; otherwise paste a
-        personal access token with access to the repository. It is kept in the Windows credential
-        store and used only for GitHub, never by Git.
+        personal access token with access to the repository. It is kept in the operating system's
+        credential store and used only for GitHub, never by Git.
       </p>
       <label htmlFor={inputId}>Personal access token</label>
       <input

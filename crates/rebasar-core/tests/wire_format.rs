@@ -388,14 +388,19 @@ fn a_pull_request_serialises_to_the_shape_the_ui_expects() {
 fn github_auth_and_remote_serialise_to_the_shape_the_ui_expects() {
     assert_eq!(
         serde_json::to_value(GitHubAuthStatus {
-            source: Some(TokenSource::PersonalAccessToken)
+            source: Some(TokenSource::PersonalAccessToken),
+            can_store_token: true,
         })
         .unwrap(),
-        json!({ "source": "personalAccessToken" })
+        json!({ "source": "personalAccessToken", "canStoreToken": true })
     );
     assert_eq!(
-        serde_json::to_value(GitHubAuthStatus { source: None }).unwrap(),
-        json!({ "source": null })
+        serde_json::to_value(GitHubAuthStatus {
+            source: None,
+            can_store_token: false,
+        })
+        .unwrap(),
+        json!({ "source": null, "canStoreToken": false })
     );
     assert_eq!(
         serde_json::to_value(GitHubRepository {
