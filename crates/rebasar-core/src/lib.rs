@@ -85,6 +85,12 @@ pub use history::{
     RefLabel,
 };
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AppInfo {
+    pub version: String,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Tab {
@@ -109,6 +115,11 @@ pub enum Head {
 pub enum CoreEvent {
     TabOpened {
         tab: Tab,
+    },
+    /// The path the command line handed to the app could not be opened. It has no caller to
+    /// return an error to, so the window shows this instead.
+    LaunchFailed {
+        message: String,
     },
     /// The core closed the Tab, because its Repository went missing or was removed.
     TabClosed {
@@ -286,6 +297,13 @@ impl Core {
 
     pub fn check_git(&self) -> GitSetup {
         GitSetup::check()
+    }
+
+    /// The version is the workspace's, which the desktop app and the installers share.
+    pub fn app_info(&self) -> AppInfo {
+        AppInfo {
+            version: env!("CARGO_PKG_VERSION").to_owned(),
+        }
     }
 
     /// Stages the whole files, deletions included. Blocks until the mutation has finished.
@@ -749,6 +767,15 @@ impl Core {
         });
         (self.on_event)(CoreEvent::TabOpened { tab: tab.clone() });
         Ok(tab)
+    }
+
+    /// Opens the Worktree that the app was started with, or that a second start handed over.
+    pub fn open_launch_path(&self, path: &Path) {
+        if let Err(error) = self.open_folder(path) {
+            (self.on_event)(CoreEvent::LaunchFailed {
+                message: error.to_string(),
+            });
+        }
     }
 }
 

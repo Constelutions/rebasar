@@ -42,6 +42,8 @@ pub enum TokenSource {
 #[serde(rename_all = "camelCase")]
 pub struct GitHubAuthStatus {
     pub source: Option<TokenSource>,
+    /// Whether a pasted token could be kept; without it only the `gh` token can be used.
+    pub can_store_token: bool,
 }
 
 /// Everything the GitHub client reaches outside the process for.
@@ -82,6 +84,7 @@ impl GitHub {
     pub fn auth_status(&self) -> Result<GitHubAuthStatus, ApiError> {
         Ok(GitHubAuthStatus {
             source: self.token()?.map(|(source, _)| source),
+            can_store_token: self.services.credentials.is_available(),
         })
     }
 

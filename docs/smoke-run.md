@@ -32,3 +32,14 @@ If either is missing the run stops at the first step and says what to install.
 ## Reading a failure
 
 A failing run prints the step it stopped at and the reason. After a failure it also keeps the scratch folder, whose path it prints, with a screenshot of the app (`failure.png`) and the temporary Repository. A passing run cleans up after itself.
+
+## Single instance and launch paths (manual)
+
+The WebDriver run cannot start a second copy of the app, so this behaviour is checked by hand, on Windows and on Linux, with a build that embeds the UI (`pnpm tauri build --debug --no-bundle`). Point `REBASAR_CONFIG_DIR` at an empty folder so your own registry is untouched, and create two small Repositories, `repo-a` and `repo-b`, plus one plain folder.
+
+1. Start the app with `rebasar-app <path to repo-a>`. It opens with `repo-a` as a Tab in front.
+2. Without closing it, start `rebasar-app <path to repo-b>`. The second process exits on its own, no second window appears, and the running window opens `repo-b` as a Tab, comes to the front and takes focus. Minimise the window first to check that it is restored.
+3. Start `rebasar-app <the plain folder>`. The running window shows an error that the folder is not a Git repository and keeps its Tabs.
+4. Start `rebasar-app` with no path. The running window comes to the front and nothing else changes.
+5. Close the app and start it with no path. It restores `repo-a` and `repo-b`.
+6. On Linux, repeat 1 and 2 with the AppImage in place of `rebasar-app`.

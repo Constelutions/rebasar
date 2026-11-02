@@ -1,12 +1,15 @@
 {
   "name": "rebasar",
   "private": true,
+  "license": "Apache-2.0",
   "scripts": {
     "dev": "tauri dev",
+    "bundle": "node scripts/bundle.mjs",
     "typecheck": "pnpm -r typecheck",
     "test:ui": "pnpm -r test",
     "test:core": "cargo test --workspace",
-    "test": "pnpm test:core && pnpm test:ui",
+    "test:scripts": "node --test \"scripts/**/*.test.mjs\"",
+    "test": "pnpm test:core && pnpm test:ui && pnpm test:scripts",
     "e2e": "node e2e/smoke.mjs",
     "bench:app": "node e2e/app-benchmark.mjs",
     "bench:fixtures": "cargo run --release -p rebasar-bench -- generate",

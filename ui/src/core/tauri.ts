@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 
 import type {
+  AppInfo,
   Assessment,
   CommitDetail,
   BranchInfo,
@@ -72,6 +73,8 @@ export const tauriCoreApi: CoreApi = {
   signInToGitHub: (token) => invoke<GitHubAuthStatus>("sign_in_to_github", { token }),
   signOutOfGitHub: () => invoke<GitHubAuthStatus>("sign_out_of_github"),
   pullRequests: (path) => invoke<PullRequest[]>("pull_requests", { path }),
+  appInfo: () => invoke<AppInfo>("app_info"),
+  openLaunchPath: () => invoke<void>("open_launch_path"),
   checkGit: () => invoke<GitSetup>("check_git"),
   stageFiles: (path, paths) => invoke<MutationOutcome>("stage_files", { path, paths }),
   unstageFiles: (path, paths) => invoke<MutationOutcome>("unstage_files", { path, paths }),

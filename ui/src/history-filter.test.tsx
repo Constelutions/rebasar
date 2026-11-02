@@ -252,7 +252,9 @@ it("combines the selects with the Merges chip and the typed query", async () => 
   await user.click(screen.getByRole("button", { name: "Merges" }));
 
   expect(await screen.findByText("0 of 4 commits")).toBeInTheDocument();
-  expect(sent.at(-1)).toEqual({ query: "fix author:@me", allBranches: true, merges: true });
+  await waitFor(() =>
+    expect(sent.at(-1)).toEqual({ query: "fix author:@me", allBranches: true, merges: true }),
+  );
 });
 
 it("starts with the filters the settings ask for", async () => {

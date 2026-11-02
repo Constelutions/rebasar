@@ -39,3 +39,11 @@ _Avoid_: Operation (that word means an Operation in progress), action, job
 **Destructive Mutation**:
 A Mutation that can lose uncommitted or unreferenced work. The core assesses it before it runs and the UI asks for a confirmation that states exactly what will be lost. Every other Mutation is safe and never asks.
 _Avoid_: Dangerous operation
+
+**Channel**:
+Where a release is published: Beta (built from the `develop` branch and published as GitHub pre-releases, `0.x.y` before 1.0.0 and `1.x.y-beta.N` after) or Stable (`1.x.y` versions, built from `main`).
+_Avoid_: Track, stream, ring
+
+**CLI**:
+The `rebasar` command, which opens a Worktree of a Repository in the desktop app. It starts the app, or hands the path to the one already running, and exits; it does no Git work of its own.
+_Avoid_: Launcher, shell command

@@ -114,6 +114,9 @@ impl TempRepo {
         repo.git(&["config", "user.name", AUTHOR_NAME]);
         repo.git(&["config", "user.email", AUTHOR_EMAIL]);
         repo.git(&["config", "commit.gpgsign", "false"]);
+        // Likewise for line endings: a machine that sets `core.autocrlf`, as GitHub's Windows
+        // runners do, makes `git add` warn about LF files, and tests assert on git's output.
+        repo.git(&["config", "core.autocrlf", "false"]);
         repo
     }
 

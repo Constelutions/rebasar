@@ -201,6 +201,8 @@ export type TokenSource = "ghCli" | "personalAccessToken";
 export interface GitHubAuthStatus {
   /** `null` when nobody is signed in. */
   source: TokenSource | null;
+  /** Whether a pasted token could be kept; without it only the `gh` token can be used. */
+  canStoreToken: boolean;
 }
 
 export type CheckState = "none" | "pending" | "success" | "failure";
@@ -229,6 +231,11 @@ export interface OutgoingCommit {
   id: string;
   shortId: string;
   subject: string;
+}
+
+export interface AppInfo {
+  /** The version of the running app; the CLI and the installers carry the same one. */
+  version: string;
 }
 
 export type GitSetup =
@@ -409,6 +416,8 @@ export type Assessment = { kind: "safe" } | { kind: "destructive"; loss: Loss };
 
 export type CoreEvent =
   | { type: "tabOpened"; tab: Tab }
+  /** The path the app was started with, or that a second start handed over, could not be opened. */
+  | { type: "launchFailed"; message: string }
   | { type: "tabClosed"; worktreePath: string }
   | { type: "worktreeChanged"; worktreePath: string }
   | { type: "pollingTabsChanged"; worktreePaths: string[] }
@@ -663,6 +672,12 @@ export interface CoreApi {
   signOutOfGitHub(): Promise<GitHubAuthStatus>;
   /** Open pull requests of the Repository's GitHub remote, most recently updated first. */
   pullRequests(path: string): Promise<PullRequest[]>;
+  appInfo(): Promise<AppInfo>;
+  /**
+   * Opens the Worktree the app was started with, if it was started with one, and only the first
+   * time it is asked. Failures arrive as a `launchFailed` event, so ask once the UI is listening.
+   */
+  openLaunchPath(): Promise<void>;
   checkGit(): Promise<GitSetup>;
   /**
    * The mutation methods resolve when the mutation has finished, after waiting for earlier

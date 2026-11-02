@@ -150,7 +150,31 @@ fn signed_out_core() -> Core {
 }
 
 fn status(source: Option<TokenSource>) -> GitHubAuthStatus {
-    GitHubAuthStatus { source }
+    GitHubAuthStatus {
+        source,
+        can_store_token: true,
+    }
+}
+
+/// The credential store of a platform that has none yet: nothing is stored, and saving fails.
+struct UnavailableCredentials;
+
+impl CredentialStore for UnavailableCredentials {
+    fn read(&self, _account: &str) -> Result<Option<String>, CredentialError> {
+        Ok(None)
+    }
+
+    fn save(&self, _account: &str, _secret: &str) -> Result<(), CredentialError> {
+        Err(CredentialError::new("no credential store on this platform"))
+    }
+
+    fn delete(&self, _account: &str) -> Result<(), CredentialError> {
+        Ok(())
+    }
+
+    fn is_available(&self) -> bool {
+        false
+    }
 }
 
 fn repo_with_remotes(remotes: &[(&str, &str)]) -> TempRepo {
@@ -303,6 +327,27 @@ const VIEWER_OK: &str = r#"{"data":{"viewer":{"login":"octocat"}}}"#;
 #[test]
 fn nobody_is_signed_in_without_a_gh_token_or_a_stored_token() {
     assert_eq!(signed_out_core().github_auth_status(), Ok(status(None)));
+}
+
+#[test]
+fn the_status_says_when_the_app_has_nowhere_to_store_a_token() {
+    let core = Core::with_github(
+        |_| {},
+        GitHubServices {
+            http: Arc::new(FakeHttp::default()),
+            credentials: Arc::new(UnavailableCredentials),
+            gh_cli: Arc::new(FakeGhCli(Some("gh-token"))),
+            ssh: ssh_aliases(&[]),
+        },
+    );
+
+    assert_eq!(
+        core.github_auth_status(),
+        Ok(GitHubAuthStatus {
+            source: Some(TokenSource::GhCli),
+            can_store_token: false,
+        })
+    );
 }
 
 #[test]

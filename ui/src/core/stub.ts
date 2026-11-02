@@ -74,6 +74,8 @@ export interface StubGitHub {
   signedInWith?: TokenSource | null;
   /** The pasted tokens GitHub accepts. */
   validTokens?: string[];
+  /** Whether the platform has a credential store to keep a pasted token in; defaults to true. */
+  canStoreToken?: boolean;
   /** Open pull requests by Worktree path. */
   pullRequests?: Record<string, PullRequest[]>;
 }
@@ -187,6 +189,8 @@ export interface StubCoreApi extends CoreApi {
   readonly backgroundWatched: readonly string[];
   /** The view the user last switched to, as the core remembers it. */
   readonly savedView: string | null;
+  /** How many times the UI asked the core to open the path the app was started with. */
+  readonly launchPathRequests: number;
   readonly cancelledMutations: readonly number[];
   /** Replaces the Worktree's outgoing commits, as a push or fetch made elsewhere would. */
   setOutgoingCommits(path: string, commits: OutgoingCommit[]): void;
@@ -253,6 +257,7 @@ export function createStubCoreApi(
   const commitDiffRequests: CommitDiffRequest[] = [];
   const commitDetailRequests: (readonly [string, number])[] = [];
   const cancelled: number[] = [];
+  let launchPathRequests = 0;
   const commits: RecordedCommit[] = [];
   const outgoing = new Map<string, OutgoingCommit[]>();
   const failures: MutationFailure[] = [];
@@ -341,7 +346,10 @@ export function createStubCoreApi(
   }
 
   let source: TokenSource | null = github.signedInWith ?? null;
-  const authStatus = (): GitHubAuthStatus => ({ source });
+  const authStatus = (): GitHubAuthStatus => ({
+    source,
+    canStoreToken: github.canStoreToken ?? true,
+  });
   const remoteUrl = (path: string) => {
     const remote = github.remotes?.[path];
     return remote ? `https://github.com/${remote.owner}/${remote.name}.git` : null;
@@ -1014,6 +1022,12 @@ export function createStubCoreApi(
       if (source === null) throw noToken(remoteUrl(path));
       return github.pullRequests?.[path] ?? [];
     },
+    async appInfo() {
+      return { version: "0.0.0-test" };
+    },
+    async openLaunchPath() {
+      launchPathRequests += 1;
+    },
     async checkGit() {
       return gitSetup;
     },
@@ -1289,6 +1303,9 @@ export function createStubCoreApi(
     backgroundWatched,
     get savedView() {
       return savedView;
+    },
+    get launchPathRequests() {
+      return launchPathRequests;
     },
     cancelledMutations: cancelled,
     commits,

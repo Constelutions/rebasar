@@ -1,0 +1,20 @@
+[package]
+name = "rebasar-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "rebasar"
+path = "src/main.rs"
+
+# Stands in for the desktop app in the tests: it records the arguments it was started with.
+[[bin]]
+name = "app-recorder"
+path = "tests/support/app_recorder.rs"
+test = false
+
+[dev-dependencies]
+rebasar-testkit = { path = "../rebasar-testkit" }
+tempfile = "3.27.0"
