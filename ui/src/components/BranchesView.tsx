@@ -12,9 +12,11 @@ import type {
 import { describeError } from "../core/describeError";
 import { useSettings } from "../settings/SettingsContext";
 import { useConfirmation } from "../useConfirmation";
+import { ActionMenu, type MenuItem, OptionsButton, useActionMenu } from "./ActionMenu";
 import { Button } from "./Button";
 import { SegmentedControl } from "./SegmentedControl";
 import { RemotesSection, TagsSection } from "./TagsAndRemotes";
+import { TruncatedText } from "./TruncatedText";
 import { type BranchRow, buildBranchRows, detailsOf, filterBranchRows } from "./branchRows";
 
 interface BranchesViewProps {
@@ -192,10 +194,49 @@ function BranchItem({ row, actions }: { row: BranchRow; actions: RowActions }) {
   const branch = detailsOf(row);
   const local = row.local;
   const canJoin = !branch.current && actions.current !== undefined;
+  const menu = useActionMenu();
+
+  const items: MenuItem[] = [];
+  if (canJoin) {
+    items.push(
+      { key: "merge", label: "Merge", run: () => actions.merge(row, "default") },
+      { key: "merge-no-ff", label: "Merge (no-ff)", run: () => actions.merge(row, "noFastForward") },
+      { key: "squash", label: "Squash", run: () => actions.merge(row, "squash") },
+      { key: "rebase", label: "Rebase onto", run: () => actions.rebase(row) },
+    );
+  }
+  if (local) {
+    items.push(
+      { key: "rename", label: "Rename", separated: items.length > 0, run: () => actions.rename(local) },
+      { key: "upstream", label: "Set upstream", run: () => actions.setUpstream(local) },
+    );
+    if (!local.current) {
+      items.push({
+        key: "delete",
+        label: "Delete",
+        destructive: true,
+        separated: true,
+        run: () => actions.remove(local),
+      });
+    }
+  }
+  for (const { remote } of row.remotes) {
+    items.push({
+      key: `delete-${remote}`,
+      label: `Delete on ${remote}`,
+      destructive: true,
+      separated: items.length > 0 && !items[items.length - 1]?.destructive,
+      run: () => actions.removeRemote(remote, row.name),
+    });
+  }
 
   return (
-    <li className="branch-row" aria-current={branch.current || undefined}>
-      <span className="branch-name">{row.name}</span>
+    <li
+      className="branch-row"
+      aria-current={branch.current || undefined}
+      onContextMenu={items.length > 0 ? menu.openFromContextMenu : undefined}
+    >
+      <TruncatedText className="branch-name" text={row.name} />
       {local && <span className="branch-presence">local</span>}
       {row.remotes.map(({ remote }) => (
         <span key={remote} className="branch-presence">
@@ -204,7 +245,7 @@ function BranchItem({ row, actions }: { row: BranchRow; actions: RowActions }) {
       ))}
       {branch.current && <span className="branch-badge">current</span>}
       {branch.merged && !branch.current && <span className="branch-badge">merged</span>}
-      {branch.upstream && <span className="branch-upstream">{branch.upstream}</span>}
+      {branch.upstream && <TruncatedText className="branch-upstream" text={branch.upstream} />}
       {(branch.ahead > 0 || branch.behind > 0) && (
         <span className="branch-counts" aria-label={`${branch.ahead} ahead, ${branch.behind} behind`}>
           ↑{branch.ahead} ↓{branch.behind}
@@ -216,66 +257,23 @@ function BranchItem({ row, actions }: { row: BranchRow; actions: RowActions }) {
             Check out
           </Button>
         )}
-        {canJoin && (
-          <>
-            <Button size="sm" aria-label={`Merge ${row.name}`} onClick={() => actions.merge(row, "default")}>
-              Merge
-            </Button>
-            <Button
-              size="sm"
-              aria-label={`Merge ${row.name} with a merge commit`}
-              onClick={() => actions.merge(row, "noFastForward")}
-            >
-              Merge (no-ff)
-            </Button>
-            <Button
-              size="sm"
-              aria-label={`Squash merge ${row.name}`}
-              onClick={() => actions.merge(row, "squash")}
-            >
-              Squash
-            </Button>
-            <Button size="sm" aria-label={`Rebase onto ${row.name}`} onClick={() => actions.rebase(row)}>
-              Rebase onto
-            </Button>
-          </>
+        {items.length > 0 && (
+          <OptionsButton
+            label={`Options for ${row.name}`}
+            expanded={menu.open !== null}
+            onClick={menu.openFromButton}
+          />
         )}
-        {local && (
-          <>
-            <Button size="sm" aria-label={`Rename ${row.name}`} onClick={() => actions.rename(local)}>
-              Rename
-            </Button>
-            <Button
-              size="sm"
-              aria-label={`Set upstream of ${row.name}`}
-              onClick={() => actions.setUpstream(local)}
-            >
-              Upstream
-            </Button>
-            {!local.current && (
-              <Button
-                size="sm"
-                variant="danger"
-                aria-label={`Delete ${row.name}`}
-                onClick={() => actions.remove(local)}
-              >
-                Delete
-              </Button>
-            )}
-          </>
-        )}
-        {row.remotes.map(({ remote }) => (
-          <Button
-            key={remote}
-            size="sm"
-            variant="danger"
-            aria-label={`Delete ${row.name} on ${remote}`}
-            onClick={() => actions.removeRemote(remote, row.name)}
-          >
-            Delete on {remote}
-          </Button>
-        ))}
       </span>
+      {menu.open && (
+        <ActionMenu
+          label={`Actions for ${row.name}`}
+          items={items}
+          x={menu.open.x}
+          y={menu.open.y}
+          onClose={menu.close}
+        />
+      )}
     </li>
   );
 }

@@ -48,6 +48,11 @@ function badges(element: HTMLElement) {
   return [...element.querySelectorAll(".branch-presence")].map((badge) => badge.textContent);
 }
 
+async function chooseFromMenu(user: ReturnType<typeof userEvent.setup>, branch: string, item: string) {
+  await user.click(await screen.findByRole("button", { name: `Options for ${branch}` }));
+  await user.click(screen.getByRole("menuitem", { name: item }));
+}
+
 it("lists each branch once with its ahead, behind, upstream and merged state", async () => {
   await openBranches();
 
@@ -205,7 +210,7 @@ it("renames a branch", async () => {
   const { user, api } = await openBranches();
   await row("topic");
 
-  await user.click(screen.getByRole("button", { name: "Rename topic" }));
+  await chooseFromMenu(user, "topic", "Rename");
   const dialog = await screen.findByRole("dialog", { name: "Rename topic" });
   await user.clear(within(dialog).getByLabelText("New name"));
   await user.type(within(dialog).getByLabelText("New name"), "renamed");
@@ -219,13 +224,13 @@ it("sets and clears the upstream of a branch", async () => {
   const { user, api } = await openBranches();
   await row("topic");
 
-  await user.click(screen.getByRole("button", { name: "Set upstream of topic" }));
+  await chooseFromMenu(user, "topic", "Set upstream");
   let dialog = await screen.findByRole("dialog");
   await user.type(within(dialog).getByLabelText(/Upstream branch/), "origin/topic");
   await user.click(within(dialog).getByRole("button", { name: "Set upstream" }));
   await waitFor(() => expect(api.branchActions).toEqual(["upstream:topic:origin/topic"]));
 
-  await user.click(await screen.findByRole("button", { name: "Set upstream of topic" }));
+  await chooseFromMenu(user, "topic", "Set upstream");
   dialog = await screen.findByRole("dialog");
   await user.clear(within(dialog).getByLabelText(/Upstream branch/));
   await user.click(within(dialog).getByRole("button", { name: "Set upstream" }));
@@ -236,7 +241,7 @@ it("deletes a merged branch without asking", async () => {
   const { user, api } = await openBranches();
   await row("old");
 
-  await user.click(screen.getByRole("button", { name: "Delete old" }));
+  await chooseFromMenu(user, "old", "Delete");
 
   await waitFor(() => expect(api.branchActions).toEqual(["delete:old"]));
   await waitFor(() => expect(screen.queryByText("old", { selector: ".branch-name" })).not.toBeInTheDocument());
@@ -246,7 +251,7 @@ it("asks before deleting an unmerged branch and deletes it only once confirmed",
   const { user, api } = await openBranches();
   await row("topic");
 
-  await user.click(screen.getByRole("button", { name: "Delete topic" }));
+  await chooseFromMenu(user, "topic", "Delete");
   const dialog = await screen.findByRole("alertdialog", { name: "Delete branch" });
 
   expect(dialog).toHaveTextContent("2 commits will no longer be reachable");
@@ -259,7 +264,7 @@ it("keeps an unmerged branch when the confirmation is cancelled", async () => {
   const { user, api } = await openBranches();
   await row("topic");
 
-  await user.click(screen.getByRole("button", { name: "Delete topic" }));
+  await chooseFromMenu(user, "topic", "Delete");
   await user.click(await screen.findByRole("button", { name: "Cancel" }));
 
   expect(api.branchActions).toEqual([]);
@@ -279,9 +284,9 @@ it("merges a branch into the current one with each strategy", async () => {
   const { user, api } = await openBranches();
   await row("topic");
 
-  await user.click(screen.getByRole("button", { name: "Merge topic" }));
-  await user.click(await screen.findByRole("button", { name: "Merge topic with a merge commit" }));
-  await user.click(await screen.findByRole("button", { name: "Squash merge topic" }));
+  await chooseFromMenu(user, "topic", "Merge");
+  await chooseFromMenu(user, "topic", "Merge (no-ff)");
+  await chooseFromMenu(user, "topic", "Squash");
 
   await waitFor(() =>
     expect(api.branchActions).toEqual(["merge:topic:default", "merge:topic:noFastForward", "merge:topic:squash"]),
@@ -292,7 +297,7 @@ it("rebases the current branch onto another", async () => {
   const { user, api } = await openBranches();
   await row("topic");
 
-  await user.click(screen.getByRole("button", { name: "Rebase onto topic" }));
+  await chooseFromMenu(user, "topic", "Rebase onto");
 
   await waitFor(() => expect(api.branchActions).toEqual(["rebase:topic"]));
 });
@@ -306,10 +311,10 @@ it("acts on the local branch of a merged row and on the remote ref of a remote-o
   ]);
   await row("topic");
 
-  await user.click(screen.getByRole("button", { name: "Merge topic" }));
-  await user.click(await screen.findByRole("button", { name: "Rebase onto topic" }));
-  await user.click(await screen.findByRole("button", { name: "Merge feature" }));
-  await user.click(await screen.findByRole("button", { name: "Rebase onto feature" }));
+  await chooseFromMenu(user, "topic", "Merge");
+  await chooseFromMenu(user, "topic", "Rebase onto");
+  await chooseFromMenu(user, "feature", "Merge");
+  await chooseFromMenu(user, "feature", "Rebase onto");
 
   await waitFor(() =>
     expect(api.branchActions).toEqual([
@@ -324,18 +329,23 @@ it("acts on the local branch of a merged row and on the remote ref of a remote-o
 it("offers rename, upstream and delete only for branches that exist locally", async () => {
   await openBranches();
 
-  expect(within(await row("topic")).getByRole("button", { name: "Rename topic" })).toBeInTheDocument();
-  const feature = await row("feature");
-  expect(within(feature).queryByRole("button", { name: /Rename/ })).not.toBeInTheDocument();
-  expect(within(feature).queryByRole("button", { name: /Upstream/ })).not.toBeInTheDocument();
-  expect(within(feature).queryByRole("button", { name: "Delete feature" })).not.toBeInTheDocument();
+  const user = userEvent.setup();
+
+  await user.click(within(await row("topic")).getByRole("button", { name: "Options for topic" }));
+  expect(screen.getByRole("menuitem", { name: "Rename" })).toBeInTheDocument();
+  await user.keyboard("{Escape}");
+
+  await user.click(within(await row("feature")).getByRole("button", { name: "Options for feature" }));
+  expect(screen.queryByRole("menuitem", { name: "Rename" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("menuitem", { name: "Set upstream" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("menuitem", { name: "Delete" })).not.toBeInTheDocument();
 });
 
 it("deletes a remote-only branch after a confirmation that names its commits and who is affected", async () => {
   const { user, api } = await openBranches();
   await row("feature");
 
-  await user.click(screen.getByRole("button", { name: "Delete feature on origin" }));
+  await chooseFromMenu(user, "feature", "Delete on origin");
   const dialog = await screen.findByRole("alertdialog", { name: "Delete remote branch" });
 
   expect(within(dialog).getByRole("list", { name: "Commits that will be lost" })).toHaveTextContent(
@@ -353,7 +363,7 @@ it("keeps a remote branch when the confirmation is cancelled", async () => {
   const { user, api } = await openBranches();
   await row("feature");
 
-  await user.click(screen.getByRole("button", { name: "Delete feature on origin" }));
+  await chooseFromMenu(user, "feature", "Delete on origin");
   await user.click(await screen.findByRole("button", { name: "Cancel" }));
 
   expect(api.branchActions).toEqual([]);
@@ -369,7 +379,7 @@ it("deletes the remote counterpart of a local branch without touching the local 
   const topic = await row("topic");
   expect(badges(topic)).toEqual(["local", "origin"]);
 
-  await user.click(screen.getByRole("button", { name: "Delete topic on origin" }));
+  await chooseFromMenu(user, "topic", "Delete on origin");
 
   await waitFor(() => expect(api.branchActions).toEqual(["delete-remote:origin:topic"]));
   await waitFor(() => expect(badges(topic)).toEqual(["local"]));
@@ -384,7 +394,7 @@ it("deletes only the local branch and leaves its remote counterpart", async () =
   ]);
   const old = await row("old");
 
-  await user.click(screen.getByRole("button", { name: "Delete old" }));
+  await chooseFromMenu(user, "old", "Delete");
 
   await waitFor(() => expect(api.branchActions).toEqual(["delete:old"]));
   await waitFor(() => expect(badges(old)).toEqual(["origin"]));
@@ -398,8 +408,9 @@ it("offers one delete per remote for a branch on several remotes", async () => {
   ]);
   const shared = await row("shared");
 
-  expect(within(shared).getByRole("button", { name: "Delete shared on origin" })).toBeInTheDocument();
-  await user.click(within(shared).getByRole("button", { name: "Delete shared on backup" }));
+  await user.click(within(shared).getByRole("button", { name: "Options for shared" }));
+  expect(screen.getByRole("menuitem", { name: "Delete on origin" })).toBeInTheDocument();
+  await user.click(screen.getByRole("menuitem", { name: "Delete on backup" }));
   await user.click(await screen.findByRole("button", { name: "Delete" }));
 
   await waitFor(() => expect(api.branchActions).toEqual(["delete-remote:backup:shared"]));
@@ -414,7 +425,7 @@ it("deletes a remote branch right away when the core finds nothing would be lost
   ]);
   await row("topic");
 
-  await user.click(screen.getByRole("button", { name: "Delete topic on origin" }));
+  await chooseFromMenu(user, "topic", "Delete on origin");
 
   await waitFor(() => expect(api.assessedMutations).toEqual([{ kind: "deleteRemoteBranch", remote: "origin", name: "topic" }]));
   expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
@@ -425,7 +436,7 @@ it("says so when a merge fails and points to the output panel", async () => {
   api.failNextMutation({ exitCode: 1, output: ["CONFLICT (content): Merge conflict in a.txt"] });
   await row("topic");
 
-  await user.click(screen.getByRole("button", { name: "Merge topic" }));
+  await chooseFromMenu(user, "topic", "Merge");
 
   expect(await screen.findByRole("alert")).toHaveTextContent("Merge topic failed");
 });

@@ -3,7 +3,9 @@ import { type FormEvent, useCallback, useEffect, useId, useState } from "react";
 import type { CoreApi, MutationOutcome, RemoteInfo, TagInfo } from "../core/api";
 import { describeError } from "../core/describeError";
 import { useConfirmation } from "../useConfirmation";
+import { ActionMenu, type MenuItem, OptionsButton, useActionMenu } from "./ActionMenu";
 import { Button } from "./Button";
+import { TruncatedText } from "./TruncatedText";
 
 interface SectionProps {
   api: CoreApi;
@@ -90,59 +92,28 @@ export function TagsSection({ api, worktreePath, onError }: SectionProps) {
       ) : (
         <ul className="branch-list" aria-label="Tag list">
           {tags.map((tag) => (
-            <li key={tag.name} className="branch-row">
-              <span className="branch-name">{tag.name}</span>
-              <span className="branch-badge">{tag.annotated ? "annotated" : "lightweight"}</span>
-              <span className="branch-upstream">
-                {tag.shortId} {tag.subject}
-              </span>
-              <span className="branch-actions">
-                {remote && (
-                  <>
-                    <Button
-                      size="sm"
-                      type="button"
-                      aria-label={`Push tag ${tag.name} to ${remote.name}`}
-                      onClick={() =>
-                        void report(`Pushing ${tag.name}`, () => api.pushTag(worktreePath, tag.name, remote.name), onError)
-                      }
-                    >
-                      Push
-                    </Button>
-                    <Button
-                      size="sm"
-                      type="button"
-                      variant="danger"
-                      aria-label={`Delete tag ${tag.name} on ${remote.name}`}
-                      onClick={() =>
-                        void confirm({ kind: "deleteRemoteTag", name: tag.name, remote: remote.name }, () =>
-                          void report(
-                            `Deleting ${tag.name} on ${remote.name}`,
-                            () => api.deleteRemoteTag(worktreePath, tag.name, remote.name),
-                            onError,
-                          ),
-                        ).catch((failure) => onError(describeError(failure)))
-                      }
-                    >
-                      Delete on {remote.name}
-                    </Button>
-                  </>
-                )}
-                <Button
-                  size="sm"
-                  type="button"
-                  variant="danger"
-                  aria-label={`Delete tag ${tag.name}`}
-                  onClick={() =>
-                    void confirm({ kind: "deleteTag", name: tag.name }, () =>
-                      void report(`Deleting ${tag.name}`, () => api.deleteTag(worktreePath, tag.name), onError).then(reload),
-                    ).catch((failure) => onError(describeError(failure)))
-                  }
-                >
-                  Delete
-                </Button>
-              </span>
-            </li>
+            <TagRow
+              key={tag.name}
+              tag={tag}
+              remote={remote}
+              onPush={(remoteName) =>
+                void report(`Pushing ${tag.name}`, () => api.pushTag(worktreePath, tag.name, remoteName), onError)
+              }
+              onDeleteOnRemote={(remoteName) =>
+                void confirm({ kind: "deleteRemoteTag", name: tag.name, remote: remoteName }, () =>
+                  void report(
+                    `Deleting ${tag.name} on ${remoteName}`,
+                    () => api.deleteRemoteTag(worktreePath, tag.name, remoteName),
+                    onError,
+                  ),
+                ).catch((failure) => onError(describeError(failure)))
+              }
+              onDelete={() =>
+                void confirm({ kind: "deleteTag", name: tag.name }, () =>
+                  void report(`Deleting ${tag.name}`, () => api.deleteTag(worktreePath, tag.name), onError).then(reload),
+                ).catch((failure) => onError(describeError(failure)))
+              }
+            />
           ))}
         </ul>
       )}
@@ -190,30 +161,15 @@ export function RemotesSection({ api, worktreePath, onError }: SectionProps) {
       ) : (
         <ul className="branch-list" aria-label="Remote list">
           {remotes.map((remote) => (
-            <li key={remote.name} className="branch-row">
-              <span className="branch-name">{remote.name}</span>
-              <span className="branch-upstream">{remote.url}</span>
-              {remote.pushUrl && <span className="branch-upstream">push: {remote.pushUrl}</span>}
-              <span className="branch-actions">
-                <Button size="sm" type="button" aria-label={`Rename remote ${remote.name}`} onClick={() => setEditing({ remote, field: "name" })}>
-                  Rename
-                </Button>
-                <Button size="sm" type="button" aria-label={`Edit address of ${remote.name}`} onClick={() => setEditing({ remote, field: "url" })}>
-                  Edit address
-                </Button>
-                <Button
-                  size="sm"
-                  type="button"
-                  variant="danger"
-                  aria-label={`Remove remote ${remote.name}`}
-                  onClick={() =>
-                    void report(`Removing ${remote.name}`, () => api.removeRemote(worktreePath, remote.name), onError).then(reload)
-                  }
-                >
-                  Remove
-                </Button>
-              </span>
-            </li>
+            <RemoteRow
+              key={remote.name}
+              remote={remote}
+              onRename={() => setEditing({ remote, field: "name" })}
+              onEditAddress={() => setEditing({ remote, field: "url" })}
+              onRemove={() =>
+                void report(`Removing ${remote.name}`, () => api.removeRemote(worktreePath, remote.name), onError).then(reload)
+              }
+            />
           ))}
         </ul>
       )}
@@ -284,5 +240,101 @@ function RemoteEditDialog({
         </form>
       </div>
     </div>
+  );
+}
+
+interface TagRowProps {
+  tag: TagInfo;
+  remote: RemoteInfo | undefined;
+  onPush: (remote: string) => void;
+  onDeleteOnRemote: (remote: string) => void;
+  onDelete: () => void;
+}
+
+/** Push stays on the row; the deletions wait in its menu. Without a remote there is only Delete, which stays inline. */
+function TagRow({ tag, remote, onPush, onDeleteOnRemote, onDelete }: TagRowProps) {
+  const menu = useActionMenu();
+  const items: MenuItem[] = remote
+    ? [
+        {
+          key: "delete-remote",
+          label: `Delete on ${remote.name}`,
+          destructive: true,
+          run: () => onDeleteOnRemote(remote.name),
+        },
+        { key: "delete", label: "Delete", destructive: true, run: onDelete },
+      ]
+    : [];
+
+  return (
+    <li className="branch-row" onContextMenu={items.length > 0 ? menu.openFromContextMenu : undefined}>
+      <TruncatedText className="branch-name" text={tag.name} />
+      <span className="branch-badge">{tag.annotated ? "annotated" : "lightweight"}</span>
+      <TruncatedText className="branch-upstream" text={`${tag.shortId} ${tag.subject}`} />
+      <span className="branch-actions">
+        {remote ? (
+          <>
+            <Button
+              size="sm"
+              type="button"
+              aria-label={`Push tag ${tag.name} to ${remote.name}`}
+              onClick={() => onPush(remote.name)}
+            >
+              Push
+            </Button>
+            <OptionsButton label={`Options for tag ${tag.name}`} expanded={menu.open !== null} onClick={menu.openFromButton} />
+          </>
+        ) : (
+          <Button size="sm" type="button" variant="danger" aria-label={`Delete tag ${tag.name}`} onClick={onDelete}>
+            Delete
+          </Button>
+        )}
+      </span>
+      {menu.open && (
+        <ActionMenu
+          label={`Actions for tag ${tag.name}`}
+          items={items}
+          x={menu.open.x}
+          y={menu.open.y}
+          onClose={menu.close}
+        />
+      )}
+    </li>
+  );
+}
+
+interface RemoteRowProps {
+  remote: RemoteInfo;
+  onRename: () => void;
+  onEditAddress: () => void;
+  onRemove: () => void;
+}
+
+function RemoteRow({ remote, onRename, onEditAddress, onRemove }: RemoteRowProps) {
+  const menu = useActionMenu();
+  const items: MenuItem[] = [
+    { key: "rename", label: "Rename", run: onRename },
+    { key: "address", label: "Edit address", run: onEditAddress },
+    { key: "remove", label: "Remove", destructive: true, separated: true, run: onRemove },
+  ];
+
+  return (
+    <li className="branch-row" onContextMenu={menu.openFromContextMenu}>
+      <TruncatedText className="branch-name" text={remote.name} />
+      <TruncatedText className="branch-upstream" text={remote.url} />
+      {remote.pushUrl && <TruncatedText className="branch-upstream" text={`push: ${remote.pushUrl}`} />}
+      <span className="branch-actions">
+        <OptionsButton label={`Options for remote ${remote.name}`} expanded={menu.open !== null} onClick={menu.openFromButton} />
+      </span>
+      {menu.open && (
+        <ActionMenu
+          label={`Actions for remote ${remote.name}`}
+          items={items}
+          x={menu.open.x}
+          y={menu.open.y}
+          onClose={menu.close}
+        />
+      )}
+    </li>
   );
 }

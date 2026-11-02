@@ -2474,7 +2474,6 @@ button.commit-hash:hover {
 
 .branch-row {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
   gap: var(--space-3);
   padding: var(--space-2) var(--space-3);
@@ -2486,8 +2485,15 @@ button.commit-hash:hover {
 }
 
 .branch-name {
+  flex: 0 1 auto;
   font: var(--text-md) var(--font-mono);
   color: var(--color-text-strong);
+}
+
+.branch-presence,
+.branch-badge,
+.branch-counts {
+  flex: none;
 }
 
 .branch-presence {
@@ -2505,9 +2511,15 @@ button.commit-hash:hover {
   color: var(--color-text-subtle);
 }
 
+.branch-upstream {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
 .branch-actions {
   display: flex;
-  flex-wrap: wrap;
+  flex: none;
+  align-items: center;
   gap: var(--space-2);
   margin-left: auto;
 }
@@ -2659,6 +2671,8 @@ button.commit-hash:hover {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
+  min-width: 0;
+  max-width: 100%;
   padding: 0;
   text-align: left;
   background: transparent;
@@ -2673,6 +2687,7 @@ button.commit-hash:hover {
 
 .stash-actions {
   display: flex;
+  align-items: center;
   gap: var(--space-2);
 }
 
@@ -2699,7 +2714,6 @@ button.commit-hash:hover {
 
 .worktree-row {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
   gap: var(--space-3);
   padding: var(--space-2) var(--space-3);
@@ -2707,13 +2721,19 @@ button.commit-hash:hover {
 }
 
 .worktree-head {
+  flex: 0 1 auto;
   font: var(--text-md) var(--font-mono);
   color: var(--color-text-strong);
 }
 
 .worktree-path {
+  flex: 1 1 0;
   font: var(--text-xs) var(--font-mono);
   color: var(--color-text-subtle);
+}
+
+.worktree-row .branch-badge {
+  flex: none;
 }
 
 .pull-request-toolbar {

@@ -12,6 +12,7 @@ import { describeError } from "../core/describeError";
 import { useConfirmation } from "../useConfirmation";
 import { Button } from "./Button";
 import { describeHead } from "./TabStrip";
+import { TruncatedText } from "./TruncatedText";
 
 interface WorktreesViewProps {
   api: CoreApi;
@@ -86,8 +87,8 @@ export function WorktreesView({ api, tab, pickFolder }: WorktreesViewProps) {
       <ul className="worktree-list" aria-label="Worktrees">
         {worktrees.map((worktree) => (
           <li key={worktree.path} className="worktree-row">
-            <span className="worktree-head">{describeHead(worktree.head)}</span>
-            <span className="worktree-path">{worktree.path}</span>
+            <TruncatedText className="worktree-head" text={describeHead(worktree.head)} />
+            <TruncatedText path className="worktree-path" text={worktree.path} />
             <span className="branch-badge">{worktree.dirty ? "dirty" : "clean"}</span>
             {worktree.main && <span className="branch-badge">main</span>}
             <span className="branch-actions">

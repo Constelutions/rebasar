@@ -133,8 +133,11 @@ it("themes the buttons on the Branches page", async () => {
   const topic = (await screen.findByText("topic", { selector: ".branch-name" })).closest("li") as HTMLElement;
 
   expect(within(topic).getByRole("button", { name: "Check out topic" })).toHaveClass("button");
-  expect(within(topic).getByRole("button", { name: "Delete topic" })).toHaveClass("button-danger");
   expect(screen.getByRole("button", { name: "Create" })).toHaveClass("button");
+
+  await userEvent.click(within(topic).getByRole("button", { name: "Options for topic" }));
+
+  expect(screen.getByRole("menuitem", { name: "Delete" })).toHaveClass("danger");
 });
 
 it("themes the buttons on the Worktrees page", async () => {
