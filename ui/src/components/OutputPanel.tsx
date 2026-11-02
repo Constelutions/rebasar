@@ -3,6 +3,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { useCopyOnSelect } from "../useCopyOnSelect";
 import { type MutationRun, type MutationState, isActive } from "../useMutations";
 import { Button } from "./Button";
+import { ChevronIcon } from "./ChevronIcon";
 
 interface OutputPanelProps {
   runs: MutationRun[];
@@ -35,6 +36,7 @@ export function OutputPanel({ runs, onCancel }: OutputPanelProps) {
           onClick={() => setExpanded((current) => !current)}
         >
           Output
+          <ChevronIcon direction={expanded ? "down" : "right"} />
         </Button>
         <span role="status" className="output-summary">
           {summarise(active, latest)}

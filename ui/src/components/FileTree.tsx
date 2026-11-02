@@ -4,6 +4,7 @@ import type { ChangeKind, Editor, FileChange, FilesView } from "../core/api";
 import { useDismiss } from "../useDismiss";
 import { type FileOpener, NOTHING_TO_OPEN, canOpen } from "../useEditors";
 import { Button } from "./Button";
+import { ChevronIcon } from "./ChevronIcon";
 import { type GroupTree, type TreeRow, fileKey, flattenChanges } from "./changeTree";
 import { SegmentedControl } from "./SegmentedControl";
 import { VirtualList } from "./VirtualList";
@@ -232,6 +233,7 @@ function TreeRowView<L extends string>({
         style={indent}
         onClick={() => onToggle(row.key)}
       >
+        <ChevronIcon direction={row.expanded ? "down" : "right"} />
         <span className="tree-name">{row.folder.name}</span>
         <LineCounts added={row.folder.added} removed={row.folder.removed} />
       </Button>

@@ -2,6 +2,7 @@ import { useCallback, useId, useRef, useState } from "react";
 
 import { useDismiss } from "../useDismiss";
 import { Button } from "./Button";
+import { ChevronIcon } from "./ChevronIcon";
 
 export interface MultiSelectOption {
   value: string;
@@ -44,6 +45,7 @@ export function MultiSelect({ label, summary, presets, options, onToggle }: Mult
       >
         <span className="multi-select-label">{label}</span>
         <span className="multi-select-summary">{summary}</span>
+        <ChevronIcon direction="down" />
       </Button>
       {open && (
         <div role="group" aria-label={label} className="multi-select-popover">

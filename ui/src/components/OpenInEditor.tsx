@@ -7,6 +7,7 @@ import type { PaletteCommand } from "../palette/registry";
 import { useDismiss } from "../useDismiss";
 import { useEditors } from "../useEditors";
 import { Button } from "./Button";
+import { ChevronIcon } from "./ChevronIcon";
 
 interface OpenInEditorProps {
   api: CoreApi;
@@ -70,7 +71,7 @@ export function OpenInEditor({ api, worktreePath, onError }: OpenInEditorProps) 
         aria-expanded={menuOpen}
         onClick={() => setMenuOpen((current) => !current)}
       >
-        <span aria-hidden="true">▾</span>
+        <ChevronIcon direction="down" />
       </Button>
       {menuOpen && (
         <div role="menu" aria-label="Editors" className="open-in-editor-menu">

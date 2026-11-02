@@ -48,7 +48,6 @@ export function Sidebar({ selected, collapsed, onSelect, onToggleCollapsed }: Si
         onClick={onToggleCollapsed}
       >
         <SidebarToggleIcon collapsed={collapsed} />
-        {!collapsed && "Collapse"}
       </Button>
     </aside>
   );

@@ -5,6 +5,7 @@ import type { OpenTab } from "../useOpenTabs";
 import { Button } from "./Button";
 import { StatusDot } from "./StatusDot";
 import { describeHead } from "./TabStrip";
+import { TruncatedText } from "./TruncatedText";
 
 interface RepositorySwitcherProps {
   tabs: OpenTab[];
@@ -86,8 +87,8 @@ export function RepositorySwitcher({ tabs, activePath, onSelect }: RepositorySwi
                 }}
               >
                 <StatusDot status={status} />
-                <span className="tab-name">{tab.repositoryName}</span>
-                <span className="tab-head">{describeHead(tab.head)}</span>
+                <TruncatedText className="tab-name" text={tab.repositoryName} />
+                <TruncatedText className="tab-head" text={describeHead(tab.head)} />
               </Button>
             ))}
           </div>

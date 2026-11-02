@@ -1,5 +1,4 @@
-import { useEffect, useRef } from "react";
-import { Button } from "../components/Button";
+import { ActionMenu, type MenuItem } from "../components/ActionMenu";
 
 export type CommitAction =
   | "checkout"
@@ -38,48 +37,10 @@ interface CommitMenuProps {
 }
 
 export function CommitMenu({ x, y, onSelect, onClose }: CommitMenuProps) {
-  const menu = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const opener = document.activeElement;
-    menu.current?.querySelector<HTMLElement>("[role=menuitem]")?.focus();
-    const closeOnOutsideClick = (event: MouseEvent) => {
-      if (!menu.current?.contains(event.target as Node)) onClose();
-    };
-    document.addEventListener("mousedown", closeOnOutsideClick);
-    return () => {
-      document.removeEventListener("mousedown", closeOnOutsideClick);
-      if (opener instanceof HTMLElement && document.activeElement === document.body) opener.focus();
-    };
-  }, [onClose]);
-
-  function moveFocus(offset: number) {
-    const buttons = [...(menu.current?.querySelectorAll<HTMLElement>("[role=menuitem]") ?? [])];
-    const current = buttons.indexOf(document.activeElement as HTMLElement);
-    buttons[(current + offset + buttons.length) % buttons.length]?.focus();
-  }
-
-  return (
-    <div
-      ref={menu}
-      role="menu"
-      aria-label="Commit actions"
-      className="context-menu"
-      style={{ left: x, top: y }}
-      onKeyDown={(event) => {
-        if (event.key === "Escape") {
-          onClose();
-        } else if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-          event.preventDefault();
-          moveFocus(event.key === "ArrowDown" ? 1 : -1);
-        }
-      }}
-    >
-      {items.map(({ action, label }) => (
-        <Button variant="plain" key={action} type="button" role="menuitem" onClick={() => onSelect(action)}>
-          {label}
-        </Button>
-      ))}
-    </div>
-  );
+  const menuItems: MenuItem[] = items.map(({ action, label }) => ({
+    key: action,
+    label,
+    run: () => onSelect(action),
+  }));
+  return <ActionMenu label="Commit actions" items={menuItems} x={x} y={y} onClose={onClose} />;
 }
