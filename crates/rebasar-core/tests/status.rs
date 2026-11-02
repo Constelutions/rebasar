@@ -296,3 +296,74 @@ fn a_status_request_for_a_plain_folder_reports_it() {
         rebasar_core::ApiError::NotARepository { .. }
     ));
 }
+
+fn numbered(prefix: &str, index: usize) -> String {
+    format!("{prefix}{index:03}.txt")
+}
+
+#[test]
+fn a_large_changeset_reports_exact_line_counts_for_every_file_in_path_order() {
+    const MODIFIED: usize = 200;
+    const DELETED: usize = 50;
+    const STAGED: usize = 50;
+    const UNTRACKED: usize = 50;
+
+    let repo = TempRepo::init("changeset");
+    for index in 0..MODIFIED + DELETED + STAGED {
+        repo.write_file(&numbered("f", index), "a\nb\nc\n");
+    }
+    repo.git(&["add", "--all"]);
+    repo.git(&["commit", "--message", "Initial commit"]);
+
+    let mut expected_unstaged = Vec::new();
+    for index in 0..MODIFIED {
+        let appended = index % 4;
+        repo.write_file(
+            &numbered("f", index),
+            format!("a\nB\nc\n{}", "x\n".repeat(appended)),
+        );
+        expected_unstaged.push(change(
+            &numbered("f", index),
+            ChangeKind::Modified,
+            1 + appended as u32,
+            1,
+        ));
+    }
+    for index in MODIFIED..MODIFIED + DELETED {
+        repo.delete_file(&numbered("f", index));
+        expected_unstaged.push(change(&numbered("f", index), ChangeKind::Deleted, 0, 3));
+    }
+    for index in 0..UNTRACKED {
+        let lines = 1 + index % 3;
+        repo.write_file(&numbered("u", index), "n\n".repeat(lines));
+        expected_unstaged.push(change(
+            &numbered("u", index),
+            ChangeKind::Untracked,
+            lines as u32,
+            0,
+        ));
+    }
+
+    let mut expected_staged = Vec::new();
+    for index in MODIFIED + DELETED..MODIFIED + DELETED + STAGED {
+        let appended = 1 + index % 4;
+        repo.write_file(
+            &numbered("f", index),
+            format!("a\nb\nc\n{}", "y\n".repeat(appended)),
+        );
+        repo.stage(&numbered("f", index));
+        expected_staged.push(change(
+            &numbered("f", index),
+            ChangeKind::Modified,
+            appended as u32,
+            0,
+        ));
+    }
+    expected_unstaged.sort_by(|a, b| a.path.cmp(&b.path));
+    expected_staged.sort_by(|a, b| a.path.cmp(&b.path));
+
+    let status = status_of(&repo);
+
+    assert_eq!(status.unstaged, expected_unstaged);
+    assert_eq!(status.staged, expected_staged);
+}

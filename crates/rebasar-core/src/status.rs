@@ -82,18 +82,74 @@ pub(crate) fn read(repo: &gix::Repository) -> Result<WorktreeStatus, ApiError> {
 
     let conflicted: BTreeSet<_> = conflicts
         .iter()
-        .map(|c: &FileChange| c.path.clone())
+        .map(|pending: &Pending| pending.change.path.clone())
         .collect();
     // The tree-to-index diff also reports the stage-0-less entries of an unmerged path.
-    staged.retain(|change| !conflicted.contains(&change.path));
+    staged.retain(|pending| !conflicted.contains(&pending.change.path));
     for list in [&mut conflicts, &mut staged, &mut unstaged] {
-        list.sort_by(|a, b| a.path.cmp(&b.path));
+        list.sort_by(|a, b| a.change.path.cmp(&b.change.path));
+    }
+    let shared = repo.clone().into_sync();
+    for list in [&mut staged, &mut unstaged] {
+        count_lines(&shared, &work_dir, list);
     }
     Ok(WorktreeStatus {
-        conflicts,
-        staged,
-        unstaged,
+        conflicts: into_changes(conflicts),
+        staged: into_changes(staged),
+        unstaged: into_changes(unstaged),
     })
+}
+
+/// How a change's line counts are worked out. Listing the changes only records this; the work
+/// itself is the expensive part of a status and runs afterwards, across threads.
+enum Counting {
+    Unavailable,
+    /// All lines of the blob, as removed.
+    Removed(gix::ObjectId),
+    /// All lines of the blob, as added.
+    Added(gix::ObjectId),
+    /// All lines of the file on disk, as added.
+    Untracked(BString),
+    AgainstWorktree(gix::ObjectId, BString),
+    BetweenBlobs(gix::ObjectId, gix::ObjectId),
+}
+
+struct Pending {
+    change: FileChange,
+    counting: Counting,
+}
+
+fn into_changes(list: Vec<Pending>) -> Vec<FileChange> {
+    list.into_iter().map(|pending| pending.change).collect()
+}
+
+/// Below this many changes the cost of starting threads outweighs the counting itself.
+const MIN_CHANGES_PER_THREAD: usize = 64;
+
+fn count_lines(shared: &gix::ThreadSafeRepository, work_dir: &Path, list: &mut [Pending]) {
+    let threads = std::thread::available_parallelism()
+        .map_or(1, |threads| threads.get())
+        .min(list.len() / MIN_CHANGES_PER_THREAD)
+        .max(1);
+    if threads == 1 {
+        count_chunk(&shared.to_thread_local(), work_dir, list);
+        return;
+    }
+    let chunk_len = list.len().div_ceil(threads);
+    std::thread::scope(|scope| {
+        for chunk in list.chunks_mut(chunk_len) {
+            scope.spawn(|| count_chunk(&shared.to_thread_local(), work_dir, chunk));
+        }
+    });
+}
+
+fn count_chunk(repo: &gix::Repository, work_dir: &Path, chunk: &mut [Pending]) {
+    let reader = Reader { repo, work_dir };
+    for pending in chunk {
+        let counts = reader.count(&pending.counting);
+        pending.change.added = counts.map(|(added, _)| added);
+        pending.change.removed = counts.map(|(_, removed)| removed);
+    }
 }
 
 struct Reader<'repo> {
@@ -105,8 +161,8 @@ impl Reader<'_> {
     fn collect_index_worktree(
         &self,
         item: IndexWorktreeItem,
-        conflicts: &mut Vec<FileChange>,
-        unstaged: &mut Vec<FileChange>,
+        conflicts: &mut Vec<Pending>,
+        unstaged: &mut Vec<Pending>,
     ) {
         match item {
             IndexWorktreeItem::Modification {
@@ -116,18 +172,29 @@ impl Reader<'_> {
                 ..
             } => match status {
                 EntryStatus::Conflict { .. } => {
-                    conflicts.push(file_change(&rela_path, ChangeKind::Conflicted, None));
+                    conflicts.push(pending_change(
+                        &rela_path,
+                        ChangeKind::Conflicted,
+                        Counting::Unavailable,
+                    ));
                 }
                 EntryStatus::Change(WorktreeChange::Removed) => {
-                    let counts = self.blob(&entry.id).map(|old| (0, line_count(&old)));
-                    unstaged.push(file_change(&rela_path, ChangeKind::Deleted, counts));
+                    unstaged.push(pending_change(
+                        &rela_path,
+                        ChangeKind::Deleted,
+                        Counting::Removed(entry.id),
+                    ));
                 }
                 EntryStatus::Change(WorktreeChange::Type { .. }) => {
-                    unstaged.push(file_change(&rela_path, ChangeKind::TypeChanged, None));
+                    unstaged.push(pending_change(
+                        &rela_path,
+                        ChangeKind::TypeChanged,
+                        Counting::Unavailable,
+                    ));
                 }
                 EntryStatus::Change(WorktreeChange::Modification { .. }) => {
-                    let counts = self.counts_against_worktree(&entry.id, &rela_path);
-                    unstaged.push(file_change(&rela_path, ChangeKind::Modified, counts));
+                    let counting = Counting::AgainstWorktree(entry.id, rela_path.clone());
+                    unstaged.push(pending_change(&rela_path, ChangeKind::Modified, counting));
                 }
                 _ => {}
             },
@@ -137,34 +204,39 @@ impl Reader<'_> {
                 {
                     return;
                 }
-                let counts = self
-                    .worktree_file(&entry.rela_path)
-                    .map(|new| (line_count(&new), 0));
-                unstaged.push(file_change(&entry.rela_path, ChangeKind::Untracked, counts));
+                let counting = Counting::Untracked(entry.rela_path.clone());
+                unstaged.push(pending_change(
+                    &entry.rela_path,
+                    ChangeKind::Untracked,
+                    counting,
+                ));
             }
             IndexWorktreeItem::Rewrite { .. } => {}
         }
     }
 
-    fn tree_index_change(&self, change: TreeIndexChange) -> FileChange {
+    fn tree_index_change(&self, change: TreeIndexChange) -> Pending {
         match change {
-            TreeIndexChange::Addition { location, id, .. } => {
-                let counts = self.blob(&id).map(|new| (line_count(&new), 0));
-                file_change(&location, ChangeKind::Added, counts)
-            }
-            TreeIndexChange::Deletion { location, id, .. } => {
-                let counts = self.blob(&id).map(|old| (0, line_count(&old)));
-                file_change(&location, ChangeKind::Deleted, counts)
-            }
+            TreeIndexChange::Addition { location, id, .. } => pending_change(
+                &location,
+                ChangeKind::Added,
+                Counting::Added(id.into_owned()),
+            ),
+            TreeIndexChange::Deletion { location, id, .. } => pending_change(
+                &location,
+                ChangeKind::Deleted,
+                Counting::Removed(id.into_owned()),
+            ),
             TreeIndexChange::Modification {
                 location,
                 previous_id,
                 id,
                 ..
-            } => {
-                let counts = self.counts_between_blobs(&previous_id, &id);
-                file_change(&location, ChangeKind::Modified, counts)
-            }
+            } => pending_change(
+                &location,
+                ChangeKind::Modified,
+                Counting::BetweenBlobs(previous_id.into_owned(), id.into_owned()),
+            ),
             TreeIndexChange::Rewrite {
                 source_location,
                 source_id,
@@ -173,15 +245,35 @@ impl Reader<'_> {
                 copy,
                 ..
             } => {
-                let counts = self.counts_between_blobs(&source_id, &id);
+                let counting = Counting::BetweenBlobs(source_id.into_owned(), id.into_owned());
                 if copy {
-                    file_change(&location, ChangeKind::Added, counts)
+                    pending_change(&location, ChangeKind::Added, counting)
                 } else {
-                    FileChange {
-                        original_path: Some(path_string(&source_location)),
-                        ..file_change(&location, ChangeKind::Renamed, counts)
-                    }
+                    let mut renamed = pending_change(&location, ChangeKind::Renamed, counting);
+                    renamed.change.original_path = Some(path_string(&source_location));
+                    renamed
                 }
+            }
+        }
+    }
+
+    fn count(&self, counting: &Counting) -> Option<(u32, u32)> {
+        match counting {
+            Counting::Unavailable => None,
+            Counting::Removed(id) => self.blob(id).map(|old| (0, line_count(&old))),
+            Counting::Added(id) => self.blob(id).map(|new| (line_count(&new), 0)),
+            Counting::Untracked(rela_path) => self
+                .worktree_file(rela_path)
+                .map(|new| (line_count(&new), 0)),
+            Counting::AgainstWorktree(old, rela_path) => {
+                let old = self.blob(old)?;
+                let new = self.worktree_file(rela_path)?;
+                Some(diff_counts(&old, &new))
+            }
+            Counting::BetweenBlobs(old, new) => {
+                let old = self.blob(old)?;
+                let new = self.blob(new)?;
+                Some(diff_counts(&old, &new))
             }
         }
     }
@@ -198,21 +290,12 @@ impl Reader<'_> {
         let bytes = std::fs::read(path).ok()?;
         (bytes.len() <= MAX_COUNTED_BYTES && !looks_binary(&bytes)).then_some(bytes)
     }
+}
 
-    fn counts_between_blobs(&self, old: &gix::oid, new: &gix::oid) -> Option<(u32, u32)> {
-        let old = self.blob(old)?;
-        let new = self.blob(new)?;
-        Some(diff_counts(&old, &new))
-    }
-
-    fn counts_against_worktree(
-        &self,
-        old: &gix::oid,
-        rela_path: impl AsRef<BStr>,
-    ) -> Option<(u32, u32)> {
-        let old = self.blob(old)?;
-        let new = self.worktree_file(rela_path)?;
-        Some(diff_counts(&old, &new))
+fn pending_change(path: impl AsRef<BStr>, kind: ChangeKind, counting: Counting) -> Pending {
+    Pending {
+        change: file_change(path, kind, None),
+        counting,
     }
 }
 
