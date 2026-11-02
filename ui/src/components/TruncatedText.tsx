@@ -12,13 +12,15 @@ interface TruncatedTextProps {
   className?: string;
   /** Cuts from the start so the file name stays visible: the ellipsis replaces the leading directories. */
   path?: boolean;
+  /** Shows this in the tooltip even when the text fits, for a label that stands for more than it says. */
+  tip?: string;
 }
 
 /**
  * Text that ends in an ellipsis instead of overlapping its neighbours. When it is actually cut,
  * hovering it shows the full text in a tooltip the pointer can enter, so the text can be selected.
  */
-export function TruncatedText({ text, className, path = false }: TruncatedTextProps) {
+export function TruncatedText({ text, className, path = false, tip }: TruncatedTextProps) {
   const element = useRef<HTMLSpanElement>(null);
   const [anchor, setAnchor] = useState<DOMRect | null>(null);
   const showTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -35,10 +37,10 @@ export function TruncatedText({ text, className, path = false }: TruncatedTextPr
   const show = useCallback(() => {
     clearTimeout(leaveTimer.current);
     const target = element.current;
-    if (!target || target.scrollWidth <= target.clientWidth) return;
+    if (!target || (tip === undefined && target.scrollWidth <= target.clientWidth)) return;
     clearTimeout(showTimer.current);
     showTimer.current = setTimeout(() => setAnchor(target.getBoundingClientRect()), SHOW_DELAY_MS);
-  }, []);
+  }, [tip]);
 
   const hide = useCallback(() => {
     clearTimeout(showTimer.current);
@@ -52,7 +54,7 @@ export function TruncatedText({ text, className, path = false }: TruncatedTextPr
       {path ? <bdi>{text}</bdi> : text}
       {anchor && (
         <TruncationTooltip anchor={anchor} onEnter={show} onLeave={hide}>
-          {text}
+          {tip ?? text}
         </TruncationTooltip>
       )}
     </span>

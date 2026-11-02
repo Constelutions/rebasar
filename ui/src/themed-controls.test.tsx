@@ -155,3 +155,12 @@ it("scrolls the Settings page at the edge of the pane, not beside its narrow col
   expect(rule(css, ".settings")).not.toContain("max-width");
   expect(rule(css, ".settings > :not(.segmented)")).toContain("max-width");
 });
+
+describe("vertical alignment of button-like controls", () => {
+  it.each([".chip", ".type-chip", ".multi-select-button"])("%s centres its content in a box of its own height", (selector) => {
+    const declarations = rule(stylesheet("styles.css"), selector);
+
+    expect(declarations, selector).toMatch(/align-items:\s*center/);
+    expect(declarations, selector).toMatch(/box-sizing:\s*border-box/);
+  });
+});

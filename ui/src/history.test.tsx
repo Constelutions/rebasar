@@ -67,9 +67,31 @@ it("labels commits with HEAD, local and remote branches and tags", async () => {
   ]);
 
   const commit = await screen.findByRole("listitem");
-  for (const name of ["HEAD", "main", "origin/main", "v1.0"]) {
-    expect(within(commit).getByText(name)).toBeInTheDocument();
-  }
+  expect(within(commit).getByText("HEAD")).toBeInTheDocument();
+  expect(within(commit).getByText("main")).toBeInTheDocument();
+  expect(within(commit).getByText("+2")).toBeInTheDocument();
+});
+
+it("collapses the refs past the first two into a +N chip that lists them on hover", async () => {
+  const user = userEvent.setup();
+  await showHistory([
+    commitRow({
+      refs: [
+        { kind: "remoteBranch", name: "origin/main" },
+        { kind: "tag", name: "v1.0" },
+        { kind: "localBranch", name: "main" },
+        { kind: "head", name: "HEAD" },
+      ],
+    }),
+  ]);
+
+  const commit = await screen.findByRole("listitem");
+  expect(within(commit).queryByText("origin/main")).not.toBeInTheDocument();
+  await user.hover(within(commit).getByText("+2"));
+
+  const tooltip = await screen.findByRole("tooltip");
+  expect(tooltip).toHaveTextContent("v1.0");
+  expect(tooltip).toHaveTextContent("origin/main");
 });
 
 it("groups commits under a heading for the day they were made", async () => {

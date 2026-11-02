@@ -2,6 +2,7 @@ import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useStat
 
 import { SegmentedControl } from "../components/SegmentedControl";
 import { SplitPane, SplitPositionToggle } from "../components/SplitPane";
+import { TruncatedText } from "../components/TruncatedText";
 import { type CoreApi, HISTORY_SHORT_ID_LENGTH, type HistoryRow, type Settings, type Tab } from "../core/api";
 import { describeError } from "../core/describeError";
 import { Button } from "../components/Button";
@@ -19,7 +20,7 @@ import { type Chips, FilterBar } from "./FilterBar";
 import { defaultChips, useHistoryCommands } from "./historyCommands";
 import { MY_COMMITS, addTerm } from "./historyQuery";
 import { useAuthorNames, useBranchNames } from "./useFilterChoices";
-import { RefBadge } from "./RefBadge";
+import { RefBadges } from "./RefBadge";
 import { type GraphStyle, type Orientation, itemSize, minimumHeight } from "./geometry";
 import { type HistoryItem, formatTime } from "./items";
 import { useHistory, useHistoryCount } from "./useHistory";
@@ -524,12 +525,10 @@ function CommitItem({
       <CommitGraph row={row} connections={connections} {...graph} />
       <Avatar name={row.authorName} email={row.authorEmail} />
       <span className="commit-message">
-        <span className="commit-subject">{row.subject}</span>
-        {row.refs.map((label) => (
-          <RefBadge key={`${label.kind}-${label.name}`} label={label} />
-        ))}
+        <TruncatedText className="commit-subject" text={row.subject} />
+        <RefBadges refs={row.refs} />
       </span>
-      <span className="commit-author">{row.authorName}</span>
+      <TruncatedText className="commit-author" text={row.authorName} />
       <Button
         variant="plain"
         className="commit-hash"
