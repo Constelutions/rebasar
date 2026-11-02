@@ -6,7 +6,7 @@ The name is a pun on *rebase* and *quasar*; in Spanish, *rebasar* also means "to
 
 ## Status
 
-Pre-alpha. The first alpha targets Windows, with Linux next and macOS later. The UI direction lives in `prototypes/mockups/`.
+Beta in preparation, targeting Windows and Linux; macOS is later. Releases and the branch model are described in [`docs/adr/0004-beta-and-stable-release-channels.md`](docs/adr/0004-beta-and-stable-release-channels.md). The UI direction lives in `prototypes/mockups/`.
 
 ## Development
 
