@@ -65,30 +65,28 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
       - uses: actions/download-artifact@v4
         with:
           pattern: installers-*
           path: assets
           merge-multiple: true
 
-      - name: Check the names and write SHA256SUMS
+      - name: Write SHA256SUMS
         shell: bash
         working-directory: assets
         run: |
-          set -euo pipefail
-          version=$(sed -n 's/^version = "\(.*\)"/\1/p' ../Cargo.toml | head -n 1)
-          for expected in \
-            "Rebasar_${version}_x64-setup.exe" \
-            "Rebasar_${version}_amd64.AppImage" \
-            "Rebasar_${version}_amd64.deb"; do
-            if [ ! -f "$expected" ]; then
-              echo "::error::missing asset $expected"
-              ls -l
-              exit 1
-            fi
-          done
           sha256sum Rebasar_* > SHA256SUMS
           cat SHA256SUMS
+
+      - name: Check the asset names and checksums against the contract
+        shell: bash
+        run: |
+          version=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -n 1)
+          node scripts/release/plan.mjs check-assets --version "$version" --dir assets
 
       - uses: actions/upload-artifact@v4
         with:
