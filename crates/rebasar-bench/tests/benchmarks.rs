@@ -275,3 +275,21 @@ fn the_cold_start_keeps_the_driver_inclusive_figure_as_a_ceiling_when_the_app_re
     assert_eq!(with_driver[0].measurements[0].value, 1052.0);
     assert!(without_driver[0].measurements.is_empty());
 }
+
+#[test]
+fn the_idle_memory_keeps_the_working_set_sum_as_a_ceiling_and_is_checked_on_the_private_figure() {
+    let results = app_results(
+        r#"{ "coldStartMs": 580, "idleMemoryMb": 130.1, "idleWorkingSetMb": 419.1 }"#,
+    )
+    .unwrap();
+    let without_working_set =
+        app_results(r#"{ "coldStartMs": 580, "idleMemoryMb": 130.1 }"#).unwrap();
+
+    let memory = &results[1];
+    assert_eq!(memory.verdict, Verdict::Within);
+    assert_eq!(memory.measurements[0].name, "app-memory");
+    assert_eq!(memory.measurements[0].value, 130.1);
+    assert_eq!(memory.measurements[1].name, "app-memory-working-set");
+    assert_eq!(memory.measurements[1].value, 419.1);
+    assert_eq!(without_working_set[1].measurements.len(), 1);
+}
