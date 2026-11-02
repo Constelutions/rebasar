@@ -14,33 +14,33 @@ Every alpha performance threshold, measured on the generated benchmark Repositor
 
 | Threshold | Target | Measured | |
 |---|---|---|---|
-| Commit graph usable, first page (1.2 M commits) | < 2,000 ms | **286 ms** | within |
-| Status on a 100,000-file working tree | < 300 ms | **235 ms** | within |
-| Tab switch (20 Repositories, 50 Worktrees open) | < 100 ms | **6 ms** (median 3 ms) | within |
-| First file of the 5,000-file / 500k-line changeset | < 300 ms | **467 ms** | **missed** |
-| Cold start to interactive | < 1,000 ms | **1,003 ms** | **missed** (by 3 ms) |
-| Idle memory | < 300 MB | **416 MB** | **missed** |
+| Commit graph usable, first page (1.2 M commits) | < 2,000 ms | **38 ms** | within |
+| Status on a 100,000-file working tree | < 300 ms | **211 ms** | within |
+| Tab switch (20 Repositories, 50 Worktrees open) | < 100 ms | **3 ms** (median 2 ms) | within |
+| First file of the 5,000-file / 500k-line changeset | < 300 ms | **105 ms** | within |
+| Cold start to interactive | < 1,000 ms | **530 ms** | within |
+| Idle memory | < 300 MB | **134 MB** | within |
 
-### Misses
+Every threshold is within its target. The first run of this report missed three ([#77](https://github.com/Constelutions/rebasar/issues/77)); what changed for each is below.
 
-- **First file of the changeset, 467 ms against 300 ms.** This is the core's share only (list the 5,000 changes, diff the first file); rendering is not included, so the real figure is higher. Most of it is the status read of the 5,000-file changeset (299 ms in `status-changeset`).
-- **Cold start, 1,003 ms against 1,000 ms.** Measured from launching the app until a click on the sidebar is answered. The WebDriver attaching to the page is part of that time, so the app's own figure is somewhat lower, but it was not isolated; the first launch after a build is the slowest.
-- **Idle memory, 416 MB against 300 MB.** The sum of the working sets of the app and every process it started, with the 100,000-file worktree open and eight seconds of idleness. Working set counts memory the WebView2 processes share, so it overstates what the app alone costs; a private-memory figure was not taken. What each process holds was not broken down.
+### What the three misses were
 
-Follow-up issues: first changeset file [#52](https://github.com/Constelutions/rebasar/issues/52), cold start [#53](https://github.com/Constelutions/rebasar/issues/53), idle memory [#54](https://github.com/Constelutions/rebasar/issues/54).
+- **First file of the changeset, 467 ms in the first run, now 105 ms** ([#52](https://github.com/Constelutions/rebasar/issues/52)). Listing the 5,000 changes takes about 13 ms; the line counts shown beside each file were the other 233 ms, computed one file at a time while listing. The core now lists first and counts across threads. The status of the changeset went from about 250 ms to 102 ms with it. Before the change, remeasuring on this machine gave 241 to 281 ms, not 467 ms, so the original run was slower for a reason that was not reproduced (a loaded machine or a cold file cache are the likely ones); the change is measured against the 250 ms.
+- **Cold start, 1,003 ms in the first run, now 530 ms** ([#53](https://github.com/Constelutions/rebasar/issues/53)). Probing the release build separated the parts: `main()` starts about 10 ms after the process; about 410 ms pass inside Tauri creating the window and the WebView2 before the app's own `setup` runs, and `setup` takes about 1 ms; the page then loads and is interactive about 150 ms after it starts navigating. Registry and settings reads, the git check and the session restore all happen after that point, so none of them delays it. The WebDriver's attach time is the rest: the first launch of a driver session took about 450 ms longer than later ones, with the app's own timeline unchanged. The figure is now measured from the app's process start to the `rebasar-interactive` mark the app sets on its first render. The driver-inclusive figure is kept next to it (**915 ms** in this run; 823 to 1,060 ms across runs) as a ceiling. Extra WebView2 launch arguments (`--disable-background-networking` and others) made no difference and were not kept.
+- **Idle memory, 416 MB in the first run, now 134 MB** ([#54](https://github.com/Constelutions/rebasar/issues/54)). The 416 MB summed working sets, which count the pages the WebView2 processes share (system libraries, mostly) once per process. Per process, in private working set, with the 100,000-file worktree open: WebView2 browser 29 MB, GPU 52, renderer 26, network 7, storage 3, other 3, and the app itself 10, which is also the core's whole cost for the open Tab. The benchmark now sums private working sets, the figure Task Manager's "Memory" column adds up. The plain working-set sum is kept next to it (**423 MB** in this run) as a ceiling.
 
 ### Other figures
 
-- Scrolling the graph: ten further pages of 100 rows took 380 ms in total (about 38 ms a page), above the 16 ms a page that 60 fps needs. The core part is measured; drawing is not.
-- Status on the changeset fixture: 299 ms.
-- 50 Tabs: opening them all took 3.2 s and 21 MB; memory after switching stayed at 29 MB; the file watchers sent no events while idle and used 0.8 % of a core.
-- Refreshing a Tab after switching to it: median 9.6 ms, slowest 22 ms.
+- Scrolling the graph: ten further pages of 100 rows took 141 ms in total (about 14 ms a page), under the 16 ms a page that 60 fps needs. The core part is measured; drawing is not.
+- 50 Tabs: opening them all took 0.7 s and 24 MB; memory after switching stayed at 34 MB; the file watchers sent no events while idle and used 0 % of a core.
+- Refreshing a Tab after switching to it: median 8.6 ms, slowest 11 ms.
+- The core figures are warm-cache runs on the same machine as the first run, so the unchanged scenarios differ from it by the state of the file cache (the first page of the graph read 286 ms then and 38 ms now).
 
 ## What the figures do not cover
 
 - The webview's own work: React painting a Tab, the diff rows, the graph canvas.
-- Cold start without the WebDriver's attach time, and the effect of a cold file cache.
-- Private (non-shared) memory, and memory with 20 Repositories open in the app rather than in the core harness.
+- The effect of a cold file cache on the cold start (the first launch after a build is the slowest), and Windows Defender scanning a freshly built executable.
+- Memory with 20 Repositories open in the app rather than in the core harness.
 
 ## Reproducing
 
