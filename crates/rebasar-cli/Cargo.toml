@@ -16,4 +16,5 @@ path = "tests/support/app_recorder.rs"
 test = false
 
 [dev-dependencies]
+rebasar-testkit = { path = "../rebasar-testkit" }
 tempfile = "3.27.0"

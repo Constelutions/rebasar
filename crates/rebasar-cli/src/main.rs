@@ -1,4 +1,7 @@
+mod worktree;
+
 use std::env::{self, consts::EXE_SUFFIX};
+use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode, Stdio};
 
 const USAGE: &str = "\
@@ -16,7 +19,7 @@ Options:
 enum Request {
     Help,
     Version,
-    Open,
+    Open(Option<PathBuf>),
 }
 
 fn main() -> ExitCode {
@@ -32,15 +35,14 @@ fn main() -> ExitCode {
 
 fn parse(arguments: &[String]) -> Result<Request, String> {
     match arguments.first().map(String::as_str) {
-        None => Ok(Request::Open),
+        None => Ok(Request::Open(None)),
         Some("help" | "--help" | "-h") => Ok(Request::Help),
         Some("--version" | "-V") => Ok(Request::Version),
         Some(option) if option.starts_with('-') => {
             Err(format!("unknown option '{option}'. Try 'rebasar help'."))
         }
-        Some(other) => Err(format!(
-            "unexpected argument '{other}'. Try 'rebasar help'."
-        )),
+        Some(path) if arguments.len() == 1 => Ok(Request::Open(Some(PathBuf::from(path)))),
+        Some(_) => Err("only one path can be given. Try 'rebasar help'.".to_owned()),
     }
 }
 
@@ -48,13 +50,19 @@ fn run(request: Request) -> Result<(), String> {
     match request {
         Request::Help => print!("{USAGE}"),
         Request::Version => println!("rebasar {}", env!("CARGO_PKG_VERSION")),
-        Request::Open => start_app()?,
+        Request::Open(None) => start_app(None)?,
+        Request::Open(Some(path)) => {
+            let here = env::current_dir()
+                .map_err(|error| format!("cannot read the current folder: {error}"))?;
+            let root = worktree::containing(&here.join(path))?;
+            start_app(Some(&root))?;
+        }
     }
     Ok(())
 }
 
 /// Starts the desktop app that sits beside this executable, and does not wait for it.
-fn start_app() -> Result<(), String> {
+fn start_app(worktree: Option<&Path>) -> Result<(), String> {
     let cli = env::current_exe().map_err(|error| format!("cannot locate itself: {error}"))?;
     let app = cli.with_file_name(format!("rebasar-app{EXE_SUFFIX}"));
     if !app.is_file() {
@@ -69,6 +77,9 @@ fn start_app() -> Result<(), String> {
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::null());
+    if let Some(worktree) = worktree {
+        command.arg(worktree);
+    }
     detach(&mut command);
     command.spawn().map_err(|error| {
         format!(
