@@ -1536,9 +1536,16 @@ mod tests {
 
     #[test]
     fn the_one_argument_the_cli_passes_is_the_launch_path() {
-        let path = launch_path(&args(&["rebasar-app", "C:/work/api"]), Path::new("C:/elsewhere"));
+        // Absolute on whichever platform runs the test; `C:/...` is only absolute on Windows.
+        let absolute = std::env::temp_dir().join("api");
+        let elsewhere = std::env::temp_dir().join("elsewhere");
 
-        assert_eq!(path, Some(PathBuf::from("C:/work/api")));
+        let path = launch_path(
+            &args(&["rebasar-app", absolute.to_str().expect("utf-8 temp dir")]),
+            &elsewhere,
+        );
+
+        assert_eq!(path, Some(absolute));
     }
 
     #[test]
