@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use rebasar_core::{
-    ApiError, Assessment, BranchInfo, ConflictFile, ConflictSide, CommitDetail, CommitDiffRequest, CommitHit, CommitOptions, Core,
+    ApiError, AppInfo, Assessment, BranchInfo, ConflictFile, ConflictSide, CommitDetail, CommitDiffRequest, CommitHit, CommitOptions, Core,
     DiffRequest, FileChange, FileDiff, FoundRepository, GitHubAuthStatus, GitHubRepository, GitIdentity, GitSetup, Group,
     HistoryCount, HistoryFilter, HistoryPage, LineSelection, MutationId, MergeMode, MutationKind, ResetMode, StashInfo, StashPreview, RemoteInfo, TagInfo, WorktreeDetail, WorktreeStart, RebasePlan, MutationOutcome, OperationInProgress, PullStrategy,
     OutgoingCommit, PullRequest, PullRequestDetails, RefLabel, RepositoryList, Session, Settings, Tab, WindowBounds,
@@ -143,6 +143,11 @@ async fn pull_requests(
     tauri::async_runtime::spawn_blocking(move || core.pull_requests(&path))
         .await
         .map_err(ApiError::unexpected)?
+}
+
+#[tauri::command]
+fn app_info(core: State<'_, Arc<Core>>) -> AppInfo {
+    core.app_info()
 }
 
 #[tauri::command]
@@ -1333,6 +1338,7 @@ fn main() {
             sign_in_to_github,
             sign_out_of_github,
             pull_requests,
+            app_info,
             check_git,
             stage_files,
             unstage_files,

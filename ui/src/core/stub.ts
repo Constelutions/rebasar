@@ -1014,6 +1014,9 @@ export function createStubCoreApi(
       if (source === null) throw noToken(remoteUrl(path));
       return github.pullRequests?.[path] ?? [];
     },
+    async appInfo() {
+      return { version: "0.0.0-test" };
+    },
     async checkGit() {
       return gitSetup;
     },

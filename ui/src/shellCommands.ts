@@ -25,6 +25,8 @@ interface ShellCommandHandlers {
   addRepository: (kind: AddKind) => void;
   sidebarCollapsed: boolean;
   toggleSidebar: () => void;
+  showAbout: () => void;
+  reportIssue: () => void;
 }
 
 /** Registers what the title bar, the sidebar and the Tab strip let the user do. */
@@ -42,7 +44,29 @@ export function useShellCommands({
   addRepository,
   sidebarCollapsed,
   toggleSidebar,
+  showAbout,
+  reportIssue,
 }: ShellCommandHandlers) {
+  const helpCommands = useMemo<PaletteCommand[]>(
+    () => [
+      {
+        id: "help.about",
+        title: "About Rebasar",
+        group: "Help",
+        keywords: ["version", "license"],
+        run: showAbout,
+      },
+      {
+        id: "help.report-issue",
+        title: "Report an issue",
+        group: "Help",
+        keywords: ["bug", "feedback", "github"],
+        run: reportIssue,
+      },
+    ],
+    [showAbout, reportIssue],
+  );
+
   const windowCommands = useMemo<PaletteCommand[]>(
     () => [
       {
@@ -206,6 +230,7 @@ export function useShellCommands({
     [api, branches, showCommits],
   );
 
+  usePaletteCommands(helpCommands);
   usePaletteCommands(windowCommands);
   usePaletteCommands(operationCommands);
   usePaletteCommands(viewCommands);

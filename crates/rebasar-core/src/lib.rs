@@ -85,6 +85,12 @@ pub use history::{
     RefLabel,
 };
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AppInfo {
+    pub version: String,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Tab {
@@ -286,6 +292,13 @@ impl Core {
 
     pub fn check_git(&self) -> GitSetup {
         GitSetup::check()
+    }
+
+    /// The version is the workspace's, which the desktop app and the installers share.
+    pub fn app_info(&self) -> AppInfo {
+        AppInfo {
+            version: env!("CARGO_PKG_VERSION").to_owned(),
+        }
     }
 
     /// Stages the whole files, deletions included. Blocks until the mutation has finished.

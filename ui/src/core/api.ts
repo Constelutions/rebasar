@@ -231,6 +231,11 @@ export interface OutgoingCommit {
   subject: string;
 }
 
+export interface AppInfo {
+  /** The version of the running app; the CLI and the installers carry the same one. */
+  version: string;
+}
+
 export type GitSetup =
   | { kind: "ready"; version: string }
   | { kind: "missing"; minimum: string }
@@ -663,6 +668,7 @@ export interface CoreApi {
   signOutOfGitHub(): Promise<GitHubAuthStatus>;
   /** Open pull requests of the Repository's GitHub remote, most recently updated first. */
   pullRequests(path: string): Promise<PullRequest[]>;
+  appInfo(): Promise<AppInfo>;
   checkGit(): Promise<GitSetup>;
   /**
    * The mutation methods resolve when the mutation has finished, after waiting for earlier

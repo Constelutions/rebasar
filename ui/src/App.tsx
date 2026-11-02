@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import { issuesUrl } from "./about";
+import { AboutDialog } from "./components/AboutDialog";
 import { type AddKind, AddRepositoryDialog } from "./components/AddRepositoryDialog";
 import { OpenInEditor } from "./components/OpenInEditor";
 import { OperationBanner } from "./components/OperationBanner";
@@ -188,6 +190,13 @@ function Shell({
     [settings, sidebarCollapsed, updateSettings],
   );
 
+  const [aboutOpen, setAboutOpen] = useState(false);
+  const showAbout = useCallback(() => setAboutOpen(true), []);
+  const reportIssue = useCallback(
+    () => api.openInBrowser(issuesUrl).catch((failure) => onError(describeError(failure))),
+    [api, onError],
+  );
+
   useShellCommands({
     api,
     appWindow,
@@ -202,6 +211,8 @@ function Shell({
     addRepository: onAdd,
     sidebarCollapsed,
     toggleSidebar,
+    showAbout,
+    reportIssue,
   });
 
   return (
@@ -278,6 +289,9 @@ function Shell({
         </>
       )}
       {closeTabDialog}
+      {aboutOpen && (
+        <AboutDialog api={api} onClose={() => setAboutOpen(false)} onError={onError} />
+      )}
       {adding && (
         <AddRepositoryDialog
           api={api}
