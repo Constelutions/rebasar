@@ -1,9 +1,12 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 
 import { useCopyOnSelect } from "../useCopyOnSelect";
 import { type MutationRun, type MutationState, isActive } from "../useMutations";
 import { Button } from "./Button";
 import { ChevronIcon } from "./ChevronIcon";
+
+/** Close enough to the bottom to count as being there, so a fractional scroll position still follows. */
+const FOLLOW_TOLERANCE_PX = 8;
 
 interface OutputPanelProps {
   runs: MutationRun[];
@@ -16,6 +19,18 @@ export function OutputPanel({ runs, onCancel }: OutputPanelProps) {
   const bodyId = useId();
   const active = runs.find(isActive);
   const latest = runs.at(-1);
+
+  const following = useRef(true);
+  const lineCount = runs.reduce((total, run) => total + run.lines.length, 0);
+
+  useLayoutEffect(() => {
+    following.current = true;
+  }, [runs.length, expanded]);
+
+  useLayoutEffect(() => {
+    const body = ref.current;
+    if (expanded && body && following.current) body.scrollTop = body.scrollHeight;
+  }, [expanded, runs.length, lineCount, ref]);
 
   const failures = runs.filter((run) => run.state.kind === "failed").length;
   const seenFailures = useRef(failures);
@@ -51,7 +66,15 @@ export function OutputPanel({ runs, onCancel }: OutputPanelProps) {
         )}
       </header>
       {expanded && (
-        <div id={bodyId} ref={ref} className="output-body">
+        <div
+          id={bodyId}
+          ref={ref}
+          className="output-body"
+          onScroll={(event) => {
+            const body = event.currentTarget;
+            following.current = body.scrollHeight - body.scrollTop - body.clientHeight <= FOLLOW_TOLERANCE_PX;
+          }}
+        >
           {runs.length === 0 && <p className="placeholder">No output yet.</p>}
           {runs.map((run) => (
             <article key={run.id} aria-label={run.title} className="output-run">

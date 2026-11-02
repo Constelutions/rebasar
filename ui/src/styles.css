@@ -1729,11 +1729,16 @@ button.commit-hash:hover {
 
 .settings {
   display: flex;
+  flex: 1;
   flex-direction: column;
   gap: var(--space-5);
-  max-width: 480px;
+  min-height: 0;
   margin-top: var(--space-4);
   overflow: auto;
+}
+
+.settings > :not(.segmented) {
+  max-width: 480px;
 }
 
 .settings > .segmented {

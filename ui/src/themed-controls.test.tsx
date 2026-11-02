@@ -148,3 +148,10 @@ it("themes the buttons on the Worktrees page", async () => {
   expect(screen.getByRole("button", { name: "Add worktree" })).toHaveClass("button");
   expect(screen.getByRole("button", { name: "Prune" })).toHaveClass("button");
 });
+
+it("scrolls the Settings page at the edge of the pane, not beside its narrow column", () => {
+  const css = stylesheet("styles.css");
+
+  expect(rule(css, ".settings")).not.toContain("max-width");
+  expect(rule(css, ".settings > :not(.segmented)")).toContain("max-width");
+});
