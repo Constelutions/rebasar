@@ -1,0 +1,97 @@
+name: Build installers
+
+# Builds every installer without publishing anything; the release workflow calls this one too.
+on:
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # The oldest Ubuntu runner keeps the glibc baseline of the Linux builds low.
+        os: [windows-latest, ubuntu-22.04]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Linux system packages
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential curl file libayatana-appindicator3-dev librsvg2-dev \
+            libssl-dev libwebkit2gtk-4.1-dev libxdo-dev wget
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build the installers
+        run: pnpm tauri build
+        env:
+          # The runner has no FUSE, which linuxdeploy would otherwise need to run itself.
+          APPIMAGE_EXTRACT_AND_RUN: "1"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: installers-${{ runner.os }}
+          if-no-files-found: error
+          path: |
+            target/release/bundle/nsis/*.exe
+            target/release/bundle/appimage/*.AppImage
+            target/release/bundle/deb/*.deb
+
+  checksums:
+    name: Name and checksum the assets
+    needs: build
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: installers-*
+          path: assets
+          merge-multiple: true
+
+      - name: Check the names and write SHA256SUMS
+        shell: bash
+        working-directory: assets
+        run: |
+          set -euo pipefail
+          version=$(sed -n 's/^version = "\(.*\)"/\1/p' ../Cargo.toml | head -n 1)
+          for expected in \
+            "Rebasar_${version}_x64-setup.exe" \
+            "Rebasar_${version}_amd64.AppImage" \
+            "Rebasar_${version}_amd64.deb"; do
+            if [ ! -f "$expected" ]; then
+              echo "::error::missing asset $expected"
+              ls -l
+              exit 1
+            fi
+          done
+          sha256sum Rebasar_* > SHA256SUMS
+          cat SHA256SUMS
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-assets
+          if-no-files-found: error
+          path: assets/*
