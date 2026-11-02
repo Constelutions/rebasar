@@ -259,3 +259,19 @@ fn unreadable_app_results_are_an_error() {
     assert!(app_results("not json").is_err());
     assert!(app_results(r#"{ "coldStartMs": 1 }"#).is_err());
 }
+
+#[test]
+fn the_cold_start_keeps_the_driver_inclusive_figure_as_a_ceiling_when_the_app_reports_it() {
+    let with_driver = app_results(
+        r#"{ "coldStartMs": 580, "coldStartWithDriverMs": 1052, "idleMemoryMb": 150 }"#,
+    )
+    .unwrap();
+    let without_driver = app_results(r#"{ "coldStartMs": 580, "idleMemoryMb": 150 }"#).unwrap();
+
+    assert_eq!(with_driver[0].elapsed_ms, 580.0);
+    assert_eq!(with_driver[0].verdict, Verdict::Within);
+    assert_eq!(with_driver[0].measurements.len(), 1);
+    assert_eq!(with_driver[0].measurements[0].name, "cold-start-with-driver-ms");
+    assert_eq!(with_driver[0].measurements[0].value, 1052.0);
+    assert!(without_driver[0].measurements.is_empty());
+}

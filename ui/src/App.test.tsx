@@ -56,3 +56,12 @@ it("shows a single Tab when the same Worktree is opened twice", async () => {
 
   expect(await screen.findAllByRole("tab")).toHaveLength(1);
 });
+
+it("marks the moment it first became interactive, once, for the startup benchmark", async () => {
+  performance.clearMarks("rebasar-interactive");
+
+  renderApp({ api: createStubCoreApi({}) });
+  await screen.findByRole("navigation", { name: "Views" });
+
+  expect(performance.getEntriesByName("rebasar-interactive", "mark")).toHaveLength(1);
+});

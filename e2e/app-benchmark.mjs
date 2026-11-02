@@ -1,8 +1,10 @@
 // Measures the two alpha thresholds only the running app can answer, and writes them for
 // `rebasar-bench run --app-results`:
 //
-//   cold start  from launching the app until its first click is answered. The WebDriver attaching
-//               to the page is part of that time, so the figure is a ceiling, not an optimistic one.
+//   cold start  from the app's process starting until it first became interactive (the mark the
+//               app sets when it first renders). The WebDriver's attach time is not part of it; the
+//               time from launching until the driver's first click is answered is recorded next to
+//               it as `coldStartWithDriverMs`, a ceiling.
 //   idle memory the working sets of the app and every process it started (the WebView2 ones
 //               included), with a Repository open and nothing happening.
 //
@@ -51,6 +53,12 @@ function memoryOfTree(name) {
   return Number(text.trim());
 }
 
+/** When the process named `name` started, in milliseconds since the Unix epoch. */
+function startOfProcess(name) {
+  const script = `([DateTimeOffset](Get-Process '${name.replace(/\.exe$/, "")}' | Select-Object -First 1).StartTime).ToUnixTimeMilliseconds()`;
+  return Number(execFileSync("pwsh", ["-NoProfile", "-Command", script], { encoding: "utf8" }).trim());
+}
+
 const scratch = mkdtempSync(join(tmpdir(), "rebasar-bench-app-"));
 let driver = null;
 let app = null;
@@ -72,7 +80,13 @@ try {
     if (performance.now() - started > 30000) throw new Error("the app was not interactive within 30 s");
     await sleep(20);
   }
-  const coldStartMs = Math.round(performance.now() - started);
+  const coldStartWithDriverMs = Math.round(performance.now() - started);
+  const interactiveAt = await app.execute(
+    "const [mark] = performance.getEntriesByName('rebasar-interactive', 'mark');" +
+      "return mark ? performance.timeOrigin + mark.startTime : null;",
+  );
+  if (interactiveAt === null) throw new Error("the app did not record when it became interactive");
+  const coldStartMs = Math.round(interactiveAt - startOfProcess("rebasar-app.exe"));
 
   if (folder) {
     await app.openFolder(folder);
@@ -81,9 +95,11 @@ try {
   await sleep(IDLE_SETTLE_MS);
   const idleMemoryMb = memoryOfTree("rebasar-app.exe");
 
-  const results = { coldStartMs, idleMemoryMb, openedFolder: folder ?? null };
+  const results = { coldStartMs, coldStartWithDriverMs, idleMemoryMb, openedFolder: folder ?? null };
   writeFileSync(output, JSON.stringify(results, null, 2));
-  console.log(`cold start ${coldStartMs} ms, idle memory ${idleMemoryMb} MB -> ${output}`);
+  console.log(
+    `cold start ${coldStartMs} ms (${coldStartWithDriverMs} ms with the driver), idle memory ${idleMemoryMb} MB -> ${output}`,
+  );
 } catch (error) {
   console.error(`APP BENCHMARK FAILED: ${error instanceof Error ? error.message : error}`);
   process.exitCode = 1;
