@@ -5,5 +5,5 @@ members = ["crates/rebasar-core", "crates/rebasar-testkit", "crates/rebasar-benc
 [workspace.package]
 version = "0.1.0"
 edition = "2021"
-license = "UNLICENSED"
+license = "Apache-2.0"
 publish = false

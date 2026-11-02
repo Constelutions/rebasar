@@ -1,6 +1,7 @@
 {
   "name": "rebasar",
   "private": true,
+  "license": "Apache-2.0",
   "scripts": {
     "dev": "tauri dev",
     "typecheck": "pnpm -r typecheck",

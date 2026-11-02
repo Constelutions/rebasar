@@ -43,3 +43,7 @@ See [`docs/benchmarks.md`](docs/benchmarks.md) for the fixtures, the thresholds 
 - [`docs/confirmation-policy.md`](docs/confirmation-policy.md): which Mutations ask for confirmation and how a new one declares itself.
 - [`docs/benchmarks.md`](docs/benchmarks.md): large-Repository fixtures and the benchmark harness.
 - [`docs/agents/`](docs/agents/): configuration for the agent skills used in this repo.
+
+## License
+
+Rebasar is licensed under the [Apache License 2.0](LICENSE).
