@@ -199,3 +199,45 @@ describe("copying a file path", () => {
     expect(filePath).toBeInTheDocument();
   });
 });
+
+describe("the layout of the details", () => {
+  it("puts the commit info and the changed files in the left column and the diff in the right one", async () => {
+    const { user } = await showHistory();
+    const pane = await selectCommit(user);
+
+    const start = pane.querySelector(".resizable-start") as HTMLElement;
+    const end = pane.querySelector(".resizable-end") as HTMLElement;
+
+    expect(within(start).getByRole("heading", { name: "Add the parser" })).toBeInTheDocument();
+    expect(within(start).getByText("Ada Lovelace <ada@example.com>")).toBeInTheDocument();
+    expect(within(start).getByRole("list", { name: "Changed files" })).toBeInTheDocument();
+    expect(within(end).getByRole("region", { name: `Diff of ${path}` })).toBeInTheDocument();
+    expect(within(end).queryByRole("list", { name: "Changed files" })).not.toBeInTheDocument();
+  });
+
+  it("keeps the close button beside the subject instead of over the diff", async () => {
+    const { user } = await showHistory();
+    const pane = await selectCommit(user);
+
+    const close = within(pane).getByRole("button", { name: "Close commit detail" });
+
+    expect(pane.querySelector(".resizable-start")).toContainElement(close);
+  });
+
+  it("resizes the columns from the divider with the arrow keys, within limits", async () => {
+    const { user } = await showHistory();
+    const pane = await selectCommit(user);
+    const divider = within(pane).getByRole("separator", { name: "Resize commit info and diff" });
+    const before = Number(divider.getAttribute("aria-valuenow"));
+
+    divider.focus();
+    await user.keyboard("{ArrowRight}");
+    expect(Number(divider.getAttribute("aria-valuenow"))).toBeGreaterThan(before);
+
+    for (let press = 0; press < 30; press++) await user.keyboard("{ArrowRight}");
+    expect(divider).toHaveAttribute("aria-valuenow", "70");
+
+    for (let press = 0; press < 60; press++) await user.keyboard("{ArrowLeft}");
+    expect(divider).toHaveAttribute("aria-valuenow", "20");
+  });
+});
