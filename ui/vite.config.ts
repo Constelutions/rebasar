@@ -10,5 +10,9 @@ export default defineConfig({
     environment: "jsdom",
     globals: true,
     setupFiles: ["./src/test-setup.ts"],
+    // Rendering the app under jsdom on a 4-core CI runner is several times slower than on a
+    // developer machine; the default 5s limit fails tests that are merely slow, not broken.
+    testTimeout: 30_000,
+    hookTimeout: 30_000,
   },
 });
