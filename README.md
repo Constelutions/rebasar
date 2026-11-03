@@ -18,7 +18,7 @@ Download the installer for your platform from the [Releases page](https://github
 | Debian and Ubuntu | `Rebasar_<version>_amd64.deb` | `sudo apt install ./Rebasar_<version>_amd64.deb`, which also installs `git`. |
 | Any other Linux | `Rebasar_<version>_amd64.AppImage` | `chmod +x` it and run it. |
 
-Rebasar needs a system `git` 2.35.0 or newer and shows a setup screen when it is missing or older. Debian 12 and Ubuntu 24.04 ship a new enough one; Ubuntu 22.04 ships 2.34, so install a newer one from the [Git PPA](https://launchpad.net/~git-core/+archive/ubuntu/ppa).
+The Linux builds need glibc 2.34 or newer and WebKitGTK 4.1, which means Ubuntu 22.04 or newer, Debian 12 or newer, or a distribution of the same age; Ubuntu 20.04 and Debian 11 are not supported. Rebasar needs a system `git` 2.35.0 or newer and shows a setup screen when it is missing or older. Debian 12 and Ubuntu 24.04 ship a new enough one; Ubuntu 22.04 ships 2.34, so install a newer one from the [Git PPA](https://launchpad.net/~git-core/+archive/ubuntu/ppa).
 
 The beta installers for Windows are not code-signed yet, so SmartScreen may show "Windows protected your PC". Choose **More info**, then **Run anyway**.
 
