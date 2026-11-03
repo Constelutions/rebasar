@@ -2,6 +2,7 @@
 import logo from "../assets/logo.png";
 import { Image } from "astro:assets";
 import { REPOSITORY_URL } from "../lib/releases";
+import GithubIcon from "./GithubIcon.astro";
 
 const links = [
   { label: "Performance", href: "#performance" },
@@ -19,7 +20,7 @@ const links = [
       {links.map((link) => <a href={link.href}>{link.label}</a>)}
     </nav>
     <div class="spacer"></div>
-    <a href={REPOSITORY_URL} class="github wide">GitHub<span class="arrow" aria-hidden="true">↗</span></a>
+    <a href={REPOSITORY_URL} class="github wide"><GithubIcon />GitHub<span class="arrow" aria-hidden="true">↗</span></a>
     <a href="#download" class="download compact">Download</a>
     <button
       type="button"
@@ -34,7 +35,7 @@ const links = [
   </div>
   <nav aria-label="Mobile" id="mobile-menu" class="mobile-menu" hidden data-menu>
     {links.map((link) => <a href={link.href}>{link.label}</a>)}
-    <a href={REPOSITORY_URL}>GitHub</a>
+    <a href={REPOSITORY_URL}><GithubIcon />GitHub</a>
   </nav>
 </header>
 
@@ -211,6 +212,7 @@ const links = [
   .mobile-menu a {
     display: flex;
     align-items: center;
+    gap: 10px;
     min-height: 48px;
     padding: 0 12px;
     border-radius: var(--radius-md);

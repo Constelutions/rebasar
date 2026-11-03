@@ -1,5 +1,6 @@
 ---
 import DownloadCta from "./DownloadCta.astro";
+import GithubIcon from "./GithubIcon.astro";
 import { REPOSITORY_URL, type ReleaseDownloads } from "../lib/releases";
 import HeroPanel from "./HeroPanel.astro";
 
@@ -41,7 +42,7 @@ const { downloads } = Astro.props;
     </p>
     <div class="ctas">
       <DownloadCta downloads={downloads} />
-      <a href={REPOSITORY_URL} class="btn btn-secondary">View on GitHub<span class="arrow" aria-hidden="true">↗</span></a>
+      <a href={REPOSITORY_URL} class="btn btn-secondary"><GithubIcon />View on GitHub<span class="arrow" aria-hidden="true">↗</span></a>
     </div>
     <p class="meta">Free and open source · Apache 2.0 · Windows &amp; Linux</p>
   </div>
