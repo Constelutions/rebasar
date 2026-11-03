@@ -45,6 +45,8 @@ curl -i http://localhost:8082/healthz
 
 The image follows the Constelutions blog's: a Node 24 build stage that precompresses text assets with gzip and brotli, then Alpine with nginx, brotli and `headers-more`. nginx sends no `Server` header, adds the security headers, caches `/_astro/` forever and answers `/healthz` for the health check. Port 8082 avoids the blog's 8081.
 
+Both base images are pinned by digest, and `.github/dependabot.yml` opens a weekly PR that rewrites the tag and digest together. nginx answers scanner probes (dotfiles other than `.well-known`, `.php` and similar extensions, and paths such as `wp-admin` or `phpmyadmin`) with a fast 404. It does not use 444: behind Coolify's proxy a dropped connection surfaces as a 502, so banning scanners belongs at the proxy or firewall. The `nginx` package itself is not pinned, so rebuild periodically to pick up Alpine's patches. This follows [Constelutions/blogs#3](https://github.com/Constelutions/blogs/pull/3).
+
 ## Deploy (manual steps in Coolify)
 
 These are one-off steps, not part of any pull request:
