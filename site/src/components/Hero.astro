@@ -34,11 +34,10 @@ const { downloads } = Astro.props;
 
   <div class="copy">
     <div class="chip mono"><i></i>Beta{downloads && ` · v${downloads.version}`}</div>
-    <h1 id="hero-title">Git for those who live in many repos at once.</h1>
+    <h1 id="hero-title">Git for those who live in many repos at once</h1>
     <p class="subhead">
       A fast desktop Git client built on your own <span class="inline-code">git</span>. Every repository,
-      branch and worktree in one window, and it tells you exactly what a destructive action will cost before
-      you confirm it.
+      branch, worktree and pull request in one window.
     </p>
     <div class="ctas">
       <DownloadCta downloads={downloads} />

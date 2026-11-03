@@ -14,11 +14,11 @@ const { downloads } = Astro.props;
   <div class="inner">
     <h2 id="close-title">Eleven checkouts later, still in one window.</h2>
     <p class="tagline">Rebase. Then surpass.</p>
+    <p class="pun">Rebasar: a pun on rebase and quasar. In Spanish, it also means "to surpass".</p>
     <div class="ctas">
       <DownloadCta downloads={downloads} />
       <a href={REPOSITORY_URL} class="btn btn-secondary">View on GitHub<span class="arrow" aria-hidden="true">↗</span></a>
     </div>
-    <p class="pun">Rebasar: a pun on rebase and quasar. In Spanish, it also means "to surpass".</p>
   </div>
 </section>
 
@@ -74,7 +74,6 @@ const { downloads } = Astro.props;
   }
 
   .pun {
-    margin-top: 16px;
     max-width: 520px;
     font-size: 14px;
     line-height: 1.6;
