@@ -75,6 +75,16 @@ jobs:
           path: assets
           merge-multiple: true
 
+      # upload-artifact keeps the folder each installer was built in (nsis/, appimage/, deb/), but
+      # the release assets are a flat list of files.
+      - name: Flatten the assets
+        shell: bash
+        working-directory: assets
+        run: |
+          find . -mindepth 2 -type f -name 'Rebasar_*' -exec mv -t . {} +
+          find . -mindepth 1 -type d -empty -delete
+          ls -l
+
       - name: Write SHA256SUMS
         shell: bash
         working-directory: assets
