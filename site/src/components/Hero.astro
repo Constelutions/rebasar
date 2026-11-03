@@ -1,5 +1,5 @@
 ---
-import { heroLinks } from "../lib/download-cards";
+import DownloadCta from "./DownloadCta.astro";
 import { REPOSITORY_URL, type ReleaseDownloads } from "../lib/releases";
 import HeroPanel from "./HeroPanel.astro";
 
@@ -8,7 +8,6 @@ interface Props {
 }
 
 const { downloads } = Astro.props;
-const links = heroLinks(downloads);
 ---
 
 <section id="top" aria-labelledby="hero-title" class="hero">
@@ -42,15 +41,7 @@ const links = heroLinks(downloads);
       you confirm it.
     </p>
     <div class="ctas">
-      <a
-        href={links.Windows}
-        class="btn btn-primary"
-        data-os-cta
-        data-href-windows={links.Windows}
-        data-href-linux={links.Linux}
-      >
-        <span>Download for <span data-os-label>Windows</span></span><span class="btn-tag">Beta</span>
-      </a>
+      <DownloadCta downloads={downloads} />
       <a href={REPOSITORY_URL} class="btn btn-secondary">View on GitHub<span class="arrow" aria-hidden="true">↗</span></a>
     </div>
     <p class="meta">Free and open source · Apache 2.0 · Windows &amp; Linux</p>

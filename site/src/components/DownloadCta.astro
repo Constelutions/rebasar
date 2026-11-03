@@ -1,0 +1,20 @@
+---
+import { ctaLinks } from "../lib/download-cards";
+import type { ReleaseDownloads } from "../lib/releases";
+
+interface Props {
+  downloads: ReleaseDownloads | null;
+}
+
+const links = ctaLinks(Astro.props.downloads);
+---
+
+<a
+  href={links.Windows}
+  class="btn btn-primary"
+  data-os-cta
+  data-href-windows={links.Windows}
+  data-href-linux={links.Linux}
+>
+  <span>Download for <span data-os-label>Windows</span></span><span class="btn-tag">Beta</span>
+</a>

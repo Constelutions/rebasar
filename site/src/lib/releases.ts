@@ -1,6 +1,7 @@
-export const REPOSITORY_URL = "https://github.com/Constelutions/rebasar";
+const REPOSITORY = "Constelutions/rebasar";
+export const REPOSITORY_URL = `https://github.com/${REPOSITORY}`;
 export const RELEASES_URL = `${REPOSITORY_URL}/releases`;
-const RELEASES_API_URL = "https://api.github.com/repos/Constelutions/rebasar/releases?per_page=30";
+const RELEASES_API_URL = `https://api.github.com/repos/${REPOSITORY}/releases?per_page=30`;
 
 export interface ApiAsset {
   name: string;
@@ -33,6 +34,12 @@ export interface ReleaseDownloads {
 const publishedAt = (release: ApiRelease) => Date.parse(release.published_at ?? "") || 0;
 
 // The asset names are a contract documented in docs/releasing.md.
+export const assetNames = (version: string) => ({
+  windows: `Rebasar_${version}_x64-setup.exe`,
+  deb: `Rebasar_${version}_amd64.deb`,
+  appImage: `Rebasar_${version}_amd64.AppImage`,
+});
+
 const findAsset = (release: ApiRelease, name: string): DownloadAsset | null => {
   const asset = release.assets.find((candidate) => candidate.name === name);
   return asset ? { name: asset.name, url: asset.browser_download_url } : null;
@@ -46,12 +53,13 @@ export function resolveDownloads(releases: ApiRelease[]): ReleaseDownloads | nul
   if (!newest) return null;
 
   const version = newest.tag_name.replace(/^v/, "");
+  const names = assetNames(version);
   return {
     version,
     releaseUrl: newest.html_url,
-    windows: findAsset(newest, `Rebasar_${version}_x64-setup.exe`),
-    deb: findAsset(newest, `Rebasar_${version}_amd64.deb`),
-    appImage: findAsset(newest, `Rebasar_${version}_amd64.AppImage`),
+    windows: findAsset(newest, names.windows),
+    deb: findAsset(newest, names.deb),
+    appImage: findAsset(newest, names.appImage),
     checksums: findAsset(newest, "SHA256SUMS"),
   };
 }

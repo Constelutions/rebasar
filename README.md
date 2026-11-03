@@ -86,7 +86,6 @@ See [`docs/benchmarks.md`](docs/benchmarks.md) for the fixtures, the thresholds 
 - [`docs/releasing.md`](docs/releasing.md): how a release is cut, the branches, the asset names and the repository settings it needs.
 - [`docs/smoke-run.md`](docs/smoke-run.md): the end-to-end sanity run and the manual single-instance checks.
 - [`site/README.md`](site/README.md): the marketing website, how to run it and how it is deployed.
-- [`site/README.md`](site/README.md): the marketing website, how to run it and how it is deployed.
 - [`docs/agents/`](docs/agents/): configuration for the agent skills used in this repo.
 
 ## License

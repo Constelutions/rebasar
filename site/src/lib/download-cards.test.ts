@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildCards, heroLinks } from "./download-cards";
+import { buildCards, ctaLinks } from "./download-cards";
 import { RELEASES_URL, type ReleaseDownloads } from "./releases";
 
 const asset = (name: string) => ({ name, url: `https://example.test/${name}` });
@@ -47,15 +47,15 @@ describe("buildCards", () => {
   });
 });
 
-describe("heroLinks", () => {
+describe("ctaLinks", () => {
   it("points each platform at its recommended installer", () => {
-    expect(heroLinks(downloads)).toEqual({
+    expect(ctaLinks(downloads)).toEqual({
       Windows: "https://example.test/Rebasar_0.2.0_x64-setup.exe",
       Linux: "https://example.test/Rebasar_0.2.0_amd64.deb",
     });
   });
 
   it("points both platforms at the releases page when the lookup failed", () => {
-    expect(heroLinks(null)).toEqual({ Windows: RELEASES_URL, Linux: RELEASES_URL });
+    expect(ctaLinks(null)).toEqual({ Windows: RELEASES_URL, Linux: RELEASES_URL });
   });
 });

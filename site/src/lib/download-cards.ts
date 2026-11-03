@@ -1,5 +1,5 @@
 import type { DesktopOs } from "./os";
-import { RELEASES_URL, type DownloadAsset, type ReleaseDownloads } from "./releases";
+import { RELEASES_URL, assetNames, type DownloadAsset, type ReleaseDownloads } from "./releases";
 
 export interface DownloadCard {
   id: "windows" | "deb" | "appimage" | "macos";
@@ -16,9 +16,10 @@ const linkFor = (asset: DownloadAsset | null | undefined, downloads: ReleaseDown
 
 export function buildCards(downloads: ReleaseDownloads | null): DownloadCard[] {
   const version = downloads?.version ?? "<version>";
-  const windowsFile = downloads?.windows?.name ?? `Rebasar_${version}_x64-setup.exe`;
-  const debFile = downloads?.deb?.name ?? `Rebasar_${version}_amd64.deb`;
-  const appImageFile = downloads?.appImage?.name ?? `Rebasar_${version}_amd64.AppImage`;
+  const names = assetNames(version);
+  const windowsFile = downloads?.windows?.name ?? names.windows;
+  const debFile = downloads?.deb?.name ?? names.deb;
+  const appImageFile = downloads?.appImage?.name ?? names.appImage;
 
   return [
     {
@@ -49,7 +50,7 @@ export function buildCards(downloads: ReleaseDownloads | null): DownloadCard[] {
   ];
 }
 
-export function heroLinks(downloads: ReleaseDownloads | null): Record<DesktopOs, string> {
+export function ctaLinks(downloads: ReleaseDownloads | null): Record<DesktopOs, string> {
   return {
     Windows: linkFor(downloads?.windows, downloads),
     Linux: linkFor(downloads?.deb, downloads),
