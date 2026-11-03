@@ -79,3 +79,55 @@ jobs:
 
       - name: Run the release script tests
         run: node --test "scripts/**/*.test.mjs"
+
+  site-changes:
+    name: Detect site changes
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      site: ${{ steps.filter.outputs.site }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            site:
+              - 'site/**'
+              - '.github/workflows/ci.yml'
+
+  site:
+    name: Marketing site (type check, tests, build)
+    needs: site-changes
+    if: needs.site-changes.outputs.site == 'true' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-22.04
+    defaults:
+      run:
+        working-directory: site
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: site/pnpm-lock.yaml
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Run the tests
+        run: pnpm test
+
+      # `pnpm build` runs `astro check` first, so this is also the type check.
+      - name: Type check and build
+        run: pnpm build
+        env:
+          # Only raises the rate limit of the Releases API call the build makes.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

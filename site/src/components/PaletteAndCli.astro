@@ -1,0 +1,261 @@
+---
+import { paletteRows } from "../data/sample";
+---
+
+<section aria-labelledby="pal-title" class="section">
+  <h2 id="pal-title" class="visually-hidden">Ctrl+P and the CLI</h2>
+  <div class="container grid">
+    <article>
+      <div class="text">
+        <h3>
+          <span class="keys"><kbd>Ctrl</kbd><kbd>P</kbd></span>runs everything.
+        </h3>
+        <p>
+          Everything you can click, you can type. The palette jumps to Tabs and branches, runs any action, and
+          searches commits.
+        </p>
+      </div>
+      <div class="stage palette-stage" aria-hidden="true">
+        <div class="palette mock">
+          <div class="query mono">
+            <span class="key">&gt;</span><span>inv</span><span class="key">▌</span><span class="grow"></span
+            ><span class="esc">Esc</span>
+          </div>
+          {
+            paletteRows.map((row) =>
+              "header" in row ? (
+                <div class="header">{row.header}</div>
+              ) : (
+                <div class:list={["result", { active: row.active, mono: row.mono }]}>
+                  <span class="title">{row.title}</span>
+                  <span class="sub">{row.sub}</span>
+                  {row.active && <span class="enter mono">↵</span>}
+                </div>
+              ),
+            )
+          }
+        </div>
+      </div>
+    </article>
+    <article>
+      <div class="text">
+        <h3><span class="mono command">rebasar .</span> and you're in.</h3>
+        <p>Open any Worktree from your terminal, in the window that's already running.</p>
+      </div>
+      <div class="stage terminal-stage" aria-hidden="true">
+        <div class="terminal">
+          <div class="terminal-bar">
+            <i></i><i></i><i></i><span class="mono">terminal</span>
+          </div>
+          <div class="terminal-body mono">
+            <div class="comment"># opens the Worktree containing the current folder</div>
+            <div><span class="key">$</span> rebasar .</div>
+            <div class="comment gap"># or from anywhere</div>
+            <div><span class="key">$</span> rebasar ~/work/api</div>
+          </div>
+        </div>
+      </div>
+    </article>
+  </div>
+</section>
+
+<style>
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
+    gap: 16px;
+  }
+
+  article {
+    border-radius: 16px;
+    border: 1px solid var(--color-border);
+    background: var(--color-surface);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .text {
+    padding: clamp(22px, 3vw, 36px) clamp(20px, 3vw, 36px) 24px;
+  }
+
+  h3 {
+    margin-bottom: 10px;
+    font-size: clamp(24px, 2.6vw, 32px);
+    line-height: 1.12;
+    letter-spacing: -0.025em;
+    font-weight: 600;
+    color: var(--color-text-strong);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 12px;
+  }
+
+  h3 > .command {
+    font-size: 0.92em;
+    letter-spacing: -0.04em;
+  }
+
+  .keys {
+    display: inline-flex;
+    gap: 5px;
+  }
+
+  kbd {
+    font: 500 0.6em var(--font-mono);
+    padding: 3px 9px;
+    border-radius: 6px;
+    border: 1px solid oklch(0.38 0.02 265);
+    background: var(--color-hover);
+    color: var(--color-text);
+  }
+
+  .text p {
+    max-width: 520px;
+    font-size: 17px;
+    line-height: 1.6;
+    color: var(--color-text-muted);
+    text-wrap: pretty;
+  }
+
+  .stage {
+    margin-top: auto;
+    background: var(--color-bg);
+    border-top: 1px solid var(--color-border);
+    padding: clamp(18px, 2.4vw, 28px) clamp(14px, 2.4vw, 28px);
+  }
+
+  .terminal-stage {
+    display: flex;
+    align-items: center;
+  }
+
+  .key {
+    color: var(--color-accent);
+  }
+
+  .grow {
+    flex: 1;
+  }
+
+  .palette {
+    max-width: 540px;
+    margin: 0 auto;
+    border-radius: var(--radius-lg);
+    background: oklch(0.21 0.014 265);
+    border: 1px solid oklch(0.4 0.07 250);
+    box-shadow: 0 20px 50px oklch(0 0 0 / 0.45);
+    overflow: hidden;
+  }
+
+  .query {
+    padding: 13px 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border-bottom: 1px solid oklch(0.3 0.012 265);
+    font-size: 14px;
+  }
+
+  .esc {
+    font-size: 11px;
+    color: var(--color-text-dim);
+    border: 1px solid oklch(0.35 0.012 265);
+    border-radius: 5px;
+    padding: 0 6px;
+  }
+
+  .header {
+    padding: 9px 16px 3px;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-text-dim);
+  }
+
+  .result {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 16px;
+    color: oklch(0.82 0.02 265);
+  }
+
+  .result.active {
+    background: oklch(0.3 0.06 250);
+    color: oklch(0.96 0.02 265);
+  }
+
+  .result.mono .title {
+    font-family: var(--font-mono);
+  }
+
+  .title {
+    flex: 1;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .sub {
+    font-size: 12px;
+    color: var(--color-text-dim);
+    white-space: nowrap;
+  }
+
+  .enter {
+    font-size: 11px;
+    padding: 0 6px;
+    border-radius: 5px;
+    border: 1px solid oklch(0.5 0.08 250);
+  }
+
+  .terminal {
+    width: 100%;
+    max-width: 540px;
+    margin: 0 auto;
+    border-radius: 12px;
+    background: oklch(0.17 0.012 265);
+    border: 1px solid var(--color-border-raised);
+    overflow: hidden;
+  }
+
+  .terminal-bar {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .terminal-bar i {
+    width: 10px;
+    height: 10px;
+    border-radius: 5px;
+    background: oklch(0.3 0.012 265);
+  }
+
+  .terminal-bar span {
+    margin-left: 8px;
+    font-size: 12px;
+    color: var(--color-text-dim);
+  }
+
+  .terminal-body {
+    padding: 16px 18px;
+    font-size: 13.5px;
+    line-height: 1.9;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
+  .comment {
+    color: var(--color-text-subtle);
+  }
+
+  .comment.gap {
+    padding-top: 6px;
+  }
+</style>

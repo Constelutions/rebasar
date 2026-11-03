@@ -1,0 +1,64 @@
+/* Same names and values as ui/src/tokens.css, so the site and the app read as one product.
+   The site is dark only. */
+:root {
+  --color-bg: oklch(0.14 0.012 265);
+  --color-surface: oklch(0.2 0.013 265);
+  --color-surface-raised: oklch(0.22 0.014 265);
+  --color-hover: oklch(0.25 0.012 265);
+  --color-border: oklch(0.26 0.012 265);
+  --color-border-raised: oklch(0.28 0.012 265);
+
+  --color-text: oklch(0.9 0.01 265);
+  --color-text-strong: oklch(0.94 0.01 265);
+  --color-text-muted: oklch(0.72 0.02 265);
+  --color-text-subtle: oklch(0.6 0.02 265);
+
+  --color-accent: oklch(0.78 0.14 250);
+  --color-on-accent: oklch(0.15 0.02 265);
+  --color-accent-surface: oklch(0.28 0.04 250);
+  --color-accent-text: oklch(0.9 0.08 250);
+  --color-selected: oklch(0.25 0.03 255);
+  --color-selected-border: oklch(0.42 0.08 250);
+
+  --color-success: oklch(0.78 0.14 150);
+  --color-warning: oklch(0.82 0.13 85);
+  --color-danger: oklch(0.72 0.17 25);
+  --color-danger-strong: oklch(0.55 0.19 25);
+  --color-on-danger: oklch(0.98 0.01 25);
+  --color-scrim: oklch(0.1 0.01 265 / 0.6);
+
+  --color-added-surface: oklch(0.78 0.14 150 / 0.14);
+  --color-removed-surface: oklch(0.72 0.17 25 / 0.14);
+  --color-hunk-surface: oklch(0.28 0.04 250 / 0.6);
+
+  /* Told apart by hue only, at one lightness and chroma. */
+  --color-category-0: oklch(0.75 0.13 250);
+  --color-category-1: oklch(0.75 0.13 150);
+  --color-category-2: oklch(0.75 0.13 320);
+  --color-category-3: oklch(0.75 0.13 60);
+
+  --font-ui: "Geist Variable", Geist, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, monospace;
+
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+
+  /* Site only: the marketing page needs a few steps the app does not. */
+  --color-accent-hover: oklch(0.84 0.13 250);
+  --color-accent-active: oklch(0.72 0.14 250);
+  --color-accent-line: oklch(0.42 0.08 250);
+  --color-border-strong: oklch(0.32 0.012 265);
+  --color-border-hover: oklch(0.34 0.02 265);
+  --color-panel-border: oklch(0.3 0.03 255);
+  --color-text-soft: oklch(0.82 0.015 265);
+  --color-text-dim: oklch(0.65 0.02 265);
+  --color-divider: oklch(0.245 0.012 265);
+
+  --gutter: clamp(16px, 4vw, 40px);
+  --section-gap: clamp(64px, 9vw, 112px);
+  --content-width: 1200px;
+  --nav-height: 64px;
+
+  color-scheme: dark;
+}

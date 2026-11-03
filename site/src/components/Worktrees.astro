@@ -1,0 +1,211 @@
+---
+import { worktreeRows, worktreeTabs } from "../data/sample";
+---
+
+<section aria-labelledby="wt-title" class="section">
+  <div class="container">
+    <div class="divider-line">
+      <p>Git for people who still check <span class="inline-code">git worktree list</span> to remember where they are.</p>
+    </div>
+    <div class="layout">
+      <div>
+        <h2 id="wt-title" class="heading-xl">One tab per worktree.</h2>
+        <p class="lede">
+          Three branches in flight? Three tabs. No stashing, no cloning twice. Switching between them takes
+          about 3 ms, even with 20 repositories and 50 worktrees open.
+        </p>
+      </div>
+      <div class="panel mock" aria-hidden="true">
+        <div class="tabs">
+          {
+            worktreeTabs.map((tab) => (
+              <div class:list={["tab", { active: tab.active }]}>
+                <div class="tab-line">
+                  <i style={`background:${tab.dot}`}></i>
+                  <span class="repo">{tab.repo}</span>
+                </div>
+                <div class="mono tab-branch">{tab.branch}</div>
+              </div>
+            ))
+          }
+        </div>
+        <div class="pad">
+          <div class="list">
+            <div class="list-head">
+              <div class="list-title">Worktrees of api-gateway</div>
+              <div class="list-count">3 open as Tabs</div>
+            </div>
+            <div class="rows">
+              {
+                worktreeRows.map((row) => (
+                  <div class:list={["row", { selected: row.selected }]}>
+                    <i style={`background:${row.dot}`}></i>
+                    <div class="row-text">
+                      <div class="branch mono">{row.branch}</div>
+                      <div class="path mono">{row.path}</div>
+                    </div>
+                    <span style={`color:${row.stateColor}`}>{row.state}</span>
+                  </div>
+                ))
+              }
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  .layout {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
+    gap: clamp(28px, 5vw, 64px);
+    align-items: center;
+  }
+
+  h2 {
+    margin-bottom: 16px;
+  }
+
+  .lede {
+    max-width: 480px;
+    font-size: 18px;
+    line-height: 1.6;
+    color: var(--color-text-muted);
+    text-wrap: pretty;
+  }
+
+  .panel {
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--color-panel-border);
+    background: var(--color-bg);
+    box-shadow: 0 0 0 1px oklch(0.78 0.14 250 / 0.06), 0 0 48px oklch(0.78 0.14 250 / 0.1);
+    overflow: hidden;
+  }
+
+  .tabs {
+    display: flex;
+    gap: 8px;
+    padding: 10px 10px 0;
+    overflow: hidden;
+  }
+
+  .tab {
+    flex: none;
+    padding: 7px 14px;
+    border-radius: var(--radius-md);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    color: var(--color-text-muted);
+    white-space: nowrap;
+  }
+
+  .tab.active {
+    background: var(--color-selected);
+    border-color: var(--color-selected-border);
+    color: var(--color-text-strong);
+  }
+
+  .tab-line {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .tab-line i {
+    width: 7px;
+    height: 7px;
+    border-radius: 4px;
+  }
+
+  .repo {
+    font-weight: 500;
+  }
+
+  .tab-branch {
+    font-size: 11.5px;
+    opacity: 0.85;
+    padding-left: 15px;
+  }
+
+  .pad {
+    padding: 10px;
+  }
+
+  .list {
+    border-radius: 12px;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    padding: 16px;
+  }
+
+  .list-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .list-title {
+    font: 600 15px var(--font-ui);
+  }
+
+  .list-count {
+    font-size: 12px;
+    color: var(--color-text-dim);
+  }
+
+  .rows {
+    margin-top: 10px;
+  }
+
+  .row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    border-radius: 9px;
+    margin-bottom: 4px;
+  }
+
+  .row.selected {
+    background: var(--color-selected);
+  }
+
+  .row i {
+    width: 8px;
+    height: 8px;
+    border-radius: 4px;
+    flex: none;
+  }
+
+  .row-text {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .branch,
+  .path {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .branch {
+    font-size: 12.5px;
+    font-weight: 500;
+    color: var(--color-text);
+  }
+
+  .path {
+    font-size: 11.5px;
+    color: var(--color-text-dim);
+  }
+
+  .row > span {
+    font-size: 12px;
+    white-space: nowrap;
+  }
+</style>

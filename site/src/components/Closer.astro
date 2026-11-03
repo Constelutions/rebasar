@@ -1,0 +1,92 @@
+---
+import { heroLinks } from "../lib/download-cards";
+import { REPOSITORY_URL, type ReleaseDownloads } from "../lib/releases";
+
+interface Props {
+  downloads: ReleaseDownloads | null;
+}
+
+const links = heroLinks(Astro.props.downloads);
+---
+
+<section aria-labelledby="close-title" class="closer">
+  <div class="glow" aria-hidden="true"></div>
+  <div class="inner">
+    <h2 id="close-title">Eleven checkouts later, still in one window.</h2>
+    <p class="tagline">Rebase. Then surpass.</p>
+    <div class="ctas">
+      <a
+        href={links.Windows}
+        class="btn btn-primary"
+        data-os-cta
+        data-href-windows={links.Windows}
+        data-href-linux={links.Linux}
+      >
+        <span>Download for <span data-os-label>Windows</span></span><span class="btn-tag">Beta</span>
+      </a>
+      <a href={REPOSITORY_URL} class="btn btn-secondary">View on GitHub<span class="arrow" aria-hidden="true">↗</span></a>
+    </div>
+    <p class="pun">Rebasar: a pun on rebase and quasar. In Spanish, it also means "to surpass".</p>
+  </div>
+</section>
+
+<style>
+  .closer {
+    position: relative;
+    overflow: hidden;
+    padding: clamp(64px, 10vw, 128px) var(--gutter);
+    border-top: 1px solid var(--color-border);
+  }
+
+  .glow {
+    position: absolute;
+    left: 15%;
+    right: 15%;
+    top: 10%;
+    height: 60%;
+    background: radial-gradient(closest-side, oklch(0.78 0.14 250 / 0.14), oklch(0.78 0.14 250 / 0));
+    filter: blur(40px);
+  }
+
+  .inner {
+    position: relative;
+    max-width: 900px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 20px;
+  }
+
+  h2 {
+    font-size: clamp(36px, 6vw, 80px);
+    line-height: 1.05;
+    letter-spacing: -0.035em;
+    font-weight: 600;
+    color: var(--color-text-strong);
+    text-wrap: balance;
+  }
+
+  .tagline {
+    font-size: clamp(20px, 2vw, 26px);
+    color: var(--color-accent);
+  }
+
+  .ctas {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 12px;
+    margin-top: 8px;
+  }
+
+  .pun {
+    margin-top: 16px;
+    max-width: 520px;
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--color-text-subtle);
+    text-wrap: balance;
+  }
+</style>

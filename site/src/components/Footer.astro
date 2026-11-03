@@ -1,0 +1,121 @@
+---
+import { Image } from "astro:assets";
+import logo from "../assets/logo.png";
+import { REPOSITORY_URL } from "../lib/releases";
+
+const columns = [
+  {
+    title: "Project",
+    links: [
+      { label: "Releases", href: `${REPOSITORY_URL}/releases` },
+      { label: "Issues", href: `${REPOSITORY_URL}/issues` },
+    ],
+  },
+  {
+    title: "Docs",
+    links: [
+      { label: "Architecture decisions", href: `${REPOSITORY_URL}/tree/main/docs/adr` },
+      { label: "Benchmark report", href: `${REPOSITORY_URL}/blob/main/docs/benchmark-report.md` },
+    ],
+  },
+  { title: "License", links: [{ label: "Apache 2.0", href: `${REPOSITORY_URL}/blob/main/LICENSE` }] },
+];
+---
+
+<footer>
+  <div class="container inner">
+    <div class="top">
+      <div class="brand">
+        <Image src={logo} alt="" width={26} height={26} class="logo" />Rebasar
+      </div>
+      <div class="columns">
+        {
+          columns.map((column) => (
+            <nav class="column" aria-label={column.title}>
+              <div class="column-title">{column.title}</div>
+              {column.links.map((link) => <a href={link.href}>{link.label}</a>)}
+            </nav>
+          ))
+        }
+      </div>
+    </div>
+    <div class="credit">Built by Constelutions.</div>
+  </div>
+</footer>
+
+<style>
+  footer {
+    border-top: 1px solid var(--color-border);
+    padding: 40px var(--gutter) 32px;
+  }
+
+  .inner {
+    display: flex;
+    flex-direction: column;
+    gap: 32px;
+  }
+
+  .top {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 28px 48px;
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 600;
+    font-size: 17px;
+    color: var(--color-text-strong);
+  }
+
+  .logo {
+    width: 26px;
+    height: 26px;
+    border-radius: 7px;
+    display: block;
+  }
+
+  .columns {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px 56px;
+  }
+
+  .column {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .column-title {
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-text-subtle);
+    padding-bottom: 6px;
+  }
+
+  .column a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    color: var(--color-text-soft);
+    font-size: 15px;
+    border-radius: 4px;
+    text-decoration: none;
+  }
+
+  .column a:hover {
+    color: var(--color-text-strong);
+  }
+
+  .credit {
+    border-top: 1px solid var(--color-border);
+    padding-top: 20px;
+    font-size: 14px;
+    color: var(--color-text-subtle);
+  }
+</style>

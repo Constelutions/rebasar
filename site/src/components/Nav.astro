@@ -1,0 +1,252 @@
+---
+import logo from "../assets/logo.png";
+import { Image } from "astro:assets";
+import { REPOSITORY_URL } from "../lib/releases";
+
+const links = [
+  { label: "Features", href: "#features" },
+  { label: "Performance", href: "#performance" },
+  { label: "Download", href: "#download" },
+];
+---
+
+<header class="nav">
+  <div class="bar">
+    <a href="#top" class="brand" aria-label="Rebasar home">
+      <Image src={logo} alt="" width={30} height={30} class="brand-logo" />Rebasar
+    </a>
+    <nav aria-label="Primary" class="links wide">
+      {links.map((link) => <a href={link.href}>{link.label}</a>)}
+    </nav>
+    <div class="spacer"></div>
+    <a href={REPOSITORY_URL} class="github wide">GitHub<span class="arrow" aria-hidden="true">↗</span></a>
+    <a href="#download" class="download compact">Download</a>
+    <button
+      type="button"
+      class="menu-button compact"
+      aria-label="Menu"
+      aria-expanded="false"
+      aria-controls="mobile-menu"
+      data-menu-button
+    >
+      <i></i><i></i><i></i>
+    </button>
+  </div>
+  <nav aria-label="Mobile" id="mobile-menu" class="mobile-menu" hidden data-menu>
+    {links.map((link) => <a href={link.href}>{link.label}</a>)}
+    <a href={REPOSITORY_URL}>GitHub</a>
+  </nav>
+</header>
+
+<script>
+  const button = document.querySelector<HTMLButtonElement>("[data-menu-button]");
+  const menu = document.querySelector<HTMLElement>("[data-menu]");
+
+  const setOpen = (open: boolean) => {
+    button?.setAttribute("aria-expanded", String(open));
+    if (menu) menu.hidden = !open;
+  };
+
+  button?.addEventListener("click", () => setOpen(button.getAttribute("aria-expanded") !== "true"));
+  menu?.addEventListener("click", (event) => {
+    if (event.target instanceof HTMLAnchorElement) setOpen(false);
+  });
+</script>
+
+<style>
+  .nav {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    background: oklch(0.14 0.012 265 / 0.8);
+    backdrop-filter: blur(14px);
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .bar {
+    max-width: calc(var(--content-width) + 2 * var(--gutter));
+    margin: 0 auto;
+    height: var(--nav-height);
+    padding: 0 var(--gutter);
+    display: flex;
+    align-items: center;
+    gap: 24px;
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 44px;
+    border-radius: var(--radius-md);
+    color: var(--color-text-strong);
+    font-weight: 600;
+    font-size: 18px;
+    letter-spacing: -0.01em;
+    text-decoration: none;
+  }
+
+  .brand-logo {
+    width: 30px;
+    height: 30px;
+    border-radius: var(--radius-sm);
+    display: block;
+  }
+
+  .links {
+    display: flex;
+    gap: 4px;
+    margin-left: 12px;
+  }
+
+  .links a,
+  .mobile-menu a {
+    text-decoration: none;
+    transition: background 0.15s, color 0.15s;
+  }
+
+  .links a {
+    padding: 9px 14px;
+    border-radius: 9px;
+    color: var(--color-text-muted);
+    font-size: 15px;
+    font-weight: 500;
+  }
+
+  .links a:hover {
+    background: var(--color-hover);
+    color: var(--color-text-strong);
+  }
+
+  .links a:active {
+    background: var(--color-border);
+    color: var(--color-text-strong);
+  }
+
+  .spacer {
+    flex: 1;
+  }
+
+  .github {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 44px;
+    padding: 0 16px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--color-border-raised);
+    font-size: 15px;
+    font-weight: 500;
+    text-decoration: none;
+    transition: background 0.15s, border-color 0.15s;
+  }
+
+  .github:hover {
+    background: var(--color-hover);
+    border-color: oklch(0.38 0.02 265);
+    color: var(--color-text-strong);
+  }
+
+  .github:active {
+    background: var(--color-surface-raised);
+  }
+
+  .download {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    padding: 0 16px;
+    border-radius: var(--radius-md);
+    background: var(--color-accent);
+    color: var(--color-on-accent);
+    font-size: 15px;
+    font-weight: 600;
+    text-decoration: none;
+  }
+
+  .download:hover {
+    background: var(--color-accent-hover);
+  }
+
+  .download:active {
+    background: var(--color-accent-active);
+  }
+
+  .menu-button {
+    width: 44px;
+    height: 44px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--color-border-raised);
+    background: transparent;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    padding: 0;
+    cursor: pointer;
+  }
+
+  .menu-button:hover {
+    background: var(--color-hover);
+  }
+
+  .menu-button i {
+    width: 18px;
+    height: 2px;
+    border-radius: 1px;
+    background: var(--color-text);
+  }
+
+  .mobile-menu {
+    padding: 8px 16px 16px;
+    flex-direction: column;
+    gap: 2px;
+    border-top: 1px solid var(--color-border);
+  }
+
+  .mobile-menu:not([hidden]) {
+    display: flex;
+  }
+
+  .mobile-menu a {
+    display: flex;
+    align-items: center;
+    min-height: 48px;
+    padding: 0 12px;
+    border-radius: var(--radius-md);
+    font-size: 16px;
+    font-weight: 500;
+  }
+
+  .mobile-menu a:hover {
+    background: var(--color-hover);
+  }
+
+  .compact {
+    display: none;
+  }
+
+  .menu-button.compact {
+    display: none;
+  }
+
+  @media (max-width: 759px) {
+    .wide {
+      display: none;
+    }
+
+    .download.compact {
+      display: inline-flex;
+    }
+
+    .menu-button.compact {
+      display: flex;
+    }
+  }
+
+  @media (min-width: 760px) {
+    .mobile-menu {
+      display: none !important;
+    }
+  }
+</style>

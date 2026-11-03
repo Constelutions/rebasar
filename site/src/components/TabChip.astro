@@ -1,0 +1,77 @@
+---
+import type { TabSample } from "../data/sample";
+
+interface Props {
+  tab: TabSample;
+  size?: "lg" | "sm";
+}
+
+const { tab, size = "lg" } = Astro.props;
+---
+
+<div class:list={["tab", size, { active: tab.active }]}>
+  <i style={`background:${tab.dot}`}></i>
+  <span class="repo">{tab.repo}</span>
+  <span class="branch mono">{tab.branch}</span>
+</div>
+
+<style>
+  .tab {
+    display: flex;
+    align-items: center;
+    white-space: nowrap;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    color: var(--color-text-muted);
+  }
+
+  .tab.active {
+    background: var(--color-selected);
+    border-color: var(--color-selected-border);
+    color: var(--color-text-strong);
+  }
+
+  .lg {
+    gap: 8px;
+    padding: 0 14px;
+    height: 34px;
+    border-radius: var(--radius-md);
+  }
+
+  .sm {
+    gap: 6px;
+    padding: 0 10px;
+    height: 26px;
+    border-radius: var(--radius-sm);
+  }
+
+  i {
+    border-radius: 4px;
+  }
+
+  .lg i {
+    width: 7px;
+    height: 7px;
+  }
+
+  .sm i {
+    width: 6px;
+    height: 6px;
+  }
+
+  .lg .repo {
+    font-weight: 500;
+  }
+
+  .branch {
+    opacity: 0.8;
+  }
+
+  .lg .branch {
+    font-size: 12px;
+  }
+
+  .sm .branch {
+    font-size: 11px;
+  }
+</style>
