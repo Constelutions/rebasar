@@ -69,7 +69,6 @@ The names are a contract: the marketing site renders its download buttons from t
 | Setting | Kind | Needed for |
 |---|---|---|
 | `RELEASES_ENABLED` | Variable | Turns real publishing on. Anything other than `true` is a dry run. |
-| `SITE_DEPLOY_WEBHOOK` | Secret, optional | A URL the workflow `POST`s to after publishing, so the website rebuilds. A missing secret skips the step, and a failing call never undoes a release. |
 
 The workflow publishes with the built-in `GITHUB_TOKEN`. If the organisation restricts workflow permissions, allow the Release workflow's `publish` job to write to contents.
 
