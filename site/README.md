@@ -32,7 +32,7 @@ The Downloads section is rendered **at build time** from the GitHub Releases API
 
 If the API call fails, or an asset is missing, the affected buttons fall back to the repository's releases page. The build never fails because of it.
 
-Because the page is static, a new release only shows once the site is rebuilt. `release.yml` does this: its "Tell the website a release was published" step posts to the `SITE_DEPLOY_WEBHOOK` secret.
+Because the page is static, a new release only shows once the site is rebuilt, which Coolify does on every push to `develop`, as for the blog. Publishing a release triggers no rebuild of its own; if the download links are stale, redeploy the resource from Coolify.
 
 An optional `GITHUB_TOKEN` (environment variable locally, build argument in Docker or Coolify) raises the API rate limit.
 
@@ -53,8 +53,7 @@ These are one-off steps, not part of any pull request:
 
 1. **DNS.** Point `rebasar.constelutions.tech` at the Coolify server.
 2. **Resource.** In Coolify create an application from this repository with the **Dockerfile** build pack. Set Base Directory to `site`, branch `develop`, domain `rebasar.constelutions.tech`, port 80, and `/healthz` as the health check path. Turn on auto-deploy through the GitHub App so a push to `develop` rebuilds it.
-3. **Release webhook.** Copy the resource's deploy webhook into the repository secret `SITE_DEPLOY_WEBHOOK`, so each published release rebuilds the site.
-4. **Optional.** Add a `GITHUB_TOKEN` build argument if the Releases API rate limit is ever hit from the build server.
+3. **Optional.** Add a `GITHUB_TOKEN` build argument if the Releases API rate limit is ever hit from the build server.
 
 ## Not included
 
