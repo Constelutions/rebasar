@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { issuesUrl } from "./about";
+import { channelOf } from "./channel";
 import { AboutDialog } from "./components/AboutDialog";
 import { type AddKind, AddRepositoryDialog } from "./components/AddRepositoryDialog";
 import { OpenInEditor } from "./components/OpenInEditor";
@@ -20,6 +21,7 @@ import { SettingsProvider, useSettings, useStoredSettings } from "./settings/Set
 import type { AppWindow } from "./shell/appWindow";
 import { shortcuts, useShortcut } from "./shortcuts";
 import { useShellCommands } from "./shellCommands";
+import { useAppInfo } from "./useAppInfo";
 import { useCloseTab } from "./useCloseTab";
 import { type CommitDrafts, useCommitDrafts } from "./useCommitDrafts";
 import { useMutations } from "./useMutations";
@@ -190,6 +192,7 @@ function Shell({
     [settings, sidebarCollapsed, updateSettings],
   );
 
+  const appInfo = useAppInfo(api, onError);
   const [aboutOpen, setAboutOpen] = useState(false);
   const showAbout = useCallback(() => setAboutOpen(true), []);
   const reportIssue = useCallback(
@@ -224,6 +227,8 @@ function Shell({
         onSelectTab={selectTab}
         onCloseTab={requestClose}
         onOpenFolder={openFolder}
+        onShowAbout={showAbout}
+        channel={appInfo && channelOf(appInfo.version)}
         actions={
           activeTab && (
             <>
@@ -272,6 +277,8 @@ function Shell({
               collapsed={sidebarCollapsed}
               onSelect={showView}
               onToggleCollapsed={toggleSidebar}
+              version={appInfo?.version}
+              onShowAbout={showAbout}
             />
             <ViewPane
               view={view}
@@ -290,7 +297,7 @@ function Shell({
       )}
       {closeTabDialog}
       {aboutOpen && (
-        <AboutDialog api={api} onClose={() => setAboutOpen(false)} onError={onError} />
+        <AboutDialog api={api} info={appInfo} onClose={() => setAboutOpen(false)} onError={onError} />
       )}
       {adding && (
         <AddRepositoryDialog
