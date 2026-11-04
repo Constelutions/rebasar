@@ -1,15 +1,22 @@
 import { useEffect, useState } from "react";
 
-import type { AppInfo, CoreApi } from "./core/api";
+import { type Channel, channelOf } from "./channel";
+import type { CoreApi } from "./core/api";
 import { describeError } from "./core/describeError";
 
-export function useAppInfo(api: CoreApi, onError: (message: string) => void): AppInfo | null {
-  const [info, setInfo] = useState<AppInfo | null>(null);
+export interface VersionInfo {
+  version: string;
+  channel: Channel;
+}
+
+/** Null until the version has been read. */
+export function useAppInfo(api: CoreApi, onError: (message: string) => void): VersionInfo | null {
+  const [info, setInfo] = useState<VersionInfo | null>(null);
 
   useEffect(() => {
     let current = true;
     api.appInfo().then(
-      (loaded) => current && setInfo(loaded),
+      ({ version }) => current && setInfo({ version, channel: channelOf(version) }),
       (failure) => current && onError(describeError(failure)),
     );
     return () => {

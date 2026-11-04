@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { issuesUrl } from "./about";
-import { channelOf } from "./channel";
 import { AboutDialog } from "./components/AboutDialog";
 import { type AddKind, AddRepositoryDialog } from "./components/AddRepositoryDialog";
 import { OpenInEditor } from "./components/OpenInEditor";
@@ -231,7 +230,7 @@ function Shell({
         onCloseTab={requestClose}
         onOpenFolder={openFolder}
         onShowAbout={showAbout}
-        channel={appInfo && channelOf(appInfo.version)}
+        channel={appInfo?.channel ?? null}
         actions={
           activeTab && (
             <>

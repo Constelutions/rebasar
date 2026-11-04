@@ -14,8 +14,8 @@ import type {
 import { describeError } from "../core/describeError";
 import { useSettings } from "../settings/SettingsContext";
 import { Button } from "./Button";
-import { SegmentedControl } from "./SegmentedControl";
 import { Select, TextInput } from "./FormControls";
+import { SegmentedControl } from "./SegmentedControl";
 
 const codeFontSizes = [11, 12, 13, 14];
 

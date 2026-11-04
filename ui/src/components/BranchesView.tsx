@@ -14,10 +14,10 @@ import { useSettings } from "../settings/SettingsContext";
 import { useConfirmation } from "../useConfirmation";
 import { ActionMenu, type MenuItem, OptionsButton, useActionMenu } from "./ActionMenu";
 import { Button } from "./Button";
+import { TextInput } from "./FormControls";
 import { SegmentedControl } from "./SegmentedControl";
 import { TruncatedText } from "./TruncatedText";
 import { type BranchRow, buildBranchRows, detailsOf, filterBranchRows } from "./branchRows";
-import { TextInput } from "./FormControls";
 
 interface BranchesViewProps {
   api: CoreApi;

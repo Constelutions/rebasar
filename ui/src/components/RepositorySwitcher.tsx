@@ -3,10 +3,10 @@ import { useCallback, useRef, useState } from "react";
 import { useDismiss } from "../useDismiss";
 import type { OpenTab } from "../useOpenTabs";
 import { Button } from "./Button";
+import { TextInput } from "./FormControls";
 import { StatusDot } from "./StatusDot";
 import { describeHead } from "./TabStrip";
 import { TruncatedText } from "./TruncatedText";
-import { TextInput } from "./FormControls";
 
 interface RepositorySwitcherProps {
   tabs: OpenTab[];

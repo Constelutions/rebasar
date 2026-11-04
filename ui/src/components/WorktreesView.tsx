@@ -11,9 +11,9 @@ import type {
 import { describeError } from "../core/describeError";
 import { useConfirmation } from "../useConfirmation";
 import { Button } from "./Button";
+import { Select, TextInput } from "./FormControls";
 import { describeHead } from "./TabStrip";
 import { TruncatedText } from "./TruncatedText";
-import { Select, TextInput } from "./FormControls";
 
 interface WorktreesViewProps {
   api: CoreApi;

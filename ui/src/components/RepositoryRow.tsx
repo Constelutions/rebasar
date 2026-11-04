@@ -1,7 +1,7 @@
 import type { Group, RepositoryEntry } from "../core/api";
 import { Button } from "./Button";
-import { TruncatedText } from "./TruncatedText";
 import { Select } from "./FormControls";
+import { TruncatedText } from "./TruncatedText";
 
 interface RepositoryRowProps {
   repository: RepositoryEntry;

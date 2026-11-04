@@ -1,9 +1,9 @@
 import { type FormEvent, useEffect, useId, useState } from "react";
 
 import { Button } from "../components/Button";
+import { TextArea, TextInput } from "../components/FormControls";
 import type { CoreApi, MutationOutcome } from "../core/api";
 import { describeError } from "../core/describeError";
-import { TextArea, TextInput } from "../components/FormControls";
 
 export type CommitDialog = "branch" | "tag" | "reword";
 

@@ -1,8 +1,8 @@
 import { Button } from "../components/Button";
+import { TextInput } from "../components/FormControls";
 import { MultiSelect, type MultiSelectOption } from "../components/MultiSelect";
 import type { HistoryCount } from "../core/api";
 import { MY_COMMITS, addTerm, removeTerm, termValues } from "./historyQuery";
-import { TextInput } from "../components/FormControls";
 
 export interface Chips {
   allBranches: boolean;

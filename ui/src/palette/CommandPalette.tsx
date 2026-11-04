@@ -8,12 +8,12 @@ import {
   useSyncExternalStore,
 } from "react";
 
+import { TextInput } from "../components/FormControls";
 import type { CommitHit, CoreApi } from "../core/api";
 import { describeError } from "../core/describeError";
 import { useDebounced } from "../useDebounced";
 import { fuzzyScore } from "./fuzzy";
 import type { CommandRegistry, PaletteCommand, PaletteContext } from "./registry";
-import { TextInput } from "../components/FormControls";
 
 const COMMIT_LIMIT = 8;
 /** Typing is searched once it pauses, so each keystroke does not walk the history. */

@@ -13,8 +13,8 @@ import {
 } from "../core/api";
 import { describeError } from "../core/describeError";
 import { Button } from "./Button";
-import { PullRequestDialog } from "./PullRequestDialog";
 import { TextInput } from "./FormControls";
+import { PullRequestDialog } from "./PullRequestDialog";
 
 type Load =
   | { phase: "loading" }

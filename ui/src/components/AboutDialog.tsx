@@ -1,15 +1,15 @@
 import { type KeyboardEvent, useEffect, useId, useRef } from "react";
 
 import { issuesUrl } from "../about";
-import { channelOf } from "../channel";
-import type { AppInfo, CoreApi } from "../core/api";
+import type { CoreApi } from "../core/api";
 import { describeError } from "../core/describeError";
+import type { VersionInfo } from "../useAppInfo";
 import { BrandLogo } from "./BrandLogo";
 import { Button } from "./Button";
 
 interface AboutDialogProps {
   api: CoreApi;
-  info: AppInfo | null;
+  info: VersionInfo | null;
   onClose: () => void;
   onError: (message: string) => void;
 }
@@ -47,7 +47,7 @@ export function AboutDialog({ api, info, onClose, onError }: AboutDialogProps) {
         <h2 id={titleId}>About Rebasar</h2>
         <div className="dialog-body">
           <p>Version {info?.version ?? "…"}</p>
-          {info && <p>Channel: {channelOf(info.version)}</p>}
+          {info && <p>Channel: {info.channel}</p>}
           <p>Licensed under the Apache License 2.0.</p>
         </div>
         <div className="dialog-actions">

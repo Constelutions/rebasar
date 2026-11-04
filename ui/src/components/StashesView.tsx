@@ -19,8 +19,8 @@ import { Button } from "./Button";
 import { buildGroupTrees, firstFile } from "./changeTree";
 import { DiffView } from "./DiffView";
 import { FileTree } from "./FileTree";
-import { TruncatedText } from "./TruncatedText";
 import { TextInput } from "./FormControls";
+import { TruncatedText } from "./TruncatedText";
 
 interface StashesViewProps {
   api: CoreApi;

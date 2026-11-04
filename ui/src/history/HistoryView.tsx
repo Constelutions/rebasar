@@ -83,6 +83,8 @@ function FilteredHistory({
   const { settings, update } = useSettings();
   const { hashLength } = settings.copy;
   const { detailPosition, graphStyle: style } = settings.history;
+  const updateHistory = (patch: Partial<Settings["history"]>) =>
+    update({ ...settings, history: { ...settings.history, ...patch } });
   const { copy, tooltip: copiedTooltip } = useCopyOnSelect();
   const copyHash = useCallback(
     (commitId: string, near: Element) => copy(commitId.slice(0, hashLength ?? undefined), near),
@@ -205,14 +207,12 @@ function FilteredHistory({
           label="Graph style"
           options={graphStyles}
           value={style}
-          onChange={(graphStyle) => update({ ...settings, history: { ...settings.history, graphStyle } })}
+          onChange={(graphStyle) => updateHistory({ graphStyle })}
         />
         <SplitPositionToggle
           label="Details position"
           value={detailPosition}
-          onChange={(position) =>
-            update({ ...settings, history: { ...settings.history, detailPosition: position } })
-          }
+          onChange={(detailPosition) => updateHistory({ detailPosition })}
         />
       </div>
       <SplitPane

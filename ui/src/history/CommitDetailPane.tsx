@@ -6,13 +6,19 @@ import { DiffView } from "../components/DiffView";
 import { FileTree } from "../components/FileTree";
 import { ResizableSplit } from "../components/ResizableSplit";
 import { type GroupTree, buildGroupTrees, firstFile } from "../components/changeTree";
-import type { CommitDetail, CoreApi, DiffMode, FileChange, FilesView } from "../core/api";
+import {
+  type CommitDetail,
+  type CoreApi,
+  type DiffMode,
+  type FileChange,
+  type FilesView,
+  HISTORY_SHORT_ID_LENGTH,
+} from "../core/api";
 import { describeError } from "../core/describeError";
 import { useSettings } from "../settings/SettingsContext";
 import { useFileOpener } from "../useEditors";
 import { Avatar } from "./Avatar";
 import { CopyHashButton } from "./CopyHashButton";
-import { HISTORY_SHORT_ID_LENGTH } from "../core/api";
 import { formatDateTime } from "./items";
 import { type DiffBase, useCommitFileDiff } from "./useCommitFileDiff";
 

@@ -23,11 +23,12 @@ interface ResizableSplitProps {
   className?: string;
   /** Keeps the size for the session under this key; without one the size is lost when the split unmounts. */
   sizeKey?: string;
-  "data-position"?: string;
+  /** Exposed as `data-position` for styling that depends on where the end pane sits. */
+  position?: string;
 }
 
 /** Two panes with a draggable divider along either axis; the start pane keeps its share as the container resizes. */
-export function ResizableSplit({ label, axis, start, end, className, sizeKey, ...rest }: ResizableSplitProps) {
+export function ResizableSplit({ label, axis, start, end, className, sizeKey, position }: ResizableSplitProps) {
   const container = useRef<HTMLDivElement>(null);
   const [ratio, setRatio] = useSplitRatio(sizeKey, DEFAULT_RATIO);
   const drag = useRef<{ pointer: number; ratio: number } | null>(null);
@@ -44,6 +45,10 @@ export function ResizableSplit({ label, axis, start, end, className, sizeKey, ..
     resize(origin.ratio + (event[pointer] - origin.pointer) / extent);
   }
 
+  function endDrag() {
+    drag.current = null;
+  }
+
   function onKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     if (event.key === grow) resize(ratio + KEY_STEP);
     else if (event.key === shrink) resize(ratio - KEY_STEP);
@@ -51,7 +56,7 @@ export function ResizableSplit({ label, axis, start, end, className, sizeKey, ..
     event.preventDefault();
   }
 
-  const hasEnd = end !== undefined && end !== null && end !== false;
+  const hasEnd = Boolean(end);
 
   return (
     <div
@@ -59,7 +64,7 @@ export function ResizableSplit({ label, axis, start, end, className, sizeKey, ..
       className={className ? `resizable-split ${className}` : "resizable-split"}
       data-axis={axis}
       data-open={hasEnd ? true : undefined}
-      {...rest}
+      data-position={position}
     >
       <div className="resizable-start" style={hasEnd ? { flexBasis: `${ratio * 100}%` } : undefined}>
         {start}
@@ -80,12 +85,8 @@ export function ResizableSplit({ label, axis, start, end, className, sizeKey, ..
               drag.current = { pointer: event[pointer], ratio };
             }}
             onPointerMove={onPointerMove}
-            onPointerUp={() => {
-              drag.current = null;
-            }}
-            onPointerCancel={() => {
-              drag.current = null;
-            }}
+            onPointerUp={endDrag}
+            onPointerCancel={endDrag}
             onDoubleClick={() => resize(DEFAULT_RATIO)}
             onKeyDown={onKeyDown}
           />

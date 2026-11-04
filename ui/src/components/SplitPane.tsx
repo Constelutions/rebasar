@@ -38,9 +38,9 @@ export function SplitPane({ className, label, sizeKey, position, secondary, chil
       label={label}
       sizeKey={sizeKey}
       axis={position === "bottom" ? "column" : "row"}
-      data-position={position}
+      position={position}
       start={<div className="split-primary">{children}</div>}
-      end={secondary || undefined}
+      end={secondary}
     />
   );
 }
