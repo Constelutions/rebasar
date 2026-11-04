@@ -21,14 +21,23 @@ impl Install {
             .folder
             .path()
             .join(format!("rebasar-app{EXE_SUFFIX}"));
-        fs::copy(env!("CARGO_BIN_EXE_app-recorder"), app).expect("copy the recorder");
+        fs::hard_link(env!("CARGO_BIN_EXE_app-recorder"), app).expect("link the recorder");
         install
     }
 
     pub fn without_app() -> Self {
-        let folder = tempfile::tempdir().expect("temp dir");
+        // Hard links, not copies: a copy holds a write handle that a concurrent fork in another test
+        // thread inherits, and Linux then refuses to execute the file ("Text file busy"). The folder
+        // sits beside the build output so the link never crosses a filesystem.
+        let build_folder = Path::new(env!("CARGO_BIN_EXE_rebasar"))
+            .parent()
+            .expect("the CLI binary has a parent folder");
+        let folder = tempfile::Builder::new()
+            .prefix("install-")
+            .tempdir_in(build_folder)
+            .expect("install folder");
         let cli = folder.path().join(format!("rebasar{EXE_SUFFIX}"));
-        fs::copy(env!("CARGO_BIN_EXE_rebasar"), cli).expect("copy the CLI");
+        fs::hard_link(env!("CARGO_BIN_EXE_rebasar"), cli).expect("link the CLI");
         Self { folder }
     }
 
