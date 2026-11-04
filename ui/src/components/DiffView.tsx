@@ -5,6 +5,8 @@ import { useSyntaxTokens } from "../highlight/useSyntaxTokens";
 import type { Token } from "../highlight/tokens";
 import { useCopyOnSelect } from "../useCopyOnSelect";
 import { Button } from "./Button";
+import { formatBytes } from "./formatBytes";
+import { ImageDiff } from "./ImageDiff";
 import {
   type DiffRow,
   changedLines,
@@ -106,6 +108,9 @@ export function DiffView({ diff, mode, onModeChange, onLoadLarge, staging }: Dif
         <p className="placeholder diff-note">
           Binary file. {describeSizes(content.oldBytes, content.newBytes)}
         </p>
+      )}
+      {content.kind === "image" && (
+        <ImageDiff before={content.old} after={content.new} onLoad={onLoadLarge} />
       )}
       {content.kind === "collapsed" && (
         <div className="diff-note diff-collapsed">
@@ -274,10 +279,4 @@ function describeSizes(oldBytes: number | null, newBytes: number | null) {
   if (oldBytes !== null) parts.push(`Before: ${formatBytes(oldBytes)}`);
   if (newBytes !== null) parts.push(`After: ${formatBytes(newBytes)}`);
   return parts.join(" · ");
-}
-
-function formatBytes(bytes: number) {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }

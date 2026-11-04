@@ -4,7 +4,7 @@ use rebasar_core::{
     CommitDiffRequest, CommitHit, CommitOptions, CommitParent, CoreEvent, DiffContent, DiffLine,
     DiffMode, DiffRequest, DiffSettings, Edge, EdgeKind, FileChange, FileDiff, GitHubAuthStatus,
     GitHubRepository, GitIdentity, GitSetup, Group, Head, HistoryCount, HistoryFilter,
-    HistoryPage, HistoryRow, Hunk, LineKind, Loss, LostCommit, ModeChange, MutationId, MutationInfo,
+    HistoryPage, HistoryRow, Hunk, ImageSide, LineKind, Loss, LostCommit, ModeChange, MutationId, MutationInfo,
     MutationKind, MutationOutcome, OutgoingCommit, OutputStream, PullRequest, RefKind, RefLabel,
     RepositoryEntry, RepositoryList, ReviewState, Session, Settings, SyncSettings, Tab, TabSettings, TokenSource,
     UnavailableReason, WhitespaceMode, WorktreeEntry, WorktreeStatus,
@@ -340,6 +340,42 @@ fn binary_and_collapsed_diffs_serialise_to_the_shape_the_ui_expects() {
         })
         .unwrap(),
         json!({ "kind": "collapsed", "bytes": 2000000, "lines": 30000 })
+    );
+}
+
+#[test]
+fn image_diffs_serialise_to_the_shape_the_ui_expects() {
+    assert_eq!(
+        serde_json::to_value(DiffContent::Image {
+            old: None,
+            new: Some(ImageSide {
+                mime: "image/png".to_owned(),
+                bytes: 8,
+                data: Some("iVBORw0KGgo=".to_owned()),
+            }),
+        })
+        .unwrap(),
+        json!({
+            "kind": "image",
+            "old": null,
+            "new": { "mime": "image/png", "bytes": 8, "data": "iVBORw0KGgo=" },
+        })
+    );
+    assert_eq!(
+        serde_json::to_value(DiffContent::Image {
+            old: Some(ImageSide {
+                mime: "image/gif".to_owned(),
+                bytes: 6_000_000,
+                data: None,
+            }),
+            new: None,
+        })
+        .unwrap(),
+        json!({
+            "kind": "image",
+            "old": { "mime": "image/gif", "bytes": 6000000, "data": null },
+            "new": null,
+        })
     );
 }
 

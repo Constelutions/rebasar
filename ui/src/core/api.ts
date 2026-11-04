@@ -178,9 +178,17 @@ export interface Hunk {
   lines: DiffLine[];
 }
 
+/** One side of an image diff; `data` is base64 and `null` while the image is over the size cap. */
+export interface ImageSide {
+  mime: string;
+  bytes: number;
+  data: string | null;
+}
+
 export type DiffContent =
   | { kind: "text"; hunks: Hunk[] }
   | { kind: "binary"; oldBytes: number | null; newBytes: number | null }
+  | { kind: "image"; old: ImageSide | null; new: ImageSide | null }
   | { kind: "collapsed"; bytes: number; lines: number | null };
 
 export interface FileDiff {

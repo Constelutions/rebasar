@@ -3920,6 +3920,7 @@ dependencies = [
 name = "rebasar-core"
 version = "0.1.0"
 dependencies = [
+ "base64 0.22.1",
  "dunce",
  "gix",
  "keyring-core",

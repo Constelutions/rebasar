@@ -46,8 +46,8 @@ pub use conflicts::{ConflictFile, ConflictKind, ConflictSegment, ConflictSide};
 pub use commit_actions::ResetMode;
 pub use compare::WorktreeDiffRequest;
 pub use diff::{
-    ChangeList, CommitDiffRequest, DiffContent, DiffLine, DiffRequest, FileDiff, Hunk, LineKind,
-    ModeChange, WhitespaceMode,
+    ChangeList, CommitDiffRequest, DiffContent, DiffLine, DiffRequest, FileDiff, Hunk, ImageSide,
+    LineKind, ModeChange, WhitespaceMode,
 };
 pub use github::{
     CheckState, GitHubAuthStatus, GitHubRepository, PullRequest, PullRequestDetails, ReviewState, TokenSource,
