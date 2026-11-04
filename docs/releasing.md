@@ -90,6 +90,14 @@ The CLI is declared only in the overlay because Tauri checks that a bundled bina
 
 The desktop executable is called `rebasar-app` on purpose: Windows filenames are case-insensitive, so it must never be `Rebasar.exe` beside the CLI's `rebasar.exe`.
 
+### The Windows install folder
+
+A first install goes to `%LOCALAPPDATA%\Rebasar`. When a previous install exists, the installer reuses the folder it was in rather than the default, so installing the next version over the old one keeps the setup. This is intended. The consequence is that a machine that once installed a build into an odd folder, such as a test build in a temporary directory, keeps installing there.
+
+A stale location is easy to spot: the installer's folder page, or the app's path in Task Manager, is not under `%LOCALAPPDATA%\Rebasar`. To clear it, uninstall the old test install first (Settings, Apps, Installed apps, or its `uninstall.exe`), then run the installer again. The remembered location lives in the per-user Uninstall registry key, `HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Uninstall`; uninstalling removes it, so there is no need to edit the registry by hand.
+
+CI guards the default. The **Build installers** workflow runs `scripts/release/verify-windows-install.ps1` on the Windows runner after the build. It installs silently with no folder argument, fails if the app is not in `%LOCALAPPDATA%\Rebasar`, then uninstalls silently and fails if the folder or the `PATH` entry remains. It publishes nothing, and the Release workflow, which reuses Build installers, runs it too.
+
 ## Known gaps
 
 - Windows installers are **not signed**, so SmartScreen warns. Signing is required before `v1.0.0`.

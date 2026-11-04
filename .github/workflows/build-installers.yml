@@ -49,6 +49,12 @@ jobs:
           # The runner has no FUSE, which linuxdeploy would otherwise need to run itself.
           APPIMAGE_EXTRACT_AND_RUN: "1"
 
+      # Installs on the runner and removes it again; nothing is published or uploaded from here.
+      - name: Verify the default Windows install and uninstall
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./scripts/release/verify-windows-install.ps1
+
       - uses: actions/upload-artifact@v4
         with:
           name: installers-${{ runner.os }}
