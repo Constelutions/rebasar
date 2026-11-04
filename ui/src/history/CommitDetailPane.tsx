@@ -1,5 +1,6 @@
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 
+import { ActionIcon } from "../components/ActionIcons";
 import { Button } from "../components/Button";
 import { DiffView } from "../components/DiffView";
 import { FileTree } from "../components/FileTree";
@@ -9,6 +10,9 @@ import type { CommitDetail, CoreApi, DiffMode, FileChange, FilesView } from "../
 import { describeError } from "../core/describeError";
 import { useSettings } from "../settings/SettingsContext";
 import { useFileOpener } from "../useEditors";
+import { Avatar } from "./Avatar";
+import { CopyHashButton } from "./CopyHashButton";
+import { HISTORY_SHORT_ID_LENGTH } from "../core/api";
 import { formatDateTime } from "./items";
 import { type DiffBase, useCommitFileDiff } from "./useCommitFileDiff";
 
@@ -19,6 +23,7 @@ interface CommitDetailPaneProps {
   /** Shows how the commit differs from the files on disk instead of from its parent. */
   comparing: boolean;
   onComparingChange: (comparing: boolean) => void;
+  onCopyHash: (commitId: string, near: Element) => void;
   onClose: () => void;
 }
 
@@ -29,6 +34,7 @@ export function CommitDetailPane({
   commitId,
   comparing,
   onComparingChange,
+  onCopyHash,
   onClose,
 }: CommitDetailPaneProps) {
   const [parent, setParent] = useState(0);
@@ -37,13 +43,13 @@ export function CommitDetailPane({
 
   const closeButton = (
     <Button
-      variant="plain"
       type="button"
-      className="commit-detail-close"
+      className="icon-button commit-detail-close"
       aria-label="Close commit detail"
+      title="Close commit detail"
       onClick={onClose}
     >
-      ×
+      <ActionIcon name="close" />
     </Button>
   );
   const ready = loaded !== null && (!comparing || comparison.files !== null);
@@ -65,6 +71,7 @@ export function CommitDetailPane({
           comparing={comparing}
           onComparingChange={onComparingChange}
           onParentChange={setParent}
+          onCopyHash={onCopyHash}
           closeButton={closeButton}
         />
       ) : (
@@ -83,6 +90,7 @@ interface CommitBodyProps {
   comparing: boolean;
   onComparingChange: (comparing: boolean) => void;
   onParentChange: (parent: number) => void;
+  onCopyHash: (commitId: string, near: Element) => void;
   closeButton: ReactNode;
 }
 
@@ -95,6 +103,7 @@ function CommitBody({
   comparing,
   onComparingChange,
   onParentChange,
+  onCopyHash,
   closeButton,
 }: CommitBodyProps) {
   const [pickedPath, setPickedPath] = useState<string | null>(null);
@@ -134,7 +143,8 @@ function CommitBody({
       {body && <p className="commit-detail-body">{body}</p>}
       <dl className="commit-meta">
         <dt>Author</dt>
-        <dd>
+        <dd className="commit-author-line">
+          <Avatar name={detail.authorName} email={detail.authorEmail} />
           {detail.authorName} &lt;{detail.authorEmail}&gt;
         </dd>
         <dt>Date</dt>
@@ -144,7 +154,13 @@ function CommitBody({
           </time>
         </dd>
         <dt>Commit</dt>
-        <dd className="commit-id">{detail.id}</dd>
+        <dd className="commit-id">
+          <CopyHashButton
+            commitId={detail.id}
+            shortId={detail.id.slice(0, HISTORY_SHORT_ID_LENGTH)}
+            onCopy={onCopyHash}
+          />
+        </dd>
         <dt>{detail.parents.length > 1 ? "Parents" : "Parent"}</dt>
         <dd>
           {detail.parents.length === 0 ? (

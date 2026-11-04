@@ -10,6 +10,7 @@ import { useSettings } from "../settings/SettingsContext";
 import { useCopyOnSelect } from "../useCopyOnSelect";
 import { useDebounced } from "../useDebounced";
 import { Avatar } from "./Avatar";
+import { CopyHashButton } from "./CopyHashButton";
 import { useConfirmation } from "../useConfirmation";
 import { RebaseEditor } from "../components/RebaseEditor";
 import { CommitActionDialog, type CommitDialog } from "./CommitActionDialog";
@@ -227,6 +228,7 @@ function FilteredHistory({
               commitId={selectedId}
               comparing={comparing}
               onComparingChange={setComparing}
+              onCopyHash={copyHash}
               onClose={() => setSelectedId(null)}
             />
           )
@@ -491,18 +493,7 @@ function CommitItem({
         <RefBadges refs={row.refs} />
       </span>
       <TruncatedText className="commit-author" text={row.authorName} />
-      <Button
-        variant="plain"
-        className="commit-hash"
-        aria-label={`Copy hash ${row.shortId}`}
-        onClick={(event) => {
-          event.stopPropagation();
-          onCopyHash(row.id, event.currentTarget);
-        }}
-        onKeyDown={(event) => event.stopPropagation()}
-      >
-        {row.shortId}
-      </Button>
+      <CopyHashButton commitId={row.id} shortId={row.shortId} onCopy={onCopyHash} />
       <time className="commit-time" dateTime={new Date(row.timestamp * 1000).toISOString()}>
         {formatTime(row.timestamp)}
       </time>

@@ -1814,6 +1814,8 @@ button.commit-hash:hover {
   flex: none;
   width: var(--control-height);
   height: var(--control-height);
+  display: grid;
+  place-items: center;
   color: var(--color-text-subtle);
   background: transparent;
   border: 0;
@@ -1854,6 +1856,12 @@ button.commit-hash:hover {
 
 .commit-meta dd {
   margin: 0;
+}
+
+.commit-meta .commit-author-line {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
 }
 
 .commit-id,
