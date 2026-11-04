@@ -1,0 +1,131 @@
+---
+import DownloadCta from "./DownloadCta.astro";
+import GithubIcon from "./GithubIcon.astro";
+import { REPOSITORY_URL, type ReleaseDownloads } from "../lib/releases";
+import HeroPanel from "./HeroPanel.astro";
+
+interface Props {
+  downloads: ReleaseDownloads | null;
+}
+
+const { downloads } = Astro.props;
+---
+
+<section id="top" aria-labelledby="hero-title" class="hero">
+  <svg
+    aria-hidden="true"
+    class="rails"
+    viewBox="0 0 1440 700"
+    preserveAspectRatio="xMidYMin slice"
+  >
+    <g fill="none" stroke-width="2.5" stroke-linecap="round">
+      <path d="M96 0 V250 C96 290 150 290 150 330 V700" stroke="var(--color-category-1)"></path>
+      <path d="M150 330 C150 370 210 370 210 410 V700" stroke="var(--color-category-0)"></path>
+      <path d="M1344 0 V180 C1344 220 1290 220 1290 260 V700" stroke="var(--color-category-2)"></path>
+      <path d="M1290 260 C1290 300 1236 300 1236 340 V700" stroke="var(--color-category-3)"></path>
+      <path d="M1344 180 C1344 240 1400 240 1400 300 V700" stroke="var(--color-category-1)"></path>
+    </g>
+    <g fill="var(--color-bg)" stroke-width="2.5">
+      <circle cx="96" cy="250" r="6" stroke="var(--color-category-1)"></circle>
+      <circle cx="150" cy="330" r="6" stroke="var(--color-category-0)"></circle>
+      <circle cx="1344" cy="180" r="6" stroke="var(--color-category-2)"></circle>
+      <circle cx="1290" cy="260" r="6" stroke="var(--color-category-3)"></circle>
+    </g>
+  </svg>
+
+  <div class="copy">
+    <div class="chip mono"><i></i>Beta{downloads && ` · v${downloads.version}`}</div>
+    <h1 id="hero-title">Git for those who live in many repos at once</h1>
+    <p class="subhead">
+      A fast desktop Git client built on your own <span class="inline-code">git</span>. Every repository,
+      branch, worktree and pull request in one window.
+    </p>
+    <div class="ctas">
+      <DownloadCta downloads={downloads} />
+      <a href={REPOSITORY_URL} class="btn btn-secondary"><GithubIcon />View on GitHub<span class="arrow" aria-hidden="true">↗</span></a>
+    </div>
+    <p class="meta">Free and open source · Apache 2.0 · Windows &amp; Linux</p>
+  </div>
+
+  <HeroPanel />
+</section>
+
+<style>
+  .hero {
+    position: relative;
+    overflow: hidden;
+    padding: clamp(48px, 7vw, 96px) var(--gutter) 0;
+  }
+
+  .rails {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 700px;
+    opacity: 0.32;
+    mask-image: linear-gradient(oklch(0 0 0), oklch(0 0 0 / 0));
+  }
+
+  .copy {
+    position: relative;
+    max-width: 980px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 24px;
+  }
+
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 14px 5px 10px;
+    border-radius: 999px;
+    background: var(--color-accent-surface);
+    color: var(--color-accent-text);
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1.4;
+  }
+
+  .chip i {
+    width: 7px;
+    height: 7px;
+    border-radius: 4px;
+    background: var(--color-accent);
+  }
+
+  h1 {
+    font-weight: 600;
+    font-size: clamp(38px, 6vw, 80px);
+    line-height: 1.04;
+    letter-spacing: -0.035em;
+    color: var(--color-text-strong);
+    text-wrap: balance;
+    max-width: 14em;
+  }
+
+  .subhead {
+    max-width: 640px;
+    font-size: clamp(17px, 1.7vw, 20px);
+    line-height: 1.55;
+    color: var(--color-text-muted);
+    text-wrap: pretty;
+  }
+
+  .ctas {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 12px;
+    margin-top: 4px;
+  }
+
+  .meta {
+    font-size: 14px;
+    color: var(--color-text-subtle);
+  }
+</style>

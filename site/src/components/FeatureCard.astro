@@ -1,0 +1,82 @@
+---
+interface Props {
+  title: string;
+  padding?: number;
+  accent?: boolean;
+}
+
+const { title, padding = 0, accent = false } = Astro.props;
+---
+
+<article class="card">
+  <div class="preview" aria-hidden="true">
+    <div class:list={["panel mock", { accent }]} style={`padding:${padding}px`}>
+      <slot name="preview" />
+    </div>
+  </div>
+  <div class="text">
+    <h3>{title}</h3>
+    <p><slot /></p>
+  </div>
+</article>
+
+<style>
+  .card {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    background: var(--color-surface);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    transition: border-color 0.15s;
+  }
+
+  .card:hover {
+    border-color: var(--color-border-hover);
+  }
+
+  .preview {
+    position: relative;
+    height: 184px;
+    background: var(--color-bg);
+    border-bottom: 1px solid var(--color-border);
+    overflow: hidden;
+  }
+
+  .panel {
+    position: absolute;
+    left: 14px;
+    top: 14px;
+    width: 400px;
+    height: 200px;
+    border-radius: var(--radius-md) 0 0 0;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border-raised);
+    border-right: 0;
+    border-bottom: 0;
+    overflow: hidden;
+    font-size: 12px;
+  }
+
+  .panel.accent {
+    border-color: oklch(0.38 0.07 250);
+  }
+
+  .text {
+    padding: 18px 20px 22px;
+  }
+
+  h3 {
+    margin-bottom: 6px;
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--color-text-strong);
+  }
+
+  p {
+    font-size: 15px;
+    line-height: 1.5;
+    color: var(--color-text-muted);
+    text-wrap: pretty;
+  }
+</style>

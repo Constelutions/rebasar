@@ -57,6 +57,7 @@ Requirements: a system `git` 2.35.0 or newer (the app shows a setup screen at st
 | `src-tauri` | Tauri shell that binds the core to the UI. |
 | `scripts` | The installer build script and the release-plan script, with its tests. |
 | `ui` | React + TypeScript UI. `src/core/api.ts` is the UI's view of the core contract; `src/core/stub.ts` is the fake used in UI tests. |
+| `site` | The marketing website: a standalone Astro project, outside the pnpm workspace, deployed from its own Dockerfile. |
 
 ```sh
 pnpm install            # install UI dependencies
@@ -84,6 +85,7 @@ See [`docs/benchmarks.md`](docs/benchmarks.md) for the fixtures, the thresholds 
 - [`docs/benchmarks.md`](docs/benchmarks.md): large-Repository fixtures and the benchmark harness.
 - [`docs/releasing.md`](docs/releasing.md): how a release is cut, the branches, the asset names and the repository settings it needs.
 - [`docs/smoke-run.md`](docs/smoke-run.md): the end-to-end sanity run and the manual single-instance checks.
+- [`site/README.md`](site/README.md): the marketing website, how to run it and how it is deployed.
 - [`docs/agents/`](docs/agents/): configuration for the agent skills used in this repo.
 
 ## License

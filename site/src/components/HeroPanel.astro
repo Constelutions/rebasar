@@ -1,0 +1,579 @@
+---
+import { Image } from "astro:assets";
+import logo from "../assets/logo.png";
+import {
+  commits,
+  heroFiles,
+  heroTabs,
+  miniDiff,
+  REF_COLORS,
+  SELECTED_COMMIT,
+  sidebar,
+} from "../data/sample";
+import { AUTHORS, LANE_COLORS, ROW_HEIGHT, avatarLeft, layoutGraph } from "../lib/commit-graph";
+import TabChip from "./TabChip.astro";
+
+const rows = layoutGraph(commits);
+---
+
+<div class="panel-wrap">
+  <div class="glow" aria-hidden="true"></div>
+  <div class="frame" aria-hidden="true">
+    <div class="app mock">
+      <div class="titlebar">
+        <Image src={logo} alt="" width={22} height={22} class="app-logo" />
+        {heroTabs.map((tab) => <TabChip tab={tab} />)}
+        <div class="new-tab">+</div>
+        <div class="grow"></div>
+        <div class="search"><span>Search or run…</span><span class="mono key">Ctrl P</span></div>
+        <div class="window-controls mono"><span>—</span><span>▢</span><span>✕</span></div>
+      </div>
+      <div class="body">
+        <aside class="sidebar">
+          {
+            sidebar.map((row) => (
+              <div
+                class:list={["side-row", row.kind, { active: row.active }]}
+                style={row.gapBefore ? `margin-top:${row.gapBefore}px` : undefined}
+              >
+                <div class="side-line">
+                  {row.dot && <i style={`background:${row.dot}`} />}
+                  <span class="grow">{row.label}</span>
+                  {row.count && <span class="count mono">{row.count}</span>}
+                </div>
+                {row.sub && <div class="side-sub mono">{row.sub}</div>}
+              </div>
+            ))
+          }
+        </aside>
+        <div class="main">
+          <div class="filterbar">
+            <span class="pill">All branches</span><span class="soft">Mine</span><span class="soft">Merges</span>
+            <span class="filter mono">Filter commits…  author:  path:  msg:  branch:</span>
+          </div>
+          <div class="split">
+            <div class="graph">
+              {
+                commits.map((commit, index) => {
+                  const [initials, avatarColor] = AUTHORS[commit.author];
+                  return (
+                    <div class:list={["commit", { selected: index === SELECTED_COMMIT }]}>
+                      <svg width="120" height={ROW_HEIGHT} viewBox={`0 0 120 ${ROW_HEIGHT}`}>
+                        {rows[index]!.map((s) => (
+                          <line x1={s.x1} y1={s.y1} x2={s.x2} y2={s.y2} stroke={s.color} stroke-width="2.5" stroke-linecap="round" />
+                        ))}
+                      </svg>
+                      <span
+                        class="avatar"
+                        style={`left:${avatarLeft(commit.lane)}px;background:${avatarColor};box-shadow:0 0 0 2px ${LANE_COLORS[commit.lane]}`}
+                      >
+                        {initials}
+                      </span>
+                      <div class="message">
+                        <span class="subject">{commit.message}</span>
+                        {(commit.refs ?? []).map(([label, kind]) => (
+                          <span class="ref mono" style={`background:${REF_COLORS[kind].bg};color:${REF_COLORS[kind].fg}`}>{label}</span>
+                        ))}
+                      </div>
+                      <span class="author">{commit.author}</span>
+                      <span class="hash mono">{commit.hash}</span>
+                      <span class="age">{commit.age}</span>
+                    </div>
+                  );
+                })
+              }
+            </div>
+            <div class="details">
+              <div class="who">
+                <span class="big-avatar">JP</span>
+                <div>
+                  <div class="name">Jun Park</div>
+                  <div class="when">5 hours ago · <span class="mono">5e2b8d1</span></div>
+                </div>
+              </div>
+              <div class="title">fix(auth): refresh token before expiry</div>
+              <div class="body-text">Refresh the access token before it expires instead of waiting for the first 401.</div>
+              <div class="actions"><span class="primary">Cherry-pick</span><span>Revert</span><span>Branch here</span></div>
+              <div class="eyebrow">3 files changed</div>
+              <div>
+                {
+                  heroFiles.map((file) => (
+                    <div class:list={["file", { selected: file.selected }]}>
+                      <span class="file-name mono">{file.name}</span>
+                      <span class="mono status" style={`color:${file.statusColor}`}>{file.status}</span>
+                      <span class="mono added">+{file.added}</span>
+                      <span class="mono removed">−{file.removed}</span>
+                    </div>
+                  ))
+                }
+              </div>
+              <div class="diff mono">
+                {miniDiff.map((line) => <div class:list={["diff-line", line.kind]}>{line.text}</div>)}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="fade" aria-hidden="true"></div>
+</div>
+
+<style>
+  .panel-wrap {
+    position: relative;
+    margin: clamp(36px, 5vw, 64px) auto 0;
+    width: min(1280px, 100%);
+  }
+
+  .glow {
+    position: absolute;
+    left: 6%;
+    right: 6%;
+    top: -8%;
+    height: 70%;
+    background: radial-gradient(closest-side, oklch(0.78 0.14 250 / 0.3), oklch(0.78 0.14 250 / 0));
+    filter: blur(36px);
+  }
+
+  /* The app is drawn at its real 1280px width and cropped, never scaled. */
+  .frame {
+    position: relative;
+    height: 700px;
+    overflow: hidden;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    border: 1px solid var(--color-panel-border);
+    border-bottom: 0;
+    box-shadow: 0 0 0 1px oklch(0.78 0.14 250 / 0.08), 0 0 60px oklch(0.78 0.14 250 / 0.12);
+    background: var(--color-bg);
+  }
+
+  @media (max-width: 759px) {
+    .frame {
+      height: 420px;
+    }
+  }
+
+  .fade {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 34%;
+    background: linear-gradient(oklch(0.14 0.012 265 / 0), var(--color-bg));
+  }
+
+  .app {
+    width: 1280px;
+    height: 700px;
+    display: flex;
+    flex-direction: column;
+    background: var(--color-bg);
+  }
+
+  .grow {
+    flex: 1;
+  }
+
+  .titlebar {
+    height: 56px;
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 0 0 12px;
+  }
+
+  .app-logo {
+    width: 22px;
+    height: 22px;
+    border-radius: 6px;
+    margin-right: 6px;
+  }
+
+  .new-tab {
+    width: 34px;
+    height: 34px;
+    border-radius: var(--radius-md);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    display: grid;
+    place-items: center;
+    color: var(--color-text-subtle);
+  }
+
+  .search {
+    width: 220px;
+    height: 34px;
+    line-height: 20px;
+    padding: 6px 12px;
+    border-radius: var(--radius-md);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    color: var(--color-text-subtle);
+    display: flex;
+    justify-content: space-between;
+  }
+
+  .key {
+    font-size: 11px;
+    border: 1px solid oklch(0.3 0.012 265);
+    border-radius: 5px;
+    padding: 0 6px;
+    line-height: 18px;
+  }
+
+  .window-controls {
+    display: flex;
+    height: 34px;
+    color: var(--color-text-subtle);
+    font-size: 13px;
+    line-height: 34px;
+    margin-left: 6px;
+  }
+
+  .window-controls span {
+    width: 44px;
+    text-align: center;
+  }
+
+  .body {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    gap: 10px;
+    padding: 10px;
+  }
+
+  .sidebar {
+    width: 208px;
+    flex: none;
+    border-radius: var(--radius-lg);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    padding: 12px 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .side-row {
+    padding: 6px 10px;
+    border-radius: var(--radius-sm);
+    color: var(--color-text-muted);
+    font-size: 13px;
+  }
+
+  .side-row.group {
+    color: var(--color-text-subtle);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-weight: 600;
+  }
+
+  .side-row.active.repo {
+    background: var(--color-accent-surface);
+    color: var(--color-accent-text);
+    font-weight: 600;
+  }
+
+  .side-row.active.nav {
+    background: var(--color-selected);
+    color: var(--color-text-strong);
+    font-weight: 600;
+  }
+
+  .side-line {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .side-line i {
+    width: 7px;
+    height: 7px;
+    border-radius: 4px;
+  }
+
+  .count {
+    font-size: 11px;
+    padding: 0 6px;
+    border-radius: 9px;
+    background: var(--color-border);
+    color: var(--color-text-muted);
+    font-weight: 400;
+    letter-spacing: 0;
+  }
+
+  .side-sub {
+    padding: 2px 0 0 15px;
+    font-size: 11px;
+    font-weight: 400;
+    color: var(--color-text-dim);
+  }
+
+  .main {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .filterbar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 7px 12px;
+    border-radius: var(--radius-lg);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+  }
+
+  .pill {
+    padding: 5px 12px;
+    border-radius: 999px;
+    background: var(--color-accent-surface);
+    color: var(--color-accent-text);
+  }
+
+  .soft {
+    padding: 5px 8px;
+    color: var(--color-text-subtle);
+  }
+
+  .filter {
+    flex: 1;
+    padding: 5px 12px;
+    border-radius: var(--radius-sm);
+    border: 1px solid oklch(0.3 0.012 265);
+    font-size: 12px;
+    color: var(--color-text-subtle);
+    white-space: pre;
+  }
+
+  .split {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    gap: 10px;
+  }
+
+  .graph {
+    flex: 1;
+    min-width: 0;
+    border-radius: var(--radius-lg);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    padding: 6px 8px;
+    overflow: hidden;
+  }
+
+  .commit {
+    position: relative;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    padding: 0 12px 0 8px;
+    border-radius: var(--radius-sm);
+  }
+
+  .commit.selected {
+    background: var(--color-selected);
+  }
+
+  .commit svg {
+    flex: none;
+    margin-right: 8px;
+  }
+
+  .avatar {
+    position: absolute;
+    top: 11px;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    color: #fff;
+    display: grid;
+    place-items: center;
+    font: 600 8.5px var(--font-ui);
+  }
+
+  .message {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .subject {
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .ref {
+    padding: 1px 8px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+
+  .author {
+    width: 70px;
+    color: var(--color-text-muted);
+    font-size: 12px;
+  }
+
+  .hash {
+    width: 58px;
+    color: var(--color-text-subtle);
+    font-size: 11.5px;
+  }
+
+  .age {
+    width: 30px;
+    text-align: right;
+    color: var(--color-text-subtle);
+    font-size: 12px;
+  }
+
+  .details {
+    width: 330px;
+    flex: none;
+    border-radius: var(--radius-lg);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    overflow: hidden;
+  }
+
+  .who {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+  }
+
+  .big-avatar {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    background: oklch(0.5 0.09 200);
+    color: #fff;
+    display: grid;
+    place-items: center;
+    font: 600 12px var(--font-ui);
+    box-shadow: 0 0 0 3px oklch(0.75 0.13 60);
+  }
+
+  .name {
+    font-weight: 600;
+  }
+
+  .when {
+    color: var(--color-text-dim);
+    font-size: 12px;
+  }
+
+  .title {
+    font: 600 17px/1.3 var(--font-ui);
+  }
+
+  .body-text {
+    color: var(--color-text-muted);
+    line-height: 1.55;
+  }
+
+  .actions {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .actions span {
+    padding: 5px 10px;
+    border-radius: 7px;
+    background: var(--color-hover);
+  }
+
+  .actions .primary {
+    background: var(--color-accent-surface);
+    color: var(--color-accent-text);
+  }
+
+  .eyebrow {
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-text-subtle);
+    padding-top: 4px;
+  }
+
+  .file {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 8px;
+    border-radius: 6px;
+  }
+
+  .file.selected {
+    background: var(--color-selected);
+  }
+
+  .file-name {
+    flex: 1;
+    min-width: 0;
+    font-size: 12px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .status {
+    font-size: 11px;
+    font-weight: 600;
+  }
+
+  .added,
+  .removed {
+    font-size: 11px;
+  }
+
+  .added {
+    color: var(--color-success);
+  }
+
+  .removed {
+    color: var(--color-danger);
+  }
+
+  .diff {
+    font-size: 12px;
+    line-height: 22px;
+    border-radius: var(--radius-md);
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    overflow: hidden;
+  }
+
+  .diff-line {
+    padding: 0 12px;
+    white-space: pre;
+  }
+
+  .diff-line.\+ {
+    background: var(--color-added-surface);
+  }
+
+  .diff-line.\- {
+    background: var(--color-removed-surface);
+  }
+</style>

@@ -1,0 +1,668 @@
+---
+import {
+  commitTypes,
+  conflictOurs,
+  conflictTheirs,
+  filterGraph,
+  groupTabs,
+  miscRows,
+  pullRequests,
+  rebaseRows,
+  sidebarGroups,
+  stagingDiff,
+} from "../data/sample";
+import FeatureCard from "./FeatureCard.astro";
+import TabChip from "./TabChip.astro";
+
+const sign = { "+": "+", "-": "−", " ": " " } as const;
+---
+
+<section id="features" aria-labelledby="feat-title" class="section">
+  <div class="container">
+    <div class="divider-line">
+      <h2 id="feat-title">Git for people who say "one sec, let me stash" forty times a day.</h2>
+    </div>
+    <div class="grid">
+      <FeatureCard title="Groups & Tabs">
+        <Fragment slot="preview">
+          <div class="tabs">{groupTabs.map((tab) => <TabChip tab={tab} size="sm" />)}</div>
+          <div class="rows">
+            {
+              sidebarGroups.map((row) => (
+                <div class:list={["row", { group: row.group, selected: row.selected }]}>
+                  <span class="grow">{row.label}</span>
+                  <span class="mono sub">{row.sub}</span>
+                </div>
+              ))
+            }
+          </div>
+        </Fragment>
+        Your repos, sorted the way you think about them, not the way your disk does.
+      </FeatureCard>
+
+      <FeatureCard title="Commit graph & filter" padding={10}>
+        <Fragment slot="preview">
+          <div class="query mono">
+            <span class="key">author:</span>@me <span class="key">since:</span>monday <span class="key">branch:</span>main
+          </div>
+          <div class="graph-rows">
+            {
+              filterGraph.map((row) => (
+                <div class:list={["graph-row", { selected: row.selected }]}>
+                  <div class="rails">
+                    <i class="rail left" style={`background:${row.rail}`}></i>
+                    <i class="rail right" style={`background:${row.lane}`}></i>
+                    <b style={`background:${row.lane}`}></b>
+                  </div>
+                  <span class="subject">{row.message}</span>
+                  <span class="mono hash">{row.hash}</span>
+                </div>
+              ))
+            }
+          </div>
+        </Fragment>
+        <span class="inline-code">author:@me since:monday</span>. Find the commit, not the scroll bar.
+      </FeatureCard>
+
+      <FeatureCard title="Line-level staging">
+        <Fragment slot="preview">
+          <div class="hunk"><span class="mono">@@ -12,7 +12,9 @@ export function total</span><span>3 of 6 lines</span></div>
+          {
+            stagingDiff.map((line) => (
+              <div class={`diff-row mono ${line.kind === "+" ? "add" : line.kind === "-" ? "del" : ""}`}>
+                <span class="pick">
+                  {line.kind !== " " && <i class:list={{ on: line.picked }}>{line.picked ? "✓" : ""}</i>}
+                </span>
+                <span class={`sym ${line.kind === "+" ? "add" : "del"}`}>{sign[line.kind]}</span>
+                <span class="code">{line.text}</span>
+              </div>
+            ))
+          }
+        </Fragment>
+        Stage the three lines you meant, not the three hundred you didn't.
+      </FeatureCard>
+
+      <FeatureCard title="Conventional commits" padding={12} accent>
+        <Fragment slot="preview">
+          <div class="types">
+            {commitTypes.map((type, index) => <span class:list={["type mono", { first: index === 0 }]}>{type}</span>)}
+          </div>
+          <div class="composer mono">
+            <div class="subject-line"><span class="key">feat</span>(invoice): export invoices as CSV<span class="key">▌</span></div>
+            <div>&nbsp;</div>
+            <div class="soft">Adds an Export button to the invoice list.</div>
+            <div class="dim">Refs #491</div>
+          </div>
+        </Fragment>
+        A composer that keeps your messages in shape.
+      </FeatureCard>
+
+      <FeatureCard title="Interactive rebase" padding={8}>
+        <Fragment slot="preview">
+          {
+            rebaseRows.map((row) => (
+              <div class:list={["rebase-row", { selected: row.selected, dropped: row.dropped }]}>
+                <span class="grip">⋮⋮</span>
+                <span
+                  class="action mono"
+                  style={`background:oklch(0.3 0.06 ${row.hue});color:oklch(0.9 0.08 ${row.hue})`}
+                >
+                  {row.action}
+                </span>
+                <span class="mono hash">{row.hash}</span>
+                <span class="message">{row.message}</span>
+              </div>
+            ))
+          }
+        </Fragment>
+        Reorder, squash and fixup without learning another text editor.
+      </FeatureCard>
+
+      <FeatureCard title="Conflicts" padding={10}>
+        <Fragment slot="preview">
+          <div class="banner"><b>Operation in progress</b><span>Rebase paused · 1 of 3</span></div>
+          <div class="sides">
+            <div class="side ours">
+              <div class="side-title">Yours</div>
+              {conflictOurs.map((line) => <div class:list={["code-line mono", { changed: line.changed }]}>{line.text}</div>)}
+            </div>
+            <div class="side theirs">
+              <div class="side-title">Incoming</div>
+              {conflictTheirs.map((line) => <div class:list={["code-line mono", { changed: line.changed }]}>{line.text}</div>)}
+            </div>
+          </div>
+          <div class="resolve"><span class="go">Continue →</span><span>Skip</span><span>Abort</span></div>
+        </Fragment>
+        Merge conflicts, minus the archaeology.
+      </FeatureCard>
+
+      <FeatureCard title="Stashes, tags & remotes" padding={10}>
+        <Fragment slot="preview">
+          <div class="segments"><span class="on">Stashes</span><span>Tags</span><span>Remotes</span></div>
+          <div class="misc">
+            {
+              miscRows.map((row) => (
+                <div class:list={["misc-row", { selected: row.selected }]}>
+                  <span class="dot" style={`background:${row.color}`}></span>
+                  <span class="mono name">{row.name}</span>
+                  <span class="detail">{row.detail}</span>
+                </div>
+              ))
+            }
+          </div>
+        </Fragment>
+        Everything Git keeps on the side, one click away.
+      </FeatureCard>
+
+      <FeatureCard title="Pull requests" padding={10}>
+        <Fragment slot="preview">
+          <div class="pr-head"><span class="eyebrow">Pull requests</span><span class="new">New pull request</span></div>
+          {
+            pullRequests.map((pr) => (
+              <div class:list={["pr-row", { selected: pr.selected }]}>
+                <span class="mono number">{pr.number}</span>
+                <div>
+                  <div class="pr-title">{pr.title}</div>
+                  <div class="mono pr-branches">{pr.branches}</div>
+                </div>
+                <span class="state" style={`background:${pr.bg};color:${pr.fg}`}>{pr.state}</span>
+              </div>
+            ))
+          }
+        </Fragment>
+        Review and open GitHub pull requests without leaving the window.
+      </FeatureCard>
+    </div>
+  </div>
+</section>
+
+<style>
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+    gap: 16px;
+  }
+
+  h2 {
+    margin: 0;
+  }
+
+  .grow {
+    flex: 1;
+  }
+
+  .key {
+    color: var(--color-accent);
+  }
+
+  .hash {
+    font-size: 11px;
+    color: var(--color-text-subtle);
+  }
+
+  /* Groups & Tabs */
+  .tabs {
+    display: flex;
+    gap: 6px;
+    padding: 8px;
+  }
+
+  .rows {
+    padding: 2px 8px;
+  }
+
+  .row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 8px;
+    border-radius: 6px;
+    font-size: 13px;
+  }
+
+  .row.group {
+    margin-top: 6px;
+    padding: 3px 8px;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-text-subtle);
+  }
+
+  .row.group:first-child {
+    margin-top: 0;
+  }
+
+  .row.selected {
+    background: var(--color-selected);
+  }
+
+  .sub {
+    font-size: 11px;
+    color: var(--color-text-dim);
+  }
+
+  /* Commit graph & filter */
+  .query {
+    padding: 6px 10px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--color-selected-border);
+    background: var(--color-selected);
+    font-size: 12px;
+    white-space: nowrap;
+  }
+
+  .graph-rows {
+    margin-top: 8px;
+  }
+
+  .graph-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 30px;
+    padding: 0 6px;
+    border-radius: 6px;
+    white-space: nowrap;
+  }
+
+  .graph-row.selected {
+    background: var(--color-selected);
+  }
+
+  .rails {
+    width: 30px;
+    height: 30px;
+    position: relative;
+    flex: none;
+  }
+
+  .rail {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+  }
+
+  .rail.left {
+    left: 5px;
+  }
+
+  .rail.right {
+    left: 19px;
+  }
+
+  .rails b {
+    position: absolute;
+    left: 14px;
+    top: 10px;
+    width: 12px;
+    height: 12px;
+    border-radius: 6px;
+    box-shadow: 0 0 0 2px var(--color-surface);
+  }
+
+  .subject {
+    font-weight: 500;
+  }
+
+  /* Line-level staging */
+  .hunk {
+    display: flex;
+    justify-content: space-between;
+    padding: 7px 12px;
+    background: var(--color-hunk-surface);
+    font-size: 11px;
+    color: oklch(0.8 0.08 250);
+  }
+
+  .hunk span:last-child {
+    font-family: var(--font-ui);
+  }
+
+  .diff-row {
+    display: flex;
+    align-items: center;
+    height: 22px;
+    font-size: 12px;
+    line-height: 22px;
+    white-space: pre;
+  }
+
+  .diff-row.add {
+    background: var(--color-added-surface);
+  }
+
+  .diff-row.del {
+    background: var(--color-removed-surface);
+  }
+
+  .pick {
+    width: 34px;
+    flex: none;
+    display: grid;
+    place-items: center;
+  }
+
+  .pick i {
+    width: 12px;
+    height: 12px;
+    border-radius: 3px;
+    border: 1.5px solid oklch(0.5 0.02 265);
+    color: var(--color-on-accent);
+    font: 700 9px/9px var(--font-ui);
+    text-align: center;
+  }
+
+  .pick i.on {
+    background: var(--color-accent);
+    border-color: var(--color-accent);
+  }
+
+  .sym {
+    width: 14px;
+    flex: none;
+  }
+
+  .sym.add {
+    color: var(--color-success);
+  }
+
+  .sym.del {
+    color: var(--color-danger);
+  }
+
+  /* Conventional commits */
+  .types {
+    display: flex;
+    gap: 6px;
+  }
+
+  .type {
+    padding: 2px 10px;
+    border-radius: 999px;
+    background: var(--color-hover);
+    color: oklch(0.78 0.02 265);
+    font-size: 11.5px;
+    font-weight: 500;
+  }
+
+  .type.first {
+    background: oklch(0.3 0.06 250);
+    color: var(--color-accent-text);
+  }
+
+  .composer {
+    margin-top: 10px;
+    border-radius: var(--radius-sm);
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    padding: 8px 0;
+    font-size: 12.5px;
+    line-height: 22px;
+    white-space: nowrap;
+  }
+
+  .composer > div {
+    padding: 0 12px;
+  }
+
+  .subject-line {
+    color: var(--color-text-strong);
+    font-weight: 600;
+  }
+
+  .soft {
+    color: var(--color-text-muted);
+  }
+
+  .dim {
+    color: var(--color-text-subtle);
+  }
+
+  /* Interactive rebase */
+  .rebase-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    height: 30px;
+    padding: 0 8px;
+    margin-bottom: 2px;
+    border-radius: 7px;
+    background: var(--color-surface-raised);
+    border: 1px solid var(--color-border-raised);
+  }
+
+  .rebase-row.selected {
+    background: var(--color-selected);
+    border-color: var(--color-selected-border);
+  }
+
+  .rebase-row.dropped {
+    opacity: 0.6;
+  }
+
+  .rebase-row.dropped .message {
+    text-decoration: line-through;
+  }
+
+  .grip {
+    color: var(--color-text-subtle);
+    font-size: 11px;
+    letter-spacing: -0.1em;
+  }
+
+  .action {
+    width: 54px;
+    text-align: center;
+    padding: 1px 0;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 500;
+  }
+
+  .message {
+    white-space: nowrap;
+  }
+
+  /* Conflicts */
+  .banner {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 10px;
+    border-radius: var(--radius-sm);
+    background: oklch(0.22 0.04 85);
+    border: 1px solid oklch(0.36 0.08 85);
+    white-space: nowrap;
+  }
+
+  .banner b {
+    color: oklch(0.84 0.1 85);
+  }
+
+  .banner span {
+    color: oklch(0.72 0.05 85);
+  }
+
+  .sides {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+  }
+
+  .side {
+    flex: 1;
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+  }
+
+  .side.ours {
+    border: 1px solid oklch(0.5 0.1 250);
+    --changed: oklch(0.27 0.04 250 / 0.6);
+  }
+
+  .side.theirs {
+    border: 1px solid oklch(0.5 0.09 150);
+    --changed: oklch(0.27 0.04 150 / 0.6);
+  }
+
+  .side-title {
+    padding: 4px 8px;
+    font-weight: 600;
+    font-size: 11px;
+  }
+
+  .ours .side-title {
+    background: oklch(0.25 0.04 250);
+    color: var(--color-accent-text);
+  }
+
+  .theirs .side-title {
+    background: oklch(0.25 0.04 150);
+    color: oklch(0.9 0.08 150);
+  }
+
+  .code-line {
+    padding: 0 8px;
+    font-size: 11px;
+    line-height: 20px;
+    white-space: pre;
+  }
+
+  .code-line.changed {
+    background: var(--changed);
+  }
+
+  .resolve {
+    display: flex;
+    gap: 6px;
+    margin-top: 8px;
+  }
+
+  .resolve span {
+    padding: 4px 12px;
+    border-radius: 7px;
+    border: 1px solid oklch(0.4 0.05 85);
+  }
+
+  .resolve .go {
+    background: var(--color-warning);
+    border-color: var(--color-warning);
+    color: oklch(0.15 0.02 85);
+    font-weight: 700;
+  }
+
+  /* Stashes, tags & remotes */
+  .segments {
+    display: inline-flex;
+    gap: 2px;
+    padding: 3px;
+    border-radius: 9px;
+    background: oklch(0.15 0.012 265);
+  }
+
+  .segments span {
+    padding: 3px 12px;
+    color: var(--color-text-dim);
+  }
+
+  .segments .on {
+    border-radius: 7px;
+    background: var(--color-accent-surface);
+    color: var(--color-accent-text);
+    font-weight: 500;
+  }
+
+  .misc {
+    margin-top: 8px;
+  }
+
+  .misc-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    height: 28px;
+    padding: 0 8px;
+    border-radius: 6px;
+    white-space: nowrap;
+  }
+
+  .misc-row.selected {
+    background: var(--color-selected);
+  }
+
+  .misc-row .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 3px;
+    flex: none;
+  }
+
+  .misc-row .name {
+    font-size: 12px;
+  }
+
+  .detail {
+    color: var(--color-text-dim);
+  }
+
+  /* Pull requests */
+  .pr-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 6px;
+  }
+
+  .eyebrow {
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-text-subtle);
+  }
+
+  .new {
+    padding: 3px 10px;
+    border-radius: 7px;
+    background: var(--color-accent);
+    color: var(--color-on-accent);
+    font-weight: 600;
+    font-size: 11.5px;
+  }
+
+  .pr-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px;
+    border-radius: 7px;
+    margin-bottom: 2px;
+    white-space: nowrap;
+  }
+
+  .pr-row.selected {
+    background: var(--color-selected);
+  }
+
+  .pr-row .number {
+    font-size: 11.5px;
+    color: var(--color-text-subtle);
+  }
+
+  .pr-title {
+    font-weight: 500;
+  }
+
+  .pr-branches {
+    font-size: 11px;
+    color: var(--color-text-dim);
+  }
+
+  .state {
+    margin-left: auto;
+    padding: 1px 8px;
+    border-radius: 9px;
+    font-size: 11px;
+  }
+</style>

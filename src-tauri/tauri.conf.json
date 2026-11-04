@@ -21,7 +21,7 @@
     "publisher": "Constelutions",
     "copyright": "Copyright (c) Constelutions",
     "category": "DeveloperTool",
-    "shortDescription": "A fast desktop Git client for many repositories, branches and worktrees.",
+    "shortDescription": "A fast desktop Git client for many repositories, branches, worktrees and pull requests.",
     "longDescription": "Rebasar is a fast, cross-platform desktop Git client for developers who work across many repositories, branches and worktrees at the same time.",
     "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.icns", "icons/icon.ico"]
   }

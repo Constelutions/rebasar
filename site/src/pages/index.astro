@@ -1,0 +1,38 @@
+---
+import Capabilities from "../components/Capabilities.astro";
+import Closer from "../components/Closer.astro";
+import Downloads from "../components/Downloads.astro";
+import Footer from "../components/Footer.astro";
+import Hero from "../components/Hero.astro";
+import Nav from "../components/Nav.astro";
+import PaletteAndCli from "../components/PaletteAndCli.astro";
+import PerformanceStrip from "../components/PerformanceStrip.astro";
+import Safety from "../components/Safety.astro";
+import Worktrees from "../components/Worktrees.astro";
+import Base from "../layouts/Base.astro";
+import { fetchDownloads } from "../lib/releases";
+
+const downloads = await fetchDownloads({ token: process.env.GITHUB_TOKEN });
+---
+
+<Base
+  title="Rebasar: Git for those who live in many repos at once"
+  description="A fast, free desktop Git client built on your own git. Every repository, branch and worktree in one window, and it tells you exactly what a destructive action will cost before you confirm it."
+>
+  <Nav />
+  <main>
+    <Hero downloads={downloads} />
+    <PerformanceStrip />
+    <Capabilities />
+    <Worktrees />
+    <Safety />
+    <PaletteAndCli />
+    <Downloads downloads={downloads} />
+    <Closer downloads={downloads} />
+  </main>
+  <Footer />
+</Base>
+
+<script>
+  import "../scripts/os-highlight";
+</script>
