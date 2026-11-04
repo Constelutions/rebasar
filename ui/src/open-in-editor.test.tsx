@@ -131,3 +131,14 @@ it("leaves out the editors that only open files", async () => {
 
   expect(within(menu).getAllByRole("menuitem").map((item) => item.textContent)).toEqual(["VS Code", "Zed"]);
 });
+
+it("shows Open in as an icon button with a tooltip and no label text", async () => {
+  const { group } = await open();
+
+  const main = within(group).getByRole("button", { name: "Open in VS Code" });
+
+  expect(main.querySelector("svg")).not.toBeNull();
+  expect(main).toHaveTextContent("");
+  expect(main).toHaveAttribute("title", "Open this Worktree in VS Code");
+  expect(within(group).getByRole("button", { name: "Choose editor" })).toHaveAttribute("title", "Choose editor");
+});

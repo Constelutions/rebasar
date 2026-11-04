@@ -43,21 +43,73 @@ async function mountApp(user: ReturnType<typeof userEvent.setup>, api: ReturnTyp
 /** The Sync buttons share words with sidebar entries such as Pull requests, so look inside the group. */
 async function syncButton(name: "Pull" | "Push") {
   const group = await screen.findByRole("group", { name: "Sync" });
-  return within(group).getByText(new RegExp(`^${name}`)).closest("button") as HTMLButtonElement;
+  return within(group).getByRole("button", { name: new RegExp(`^${name}`) });
 }
 
 afterEach(() => {
   vi.useRealTimers();
 });
 
-it("shows how far the branch is ahead and behind on the Pull and Push buttons", async () => {
+it("shows how far the branch is ahead and behind as badges on the Pull and Push icons", async () => {
   const { api, mount } = await open();
   api.setSyncStatus(worktree, { ahead: 2, behind: 3 });
 
   await mount();
 
-  await waitFor(async () => expect(await syncButton("Pull")).toHaveTextContent("Pull ↓3"));
-  expect(await syncButton("Push")).toHaveTextContent("Push ↑2");
+  await waitFor(async () => expect(await syncButton("Pull")).toHaveTextContent("↓3"));
+  expect(await syncButton("Push")).toHaveTextContent("↑2");
+});
+
+it("shows Fetch, Pull and Push as icons with no label text, named for assistive technology", async () => {
+  const { mount } = await open();
+  await mount();
+
+  for (const name of ["Fetch", "Pull", "Push"] as const) {
+    const button = name === "Fetch" ? screen.getByRole("button", { name }) : await syncButton(name);
+    expect(button.querySelector("svg")).not.toBeNull();
+    expect(button.textContent?.replace(/[↓↑\d\s]/g, "")).toBe("");
+  }
+});
+
+it("gives each icon a tooltip that names the action", async () => {
+  const { api, mount } = await open();
+  api.setSyncStatus(worktree, { upstream: "origin/main" });
+  await mount();
+
+  expect(await screen.findByRole("button", { name: "Fetch" })).toHaveAttribute("title", "Fetch");
+  await waitFor(async () => expect(await syncButton("Pull")).toHaveAttribute("title", "Pull from origin/main"));
+  expect(await syncButton("Push")).toHaveAttribute("title", "Push to origin/main");
+});
+
+it("disables Pull and Push on a detached HEAD but leaves Fetch usable", async () => {
+  const { api, mount } = await open();
+  api.setSyncStatus(worktree, { branch: null, upstream: null });
+  await mount();
+
+  await waitFor(async () => expect(await syncButton("Pull")).toBeDisabled());
+  expect(await syncButton("Push")).toBeDisabled();
+  expect(screen.getByRole("button", { name: "Fetch" })).toBeEnabled();
+});
+
+it("disables Pull and Push while an action is running", async () => {
+  const { user, api, mount } = await open();
+  let release = () => {};
+  const slow = {
+    ...api,
+    push: () => new Promise<void>((resolve) => (release = resolve)),
+  };
+  api.setSyncStatus(worktree, { ahead: 1 });
+  renderApp({ api: slow as unknown as typeof api, pickFolder: async () => worktree });
+  void mount;
+  await user.click(screen.getByRole("button", { name: /open folder/i }));
+  await screen.findByRole("tab");
+
+  await user.click(await syncButton("Push"));
+
+  expect(await syncButton("Pull")).toBeDisabled();
+  expect(await syncButton("Push")).toBeDisabled();
+  expect(screen.getByRole("button", { name: "Fetch" })).toBeDisabled();
+  release();
 });
 
 it("fetches once when the Tab is first shown", async () => {
@@ -161,7 +213,7 @@ it("pushes the branch", async () => {
   await user.click(await syncButton("Push"));
   await waitFor(() => expect(api.syncActions).toContain("push"));
 
-  await waitFor(async () => expect(await syncButton("Push")).toHaveTextContent(/^Push$/));
+  await waitFor(async () => expect(await syncButton("Push")).not.toHaveTextContent("↑"));
 });
 
 it("offers a force push only when the branch has diverged and asks for confirmation naming the loss", async () => {

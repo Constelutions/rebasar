@@ -2458,6 +2458,7 @@ button.commit-hash:hover {
 }
 
 .open-in-editor-toggle {
+  padding: 0 var(--space-2);
   border-left: 0;
   border-top-left-radius: 0;
   border-bottom-left-radius: 0;
@@ -2509,9 +2510,35 @@ button.commit-hash:hover {
   margin-right: var(--space-3);
 }
 
+.icon-button {
+  position: relative;
+  width: var(--control-height);
+  padding: 0;
+}
+
+.action-icon {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .sync-count {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  padding: 0 var(--space-1);
   font: var(--text-xs) var(--font-mono);
+  line-height: 14px;
   color: var(--color-accent-text);
+  background: var(--color-accent-surface);
+  border: 1px solid var(--color-selected-border);
+  border-radius: var(--radius-sm);
+  pointer-events: none;
 }
 
 .fetch-failed {

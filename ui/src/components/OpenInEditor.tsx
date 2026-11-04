@@ -6,6 +6,7 @@ import { usePaletteCommands } from "../palette/PaletteProvider";
 import type { PaletteCommand } from "../palette/registry";
 import { useDismiss } from "../useDismiss";
 import { useEditors } from "../useEditors";
+import { ActionIcon } from "./ActionIcons";
 import { Button } from "./Button";
 import { ChevronIcon } from "./ChevronIcon";
 
@@ -57,16 +58,18 @@ export function OpenInEditor({ api, worktreePath, onError }: OpenInEditorProps) 
   return (
     <div ref={container} className="open-in-editor" role="group" aria-label="Open in editor">
       <Button
-        className="open-in-editor-main"
+        className="icon-button open-in-editor-main"
+        aria-label={defaultEditor ? `Open in ${defaultEditor.label}` : "Open in editor"}
         disabled={defaultEditor === undefined}
         title={defaultEditor ? `Open this Worktree in ${defaultEditor.label}` : "No supported editor was found on the PATH"}
         onClick={() => defaultEditor && void open(defaultEditor)}
       >
-        {defaultEditor ? `Open in ${defaultEditor.label}` : "Open in editor"}
+        <ActionIcon name="openIn" />
       </Button>
       <Button
         className="open-in-editor-toggle"
         aria-label="Choose editor"
+        title="Choose editor"
         aria-haspopup="menu"
         aria-expanded={menuOpen}
         onClick={() => setMenuOpen((current) => !current)}

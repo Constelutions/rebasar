@@ -4,6 +4,7 @@ import type { CoreApi, PullStrategy } from "../core/api";
 import { describeError } from "../core/describeError";
 import { useConfirmation } from "../useConfirmation";
 import { useSync } from "../useSync";
+import { ActionIcon } from "./ActionIcons";
 import { Button } from "./Button";
 
 interface SyncControlsProps {
@@ -54,24 +55,37 @@ export function SyncControls({ api, worktreePath, onError }: SyncControlsProps) 
           Fetch failed
         </span>
       )}
-      <Button type="button" disabled={busy} onClick={() => void run(fetchNow)}>
-        Fetch
+      <Button
+        type="button"
+        className="icon-button"
+        aria-label="Fetch"
+        title="Fetch"
+        disabled={busy}
+        onClick={() => void run(fetchNow)}
+      >
+        <ActionIcon name="fetch" />
       </Button>
       <Button
         type="button"
+        className="icon-button"
+        aria-label={behind > 0 ? `Pull, ${behind} behind` : "Pull"}
         disabled={busy || detached}
-        title={status?.upstream ? `Pull from ${status.upstream}` : undefined}
+        title={status?.upstream ? `Pull from ${status.upstream}` : "Pull"}
         onClick={() => void startPull()}
       >
-        Pull{behind > 0 && <span className="sync-count"> ↓{behind}</span>}
+        <ActionIcon name="pull" />
+        {behind > 0 && <span className="sync-count">↓{behind}</span>}
       </Button>
       <Button
         type="button"
+        className="icon-button"
+        aria-label={ahead > 0 ? `Push, ${ahead} ahead` : "Push"}
         disabled={busy || detached}
         title={status?.upstream ? `Push to ${status.upstream}` : "Publish this branch"}
         onClick={() => void run(() => api.push(worktreePath, false))}
       >
-        Push{ahead > 0 && <span className="sync-count"> ↑{ahead}</span>}
+        <ActionIcon name="push" />
+        {ahead > 0 && <span className="sync-count">↑{ahead}</span>}
       </Button>
       {diverged && (
         <Button
