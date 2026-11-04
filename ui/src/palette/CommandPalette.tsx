@@ -13,6 +13,7 @@ import { describeError } from "../core/describeError";
 import { useDebounced } from "../useDebounced";
 import { fuzzyScore } from "./fuzzy";
 import type { CommandRegistry, PaletteCommand, PaletteContext } from "./registry";
+import { TextInput } from "../components/FormControls";
 
 const COMMIT_LIMIT = 8;
 /** Typing is searched once it pauses, so each keystroke does not walk the history. */
@@ -117,7 +118,7 @@ export function CommandPalette({
       }}
     >
       <div role="dialog" aria-modal="true" aria-label="Command palette" className="palette">
-        <input
+        <TextInput
           type="text"
           role="combobox"
           aria-label="Search or run"

@@ -6,6 +6,7 @@ import { Button } from "./Button";
 import { StatusDot } from "./StatusDot";
 import { describeHead } from "./TabStrip";
 import { TruncatedText } from "./TruncatedText";
+import { TextInput } from "./FormControls";
 
 interface RepositorySwitcherProps {
   tabs: OpenTab[];
@@ -63,14 +64,13 @@ export function RepositorySwitcher({ tabs, activePath, onSelect }: RepositorySwi
       </Button>
       {open && (
         <div className="switcher-popover">
-          <input
+          <TextInput
             type="search"
             autoFocus
             aria-label="Filter Repositories"
             placeholder="Filter"
             value={filter}
             onChange={(event) => setFilter(event.target.value)}
-            className="switcher-filter"
           />
           <div role="menu" aria-label="Repositories" className="switcher-list">
             {matches.map(({ tab, status }) => (

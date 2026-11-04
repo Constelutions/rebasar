@@ -6,6 +6,7 @@ import { useConfirmation } from "../useConfirmation";
 import { ActionMenu, type MenuItem, OptionsButton, useActionMenu } from "./ActionMenu";
 import { Button } from "./Button";
 import { TruncatedText } from "./TruncatedText";
+import { TextInput } from "./FormControls";
 
 interface ViewProps {
   api: CoreApi;
@@ -114,9 +115,9 @@ function TagsSection({ api, worktreePath, onError }: SectionProps) {
     <section aria-label="Tags">
       <form className="new-branch" aria-label="New tag" onSubmit={create}>
         <label htmlFor={nameId}>Tag name</label>
-        <input id={nameId} value={name} onChange={(event) => setName(event.target.value)} />
+        <TextInput id={nameId} value={name} onChange={(event) => setName(event.target.value)} />
         <label htmlFor={messageId}>Message (makes it annotated)</label>
-        <input id={messageId} value={message} onChange={(event) => setMessage(event.target.value)} />
+        <TextInput id={messageId} value={message} onChange={(event) => setMessage(event.target.value)} />
         <Button variant="primary" type="submit" disabled={name.trim() === ""}>
           Create tag
         </Button>
@@ -182,9 +183,9 @@ function RemotesSection({ api, worktreePath, onError }: SectionProps) {
     <section aria-label="Remotes">
       <form className="new-branch" aria-label="New remote" onSubmit={add}>
         <label htmlFor={nameId}>Remote name</label>
-        <input id={nameId} value={name} onChange={(event) => setName(event.target.value)} />
+        <TextInput id={nameId} value={name} onChange={(event) => setName(event.target.value)} />
         <label htmlFor={urlId}>Address</label>
-        <input id={urlId} value={url} onChange={(event) => setUrl(event.target.value)} />
+        <TextInput id={urlId} value={url} onChange={(event) => setUrl(event.target.value)} />
         <Button variant="primary" type="submit" disabled={name.trim() === "" || url.trim() === ""}>
           Add remote
         </Button>
@@ -261,7 +262,7 @@ function RemoteEditDialog({
           }}
         >
           <label htmlFor={inputId}>{label}</label>
-          <input id={inputId} value={value} onChange={(event) => setValue(event.target.value)} autoFocus />
+          <TextInput id={inputId} value={value} onChange={(event) => setValue(event.target.value)} autoFocus />
           <div className="dialog-actions">
             <Button type="button" onClick={onCancel}>
               Cancel

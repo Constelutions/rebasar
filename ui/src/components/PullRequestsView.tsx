@@ -14,6 +14,7 @@ import {
 import { describeError } from "../core/describeError";
 import { Button } from "./Button";
 import { PullRequestDialog } from "./PullRequestDialog";
+import { TextInput } from "./FormControls";
 
 type Load =
   | { phase: "loading" }
@@ -180,7 +181,7 @@ function SignIn({
         credential store and used only for GitHub, never by Git.
       </p>
       <label htmlFor={inputId}>Personal access token</label>
-      <input
+      <TextInput
         id={inputId}
         type="password"
         autoComplete="off"

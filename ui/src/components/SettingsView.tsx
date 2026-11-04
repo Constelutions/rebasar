@@ -15,6 +15,7 @@ import { describeError } from "../core/describeError";
 import { useSettings } from "../settings/SettingsContext";
 import { Button } from "./Button";
 import { SegmentedControl } from "./SegmentedControl";
+import { Select, TextInput } from "./FormControls";
 
 const codeFontSizes = [11, 12, 13, 14];
 
@@ -167,9 +168,8 @@ function IdentitySection({ api, worktreePath }: { api: CoreApi; worktreePath?: s
       </p>
       <div className="settings-field">
         <label htmlFor={nameId}>Name</label>
-        <input
+        <TextInput
           id={nameId}
-          className="text-input"
           value={name}
           placeholder={worktreePath ? (global.name ?? "") : undefined}
           onChange={(event) => edit(() => setName(event.target.value))}
@@ -178,10 +178,9 @@ function IdentitySection({ api, worktreePath }: { api: CoreApi; worktreePath?: s
       </div>
       <div className="settings-field">
         <label htmlFor={emailId}>Email</label>
-        <input
+        <TextInput
           id={emailId}
           type="email"
-          className="text-input"
           value={email}
           placeholder={worktreePath ? (global.email ?? "") : undefined}
           onChange={(event) => edit(() => setEmail(event.target.value))}
@@ -213,9 +212,8 @@ function DiffSection({ settings, update }: SectionProps) {
       <h2 id={`${whitespaceId}-title`}>Diff</h2>
       <div className="settings-field">
         <label htmlFor={whitespaceId}>Whitespace</label>
-        <select
+        <Select
           id={whitespaceId}
-          className="select"
           value={diff.whitespace}
           onChange={(event) =>
             update({
@@ -226,13 +224,12 @@ function DiffSection({ settings, update }: SectionProps) {
         >
           <option value="show">Show whitespace changes</option>
           <option value="ignoreAll">Ignore all whitespace</option>
-        </select>
+        </Select>
       </div>
       <div className="settings-field">
         <label htmlFor={modeId}>Default diff mode</label>
-        <select
+        <Select
           id={modeId}
-          className="select"
           value={diff.defaultMode}
           onChange={(event) =>
             update({
@@ -243,7 +240,7 @@ function DiffSection({ settings, update }: SectionProps) {
         >
           <option value="unified">Unified</option>
           <option value="sideBySide">Side by side</option>
-        </select>
+        </Select>
       </div>
     </section>
   );
@@ -268,12 +265,11 @@ function SyncSection({ settings, update }: SectionProps) {
       </div>
       <div className="settings-field">
         <label htmlFor={intervalId}>Fetch every (minutes)</label>
-        <input
+        <TextInput
           id={intervalId}
           type="number"
           min={1}
           max={120}
-          className="text-input"
           disabled={!sync.autoFetch}
           value={sync.fetchIntervalMinutes}
           onChange={(event) => {
@@ -304,9 +300,8 @@ function TabsSection({ settings, update }: SectionProps) {
       <h2 id={`${confirmId}-title`}>Tabs</h2>
       <div className="settings-field">
         <label htmlFor={confirmId}>Confirm before closing a Tab</label>
-        <select
+        <Select
           id={confirmId}
-          className="select"
           value={tabs.confirmClose}
           onChange={(event) =>
             update({
@@ -320,7 +315,7 @@ function TabsSection({ settings, update }: SectionProps) {
               {label}
             </option>
           ))}
-        </select>
+        </Select>
       </div>
       <div className="settings-field">
         <label htmlFor={restoreId}>Restore Tabs on launch</label>
@@ -371,9 +366,8 @@ function HistorySection({ settings, update }: SectionProps) {
       </div>
       <div className="settings-field">
         <label htmlFor={branchesId}>Branches</label>
-        <select
+        <Select
           id={branchesId}
-          className="select"
           value={history.allBranches ? "all" : "current"}
           onChange={(event) =>
             update({ ...settings, history: { ...history, allBranches: event.target.value === "all" } })
@@ -381,13 +375,12 @@ function HistorySection({ settings, update }: SectionProps) {
         >
           <option value="all">All branches</option>
           <option value="current">Current branch</option>
-        </select>
+        </Select>
       </div>
       <div className="settings-field">
         <label htmlFor={orientationId}>Orientation</label>
-        <select
+        <Select
           id={orientationId}
-          className="select"
           value={history.orientation}
           onChange={(event) => {
             const orientation = event.target.value === "horizontal" ? "horizontal" : "vertical";
@@ -397,13 +390,12 @@ function HistorySection({ settings, update }: SectionProps) {
         >
           <option value="vertical">Vertical</option>
           <option value="horizontal">Horizontal</option>
-        </select>
+        </Select>
       </div>
       <div className="settings-field">
         <label htmlFor={graphStyleId}>Graph style</label>
-        <select
+        <Select
           id={graphStyleId}
-          className="select"
           value={history.orientation === "horizontal" ? "tree" : history.graphStyle}
           onChange={(event) => {
             const graphStyle = event.target.value === "linear" ? "linear" : "tree";
@@ -414,7 +406,7 @@ function HistorySection({ settings, update }: SectionProps) {
           <option value="linear" disabled={history.orientation === "horizontal"}>
             Linear
           </option>
-        </select>
+        </Select>
       </div>
       <div className="settings-field">
         <label htmlFor={filesViewId}>Changed files of a commit</label>
@@ -426,9 +418,8 @@ function HistorySection({ settings, update }: SectionProps) {
       </div>
       <div className="settings-field">
         <label htmlFor={detailPositionId}>Commit details position</label>
-        <select
+        <Select
           id={detailPositionId}
-          className="select"
           value={history.detailPosition}
           onChange={(event) =>
             update({
@@ -439,7 +430,7 @@ function HistorySection({ settings, update }: SectionProps) {
         >
           <option value="right">Right</option>
           <option value="bottom">Bottom</option>
-        </select>
+        </Select>
       </div>
     </section>
   );
@@ -464,9 +455,8 @@ function ChangesSection({ settings, update }: SectionProps) {
       </div>
       <div className="settings-field">
         <label htmlFor={diffPositionId}>Diff position</label>
-        <select
+        <Select
           id={diffPositionId}
-          className="select"
           value={changes.diffPosition}
           onChange={(event) =>
             update({
@@ -477,7 +467,7 @@ function ChangesSection({ settings, update }: SectionProps) {
         >
           <option value="right">Right</option>
           <option value="bottom">Bottom</option>
-        </select>
+        </Select>
       </div>
     </section>
   );
@@ -493,15 +483,14 @@ function FilesViewSelect({
   onChange: (value: FilesView) => void;
 }) {
   return (
-    <select
+    <Select
       id={id}
-      className="select"
       value={value}
       onChange={(event) => onChange(event.target.value === "flat" ? "flat" : "tree")}
     >
       <option value="tree">Tree</option>
       <option value="flat">Flat list</option>
-    </select>
+    </Select>
   );
 }
 
@@ -513,9 +502,8 @@ function BranchesSection({ settings, update }: SectionProps) {
       <h2 id={`${filterId}-title`}>Branches page</h2>
       <div className="settings-field">
         <label htmlFor={filterId}>Branches page lists</label>
-        <select
+        <Select
           id={filterId}
-          className="select"
           value={settings.branches.filter}
           onChange={(event) =>
             update({
@@ -527,7 +515,7 @@ function BranchesSection({ settings, update }: SectionProps) {
           <option value="both">Local and remote branches</option>
           <option value="local">Local branches</option>
           <option value="remote">Remote branches</option>
-        </select>
+        </Select>
       </div>
     </section>
   );
@@ -580,9 +568,8 @@ function CopySection({ settings, update }: SectionProps) {
       </div>
       <div className="settings-field">
         <label htmlFor={hashLengthId}>Copied hash length</label>
-        <select
+        <Select
           id={hashLengthId}
-          className="select"
           value={copy.hashLength ?? "full"}
           onChange={(event) =>
             update({
@@ -597,7 +584,7 @@ function CopySection({ settings, update }: SectionProps) {
               {length} characters
             </option>
           ))}
-        </select>
+        </Select>
       </div>
     </section>
   );
@@ -611,9 +598,8 @@ function AppearanceSection({ settings, update }: SectionProps) {
       <h2 id={`${fontSizeId}-title`}>Appearance</h2>
       <div className="settings-field">
         <label htmlFor={fontSizeId}>Code font size</label>
-        <select
+        <Select
           id={fontSizeId}
-          className="select"
           value={settings.appearance.codeFontSize}
           onChange={(event) =>
             update({
@@ -627,7 +613,7 @@ function AppearanceSection({ settings, update }: SectionProps) {
               {size} px
             </option>
           ))}
-        </select>
+        </Select>
       </div>
     </section>
   );

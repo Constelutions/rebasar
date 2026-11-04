@@ -915,22 +915,10 @@ button.commit-hash:hover {
   margin-top: var(--space-4);
 }
 
-.filter-input {
+.filter-bar .text-input,
+.branch-toolbar .text-input {
   flex: 1;
   min-width: 220px;
-  height: var(--control-height);
-  box-sizing: border-box;
-  padding: 0 var(--space-3);
-  font: inherit;
-  color: var(--color-text);
-  background: var(--color-bg);
-  border: 1px solid var(--color-border-raised);
-  border-radius: var(--radius-sm);
-}
-
-.filter-input:focus-visible {
-  border-color: var(--color-selected-border);
-  outline: none;
 }
 
 .chip {
@@ -1371,16 +1359,6 @@ button.commit-hash:hover {
   border-radius: var(--radius-md);
 }
 
-.switcher-filter {
-  box-sizing: border-box;
-  padding: var(--space-1) var(--space-2);
-  font: inherit;
-  color: var(--color-text);
-  background: var(--color-bg);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-}
-
 .switcher-list {
   display: flex;
   flex-direction: column;
@@ -1495,17 +1473,8 @@ button.commit-hash:hover {
   color: var(--color-text-muted);
 }
 
-.github-sign-in input {
-  box-sizing: border-box;
+.github-sign-in .text-input {
   width: 100%;
-  height: var(--control-height);
-  padding: 0 var(--space-3);
-  font: inherit;
-  color: var(--color-text);
-  background: var(--color-bg);
-  border: 1px solid var(--color-border-raised);
-  border-radius: var(--radius-md);
-  user-select: text;
 }
 
 .github-sign-out {
@@ -1569,21 +1538,6 @@ button.commit-hash:hover {
 
 .commit-composer label {
   color: var(--color-text-muted);
-}
-
-.commit-composer input[type="text"],
-.commit-composer textarea {
-  padding: var(--space-2);
-  font: inherit;
-  color: var(--color-text);
-  background: var(--color-bg);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  user-select: text;
-}
-
-.commit-composer textarea {
-  resize: vertical;
 }
 
 .type-chips {
@@ -1863,6 +1817,33 @@ button.commit-hash:hover {
   user-select: text;
 }
 
+.text-input:hover:not(:disabled),
+.select:hover:not(:disabled) {
+  border-color: var(--color-text-subtle);
+}
+
+.text-input:focus-visible,
+.select:focus-visible {
+  border-color: var(--color-selected-border);
+  outline: 1px solid var(--color-selected-border);
+}
+
+.text-input:disabled,
+.select:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.text-input::placeholder {
+  color: var(--color-text-subtle);
+}
+
+.text-area {
+  height: auto;
+  padding: var(--space-2) var(--space-3);
+  resize: vertical;
+}
+
 .split-pane {
   display: flex;
   flex: 1;
@@ -2050,6 +2031,13 @@ button.commit-hash:hover {
   background: transparent;
   border: 0;
   border-bottom: 1px solid var(--color-border-raised);
+  border-radius: 0;
+  outline: none;
+}
+
+.palette-input:hover,
+.palette-input:focus-visible {
+  border-color: var(--color-border-raised);
   outline: none;
 }
 
@@ -2177,16 +2165,6 @@ button.commit-hash:hover {
 .group-name-form {
   display: flex;
   gap: var(--space-2);
-}
-
-.group-name-input,
-.group-select {
-  padding: var(--space-1) var(--space-2);
-  font: inherit;
-  color: var(--color-text);
-  background: var(--color-bg);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
 }
 
 .repository-list,
@@ -2375,15 +2353,6 @@ button.commit-hash:hover {
   gap: var(--space-3);
 }
 
-.add-form input:not([type]),
-.add-form select {
-  padding: var(--space-1) var(--space-2);
-  color: var(--color-text-strong);
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-}
-
 .folder-field {
   display: flex;
   align-items: center;
@@ -2452,13 +2421,7 @@ button.commit-hash:hover {
 }
 
 .add-form textarea {
-  padding: var(--space-1) var(--space-2);
   font: var(--text-md) var(--font-mono);
-  color: var(--color-text-strong);
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  resize: vertical;
 }
 
 .operation-banner {
@@ -2682,6 +2645,12 @@ button.commit-hash:hover {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
+}
+
+.conflict-pane textarea {
+  background: var(--color-surface-raised);
+  border-color: var(--color-border-raised);
+  border-radius: var(--radius-md);
 }
 
 .conflict-hunks {

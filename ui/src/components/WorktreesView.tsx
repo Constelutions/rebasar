@@ -13,6 +13,7 @@ import { useConfirmation } from "../useConfirmation";
 import { Button } from "./Button";
 import { describeHead } from "./TabStrip";
 import { TruncatedText } from "./TruncatedText";
+import { Select, TextInput } from "./FormControls";
 
 interface WorktreesViewProps {
   api: CoreApi;
@@ -160,7 +161,7 @@ function NewWorktreeForm({
   return (
     <form className="new-worktree" aria-label="New worktree" onSubmit={submit}>
       <label htmlFor={folderId}>Folder</label>
-      <input id={folderId} value={folder} onChange={(event) => setFolder(event.target.value)} />
+      <TextInput id={folderId} value={folder} onChange={(event) => setFolder(event.target.value)} />
       <Button
         type="button"
         onClick={async () => {
@@ -171,22 +172,22 @@ function NewWorktreeForm({
         Choose folder…
       </Button>
       <label htmlFor={sourceId}>Start from</label>
-      <select id={sourceId} value={source} onChange={(event) => setSource(event.target.value)}>
+      <Select id={sourceId} value={source} onChange={(event) => setSource(event.target.value)}>
         {branches.map((branch) => (
           <option key={branch.name} value={branch.name}>
             Branch {branch.name}
           </option>
         ))}
         <option value="commit">A commit…</option>
-      </select>
+      </Select>
       {source === "commit" && (
         <>
           <label htmlFor={commitId}>Commit</label>
-          <input id={commitId} value={commit} onChange={(event) => setCommit(event.target.value)} />
+          <TextInput id={commitId} value={commit} onChange={(event) => setCommit(event.target.value)} />
         </>
       )}
       <label htmlFor={branchId}>New branch (optional)</label>
-      <input id={branchId} value={newBranch} onChange={(event) => setNewBranch(event.target.value)} />
+      <TextInput id={branchId} value={newBranch} onChange={(event) => setNewBranch(event.target.value)} />
       <Button variant="primary" type="submit" disabled={!from || folder.trim() === ""}>
         Add worktree
       </Button>
