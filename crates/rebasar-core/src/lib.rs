@@ -46,8 +46,8 @@ pub use conflicts::{ConflictFile, ConflictKind, ConflictSegment, ConflictSide};
 pub use commit_actions::ResetMode;
 pub use compare::WorktreeDiffRequest;
 pub use diff::{
-    ChangeList, CommitDiffRequest, DiffContent, DiffLine, DiffRequest, FileDiff, Hunk, LineKind,
-    ModeChange, WhitespaceMode,
+    ChangeList, CommitDiffRequest, DiffContent, DiffLine, DiffRequest, FileDiff, Hunk, ImageSide,
+    LineKind, ModeChange, WhitespaceMode,
 };
 pub use github::{
     CheckState, GitHubAuthStatus, GitHubRepository, PullRequest, PullRequestDetails, ReviewState, TokenSource,
@@ -63,7 +63,7 @@ pub use outgoing::OutgoingCommit;
 pub use identity::GitIdentity;
 pub use safety::{Assessment, Loss, LostCommit, MutationKind};
 pub use settings::{
-    AppearanceSettings, BranchesFilter, BranchesSettings, ChangesSettings, CommitSettings, ConfirmTabClose, CopySettings, DiffMode, DiffSettings, EditorSettings, FilesView, GraphStyle, HistoryOrientation, HistorySettings, Settings, SplitPosition, SyncSettings,
+    AppearanceSettings, BranchesFilter, BranchesSettings, ChangesSettings, CommitSettings, ConfirmTabClose, CopySettings, DiffMode, DiffSettings, EditorSettings, FilesView, GraphStyle, HistorySettings, Settings, SplitPosition, SyncSettings,
     TabSettings,
 };
 use registry::RegistryStore;

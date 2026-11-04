@@ -1,6 +1,7 @@
 import { type FormEvent, useEffect, useId, useState } from "react";
 
 import { Button } from "../components/Button";
+import { TextArea, TextInput } from "../components/FormControls";
 import type { CoreApi, MutationOutcome } from "../core/api";
 import { describeError } from "../core/describeError";
 
@@ -153,7 +154,7 @@ function NameForm({
     <Frame title={`Create ${kind} at ${shortId}`} onClose={onClose}>
       <form className="add-form" onSubmit={submit}>
         <label htmlFor={inputId}>{noun} name</label>
-        <input id={inputId} value={name} onChange={(event) => setName(event.target.value)} autoFocus />
+        <TextInput id={inputId} value={name} onChange={(event) => setName(event.target.value)} autoFocus />
         {error && (
           <p role="alert" className="error">
             {error}
@@ -208,7 +209,7 @@ function RewordForm({
     <Frame title={`Reword ${shortId}`} onClose={onClose}>
       <form className="add-form" onSubmit={submit}>
         <label htmlFor={inputId}>Commit message</label>
-        <textarea
+        <TextArea
           id={inputId}
           rows={8}
           value={message ?? ""}

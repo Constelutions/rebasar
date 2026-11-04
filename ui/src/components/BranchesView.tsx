@@ -14,8 +14,8 @@ import { useSettings } from "../settings/SettingsContext";
 import { useConfirmation } from "../useConfirmation";
 import { ActionMenu, type MenuItem, OptionsButton, useActionMenu } from "./ActionMenu";
 import { Button } from "./Button";
+import { TextInput } from "./FormControls";
 import { SegmentedControl } from "./SegmentedControl";
-import { RemotesSection, TagsSection } from "./TagsAndRemotes";
 import { TruncatedText } from "./TruncatedText";
 import { type BranchRow, buildBranchRows, detailsOf, filterBranchRows } from "./branchRows";
 
@@ -129,9 +129,8 @@ function LoadedBranches({ api, tab, defaultFilter }: BranchesViewProps & { defau
         }
       />
       <div className="branch-toolbar">
-        <input
+        <TextInput
           type="search"
-          className="filter-input"
           aria-label="Search branches"
           placeholder="Search branches"
           value={search}
@@ -145,8 +144,6 @@ function LoadedBranches({ api, tab, defaultFilter }: BranchesViewProps & { defau
         </p>
       )}
       <BranchList rows={rows} actions={actions} />
-      <TagsSection api={api} worktreePath={path} onError={setError} />
-      <RemotesSection api={api} worktreePath={path} onError={setError} />
       {prompt && (
         <BranchPrompt
           prompt={prompt}
@@ -299,7 +296,7 @@ function NewBranchForm({ onCreate }: { onCreate: (name: string, switchTo: boolea
       }}
     >
       <label htmlFor={nameId}>New branch</label>
-      <input id={nameId} value={name} onChange={(event) => setName(event.target.value)} />
+      <TextInput id={nameId} value={name} onChange={(event) => setName(event.target.value)} />
       <Button disabled={empty} onClick={() => void create(false)}>
         Create
       </Button>
@@ -344,7 +341,7 @@ function BranchPrompt({
           }}
         >
           <label htmlFor={inputId}>{renaming ? "New name" : "Upstream branch, such as origin/main"}</label>
-          <input id={inputId} value={value} onChange={(event) => setValue(event.target.value)} autoFocus />
+          <TextInput id={inputId} value={value} onChange={(event) => setValue(event.target.value)} autoFocus />
           {!renaming && <p className="settings-hint">Leave empty to stop tracking.</p>}
           <div className="dialog-actions">
             <Button type="button" onClick={onCancel}>

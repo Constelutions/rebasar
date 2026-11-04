@@ -6,7 +6,7 @@ use std::path::Path;
 use gix::index::entry::Stage;
 use serde::Deserialize;
 
-use crate::diff::{self, DiffContent, FileDiff, LineKind, Reader, WhitespaceMode};
+use crate::diff::{self, DiffContent, FileDiff, ImageData, LineKind, Reader, WhitespaceMode};
 use crate::status::{self, ChangeKind, FileChange};
 use crate::{commit, open_worktree, ApiError, Core};
 
@@ -74,7 +74,15 @@ impl Core {
             let indexed_mode = reader.index_side(&path, Stage::Unconflicted)?.mode;
             let new = reader.worktree_side(&path, indexed_mode)?;
             let (old_mode, new_mode) = (old.mode, new.mode);
-            let diff = reader.diff_between(&path, None, old, new, false, WhitespaceMode::Show)?;
+            let diff = reader.diff_between(
+                &path,
+                None,
+                old,
+                new,
+                false,
+                WhitespaceMode::Show,
+                ImageData::Omit,
+            )?;
             if is_unchanged(&diff) {
                 continue;
             }
@@ -111,6 +119,7 @@ impl Core {
             new,
             request.load_large,
             WhitespaceMode::Show,
+            ImageData::Include,
         )
     }
 }

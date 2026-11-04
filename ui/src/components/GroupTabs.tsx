@@ -3,6 +3,7 @@ import { type FormEvent, useState } from "react";
 import type { Group } from "../core/api";
 import { ActionMenu, type MenuItem, OptionsButton, useActionMenu } from "./ActionMenu";
 import { Button } from "./Button";
+import { TextInput } from "./FormControls";
 
 interface GroupTabProps {
   group: Group;
@@ -82,12 +83,11 @@ export function GroupNameForm({ initialName, submitLabel, onSubmit, onCancel }: 
 
   return (
     <form className="group-name-form" onSubmit={submit}>
-      <input
+      <TextInput
         type="text"
         autoFocus
         aria-label="Group name"
         value={name}
-        className="group-name-input"
         onChange={(event) => setName(event.target.value)}
         onKeyDown={(event) => {
           if (event.key === "Escape") onCancel();

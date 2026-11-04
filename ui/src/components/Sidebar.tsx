@@ -9,9 +9,18 @@ interface SidebarProps {
   collapsed: boolean;
   onSelect: (view: ViewName) => void;
   onToggleCollapsed: () => void;
+  version: string | undefined;
+  onShowAbout: () => void;
 }
 
-export function Sidebar({ selected, collapsed, onSelect, onToggleCollapsed }: SidebarProps) {
+export function Sidebar({
+  selected,
+  collapsed,
+  onSelect,
+  onToggleCollapsed,
+  version,
+  onShowAbout,
+}: SidebarProps) {
   const toggleLabel = collapsed ? "Expand sidebar" : "Collapse sidebar";
 
   return (
@@ -39,16 +48,28 @@ export function Sidebar({ selected, collapsed, onSelect, onToggleCollapsed }: Si
           </Fragment>
         ))}
       </nav>
-      <Button
-        variant="plain"
-        aria-label={toggleLabel}
-        aria-expanded={!collapsed}
-        title={toggleLabel}
-        className="sidebar-item sidebar-toggle"
-        onClick={onToggleCollapsed}
-      >
-        <SidebarToggleIcon collapsed={collapsed} />
-      </Button>
+      <div className="sidebar-footer">
+        {!collapsed && version && (
+          <Button
+            variant="plain"
+            title="About Rebasar"
+            className="sidebar-item sidebar-version"
+            onClick={onShowAbout}
+          >
+            v{version}
+          </Button>
+        )}
+        <Button
+          variant="plain"
+          aria-label={toggleLabel}
+          aria-expanded={!collapsed}
+          title={toggleLabel}
+          className="sidebar-item sidebar-toggle"
+          onClick={onToggleCollapsed}
+        >
+          <SidebarToggleIcon collapsed={collapsed} />
+        </Button>
+      </div>
     </aside>
   );
 }

@@ -110,7 +110,7 @@ describe("the position of the details", () => {
     const pane = await selectCommit(user);
 
     expect(screen.getByRole("radio", { name: "Right" })).toBeChecked();
-    expect(pane.parentElement).toHaveAttribute("data-position", "right");
+    expect(pane.closest(".split-pane")).toHaveAttribute("data-position", "right");
   });
 
   it("moves them to the bottom through the toggle and remembers it", async () => {
@@ -119,7 +119,7 @@ describe("the position of the details", () => {
 
     await user.click(screen.getByRole("radio", { name: "Bottom" }));
 
-    expect(pane.parentElement).toHaveAttribute("data-position", "bottom");
+    expect(pane.closest(".split-pane")).toHaveAttribute("data-position", "bottom");
     await waitFor(async () => expect((await api.settings()).history.detailPosition).toBe("bottom"));
   });
 
@@ -128,7 +128,7 @@ describe("the position of the details", () => {
     const pane = await selectCommit(user);
 
     expect(screen.getByRole("radio", { name: "Bottom" })).toBeChecked();
-    expect(pane.parentElement).toHaveAttribute("data-position", "bottom");
+    expect(pane.closest(".split-pane")).toHaveAttribute("data-position", "bottom");
   });
 
   it("keeps the toggle available when no commit is selected", async () => {

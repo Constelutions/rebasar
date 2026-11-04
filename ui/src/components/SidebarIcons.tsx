@@ -30,6 +30,13 @@ const icons: Record<ViewName, ReactNode> = {
     </>
   ),
   Stashes: <path d="M2.5 3.5h11v3h-11v-3ZM3.5 6.5v6h9v-6M6.5 9h3" />,
+  Tags: <path d="M2.5 2.5h5.2l6 6-5.2 5.2-6-6V2.5ZM5.5 5.5v.1" />,
+  Remotes: (
+    <>
+      <circle cx="8" cy="8" r="5.5" />
+      <path d="M2.5 8h11M8 2.5c-2 2-2 9 0 11M8 2.5c2 2 2 9 0 11" />
+    </>
+  ),
   Repositories: (
     <>
       <ellipse cx="8" cy="4" rx="5" ry="2" />

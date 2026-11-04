@@ -1,4 +1,5 @@
 import { Button } from "../components/Button";
+import { TextInput } from "../components/FormControls";
 import { MultiSelect, type MultiSelectOption } from "../components/MultiSelect";
 import type { HistoryCount } from "../core/api";
 import { MY_COMMITS, addTerm, removeTerm, termValues } from "./historyQuery";
@@ -35,9 +36,8 @@ export function FilterBar({
 
   return (
     <div role="group" aria-label="History filter" className="filter-bar">
-      <input
+      <TextInput
         type="search"
-        className="filter-input"
         aria-label="Filter commits"
         placeholder="author:  path:  msg:  branch:  since:  until:"
         value={query}

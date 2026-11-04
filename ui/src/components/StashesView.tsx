@@ -19,6 +19,7 @@ import { Button } from "./Button";
 import { buildGroupTrees, firstFile } from "./changeTree";
 import { DiffView } from "./DiffView";
 import { FileTree } from "./FileTree";
+import { TextInput } from "./FormControls";
 import { TruncatedText } from "./TruncatedText";
 
 interface StashesViewProps {
@@ -135,7 +136,7 @@ function CreateStashForm({
   return (
     <form className="new-branch" aria-label="New stash" onSubmit={submit}>
       <label htmlFor={messageId}>Stash message</label>
-      <input id={messageId} value={message} onChange={(event) => setMessage(event.target.value)} />
+      <TextInput id={messageId} value={message} onChange={(event) => setMessage(event.target.value)} />
       <label className="option">
         <input
           type="checkbox"

@@ -29,6 +29,14 @@ function rule(css: string, selector: string): string | null {
   return matches.length === 0 ? null : matches.map((match) => match[1]).join("\n");
 }
 
+/** The declarations of every rule whose selector list contains `selector`, or `null` when no rule does. */
+function ruleFor(css: string, selector: string): string | null {
+  const matches = [...css.matchAll(/([^{}]+)\{([^}]*)\}/g)].filter((match) =>
+    (match[1] ?? "").split(",").some((part) => part.trim() === selector),
+  );
+  return matches.length === 0 ? null : matches.map((match) => match[2]).join("\n");
+}
+
 describe("shared button", () => {
   it("is the only place a raw button element is written in the views", () => {
     const offenders = sourceFiles(__dirname)
@@ -46,6 +54,83 @@ describe("shared button", () => {
     }
     expect(rule(css, ".button-primary")).toContain("var(--color-accent)");
     expect(rule(css, ".button-danger")).toContain("var(--color-danger-strong)");
+  });
+});
+
+describe("shared input style", () => {
+  /** Every `<tag ...` element in the views, up to its `/>` or its closing tag. */
+  function openings(tag: string) {
+    return sourceFiles(__dirname)
+      .filter((path) => !path.endsWith(join("components", "FormControls.tsx")))
+      .flatMap((path) => {
+        const source = readFileSync(path, "utf-8");
+        return [...source.matchAll(new RegExp(String.raw`<${tag}\b[\s\S]*?(?:/>|</${tag}>)`, "g"))].map((match) => ({
+          path,
+          opening: match[0],
+        }));
+      });
+  }
+
+  it("is the only place a raw text input, select or textarea is written in the views", () => {
+    const offenders = [
+      ...openings("input").filter(({ opening }) => !/type="(checkbox|radio)"/.test(opening)),
+      ...openings("select"),
+      ...openings("textarea"),
+    ].map(({ path }) => path);
+
+    expect([...new Set(offenders)]).toEqual([]);
+  });
+
+  it("styles focus, hover and disabled the same for inputs and selects", () => {
+    const css = stylesheet("styles.css");
+
+    for (const state of [":hover:not(:disabled)", ":focus-visible", ":disabled"]) {
+      expect(ruleFor(css, `.text-input${state}`), state).not.toBeNull();
+      expect(ruleFor(css, `.select${state}`), state).not.toBeNull();
+    }
+  });
+
+  it("has no second style for search boxes", () => {
+    const css = stylesheet("styles.css");
+
+    expect(ruleFor(css, ".filter-input")).toBeNull();
+    expect(ruleFor(css, ".filter-input:focus-visible")).toBeNull();
+  });
+
+  it("themes the inputs and selects of the Worktrees forms", async () => {
+    const user = await open("Worktrees");
+    await screen.findByRole("list", { name: "Worktrees" });
+
+    expect(screen.getByLabelText("Folder")).toHaveClass("text-input");
+    expect(screen.getByLabelText("Start from")).toHaveClass("select");
+    expect(screen.getByLabelText("New branch (optional)")).toHaveClass("text-input");
+    await user.selectOptions(screen.getByLabelText("Start from"), "A commit…");
+    expect(screen.getByLabelText("Commit")).toHaveClass("text-input");
+  });
+
+  it("themes the new branch field and the search box on the Branches page", async () => {
+    await open("Branches");
+
+    expect(await screen.findByRole("textbox", { name: "New branch" })).toHaveClass("text-input");
+    expect(screen.getByRole("searchbox", { name: "Search branches" })).toHaveClass("text-input");
+  });
+
+  it("themes the stash message field", async () => {
+    await open("Stashes");
+
+    expect(await screen.findByLabelText("Stash message")).toHaveClass("text-input");
+  });
+
+  it("themes the History search box", async () => {
+    await open("History");
+
+    expect(await screen.findByRole("searchbox", { name: "Filter commits" })).toHaveClass("text-input");
+  });
+
+  it("themes the commit message field of the composer", async () => {
+    await open("Changes");
+
+    expect(await screen.findByLabelText("Commit message")).toHaveClass("text-input");
   });
 });
 

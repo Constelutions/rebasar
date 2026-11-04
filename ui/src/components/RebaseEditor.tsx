@@ -3,6 +3,7 @@ import { useEffect, useId, useMemo, useState } from "react";
 import type { CoreApi, PlanAction, RebasePlan, RebasePlanEntry } from "../core/api";
 import { describeError } from "../core/describeError";
 import { Button } from "./Button";
+import { Select, TextArea } from "./FormControls";
 
 type CommitEntry = Extract<RebasePlanEntry, { kind: "commit" }>;
 
@@ -209,7 +210,7 @@ function CommitRow({
       onDrop={onDrop}
       data-action={entry.action}
     >
-      <select
+      <Select
         aria-label={`Action for ${entry.shortId}`}
         value={entry.action}
         disabled={readOnly}
@@ -221,7 +222,7 @@ function CommitRow({
             {label}
           </option>
         ))}
-      </select>
+      </Select>
       <span className="commit-hash">{entry.shortId}</span>
       <span className="commit-subject">{entry.subject}</span>
       {!readOnly && (
@@ -247,7 +248,7 @@ function CommitRow({
         </span>
       )}
       {entry.action === "reword" && (
-        <textarea
+        <TextArea
           aria-label={`Message for ${entry.shortId}`}
           rows={4}
           value={entry.message}

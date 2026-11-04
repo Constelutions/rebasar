@@ -1,5 +1,6 @@
 import type { Group, RepositoryEntry } from "../core/api";
 import { Button } from "./Button";
+import { Select } from "./FormControls";
 import { TruncatedText } from "./TruncatedText";
 
 interface RepositoryRowProps {
@@ -44,10 +45,9 @@ export function RepositoryRow({
               </Button>
             </>
           )}
-          <select
+          <Select
             aria-label={`Move ${repository.name} to group`}
             value={repository.groupId ?? UNGROUPED}
-            className="group-select"
             onChange={(event) => onMove(repository, event.target.value || null)}
           >
             <option value={UNGROUPED}>Ungrouped</option>
@@ -56,7 +56,7 @@ export function RepositoryRow({
                 {group.name}
               </option>
             ))}
-          </select>
+          </Select>
         </div>
       </div>
     </li>

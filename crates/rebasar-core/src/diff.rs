@@ -4,6 +4,7 @@ use std::io::Read;
 use std::ops::Range;
 use std::path::{Component, Path, PathBuf};
 
+use base64::Engine as _;
 use gix::bstr::BStr;
 use gix::diff::blob::{Algorithm, Diff, InternedInput};
 use gix::index::entry::Stage;
@@ -16,6 +17,12 @@ use crate::{commit, ApiError};
 const MAX_DIFF_BYTES: u64 = 1024 * 1024;
 const MAX_DIFF_LINES: usize = 20_000;
 const BINARY_SNIFF_BYTES: usize = 8000;
+/// An image above this is reported without its data until the user asks for it, because the data
+/// travels to the UI as one base64 string.
+const MAX_IMAGE_BYTES: u64 = 5 * 1024 * 1024;
+const IMAGE_EXTENSIONS: [&str; 7] = ["png", "jpg", "jpeg", "gif", "webp", "bmp", "ico"];
+/// Enough leading bytes to tell every supported image format apart.
+const IMAGE_SNIFF_BYTES: usize = 12;
 const CONTEXT_LINES: u32 = 3;
 
 const SYMLINK_MODE: u32 = 0o120_000;
@@ -89,8 +96,22 @@ pub enum DiffContent {
         old_bytes: Option<u64>,
         new_bytes: Option<u64>,
     },
+    /// An added, modified or deleted image: a side is `None` where the file does not exist.
+    Image {
+        old: Option<ImageSide>,
+        new: Option<ImageSide>,
+    },
     /// Too big to compute without being asked; `lines` is known only when the content was read.
     Collapsed { bytes: u64, lines: Option<u32> },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ImageSide {
+    pub mime: String,
+    pub bytes: u64,
+    /// Base64 of the file; `None` when it is over the size cap and was not asked for.
+    pub data: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -138,6 +159,7 @@ pub(crate) fn read(repo: &gix::Repository, request: &DiffRequest) -> Result<File
         new,
         request.load_large,
         request.whitespace,
+        ImageData::Include,
     )
 }
 
@@ -216,6 +238,7 @@ pub(crate) fn read_in_commit(
         reader.tree_side(&new_tree, &request.path)?,
         request.load_large,
         WhitespaceMode::Show,
+        ImageData::Include,
     )
 }
 
@@ -253,7 +276,64 @@ enum Loaded {
     Missing,
     Text(Vec<u8>),
     Binary(u64),
+    Image(LoadedImage),
     TooLarge(u64),
+}
+
+/// How a side is read, decided by the caller before any bytes are looked at.
+#[derive(Clone, Copy)]
+struct Loading {
+    /// Reads what would otherwise be collapsed or withheld.
+    large: bool,
+    /// The path has an image extension, so the content is checked for an image signature.
+    may_be_image: bool,
+}
+
+/// Whether the data of an image comes along with its diff. A listing only needs to know that
+/// the file changed, so it skips reading and encoding it.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ImageData {
+    Include,
+    Omit,
+}
+
+struct LoadedImage {
+    mime: &'static str,
+    bytes: u64,
+    content: ImageContent,
+}
+
+/// A worktree file stays unread until its diff turns out to be an image diff that wants it.
+enum ImageContent {
+    Bytes(Vec<u8>),
+    File(PathBuf),
+    Withheld,
+}
+
+impl LoadedImage {
+    fn new(mime: &'static str, bytes: u64, loading: Loading, content: impl FnOnce() -> ImageContent) -> Self {
+        let content = if bytes <= MAX_IMAGE_BYTES || loading.large {
+            content()
+        } else {
+            ImageContent::Withheld
+        };
+        Self { mime, bytes, content }
+    }
+
+    fn into_side(self, data: ImageData) -> Result<ImageSide, ApiError> {
+        let data = match (data, self.content) {
+            (ImageData::Omit, _) | (_, ImageContent::Withheld) => None,
+            (ImageData::Include, ImageContent::Bytes(bytes)) => Some(bytes),
+            (ImageData::Include, ImageContent::File(file)) => {
+                Some(fs::read(file).map_err(ApiError::unexpected)?)
+            }
+        };
+        Ok(ImageSide {
+            mime: self.mime.to_owned(),
+            bytes: self.bytes,
+            data: data.map(|data| base64::engine::general_purpose::STANDARD.encode(data)),
+        })
+    }
 }
 
 impl Loaded {
@@ -261,6 +341,7 @@ impl Loaded {
         match self {
             Loaded::Missing => None,
             Loaded::Text(data) => Some(data.len() as u64),
+            Loaded::Image(image) => Some(image.bytes),
             Loaded::Binary(bytes) | Loaded::TooLarge(bytes) => Some(*bytes),
         }
     }
@@ -303,10 +384,15 @@ impl Reader<'_> {
         new: Side,
         load_large: bool,
         whitespace: WhitespaceMode,
+        image_data: ImageData,
     ) -> Result<FileDiff, ApiError> {
         let (old_mode, new_mode) = (old.mode, new.mode);
-        let old = self.load(&old.source, load_large)?;
-        let new = self.load(&new.source, load_large)?;
+        let loading = Loading {
+            large: load_large,
+            may_be_image: has_image_extension(path),
+        };
+        let old = self.load(&old.source, loading)?;
+        let new = self.load(&new.source, loading)?;
 
         Ok(FileDiff {
             path: path.to_owned(),
@@ -318,7 +404,7 @@ impl Reader<'_> {
                 }),
                 _ => None,
             },
-            content: content_between(old, new, load_large, whitespace),
+            content: content_between(old, new, load_large, whitespace, image_data)?,
         })
     }
 
@@ -376,10 +462,16 @@ impl Reader<'_> {
         if side.mode == Some(SYMLINK_MODE) {
             return Err(unsupported(path, "a symbolic link"));
         }
-        let bytes = match self.load(&side.source, true)? {
+        let bytes = match self.load(
+            &side.source,
+            Loading {
+                large: true,
+                may_be_image: false,
+            },
+        )? {
             Loaded::Missing => Vec::new(),
             Loaded::Text(data) => data,
-            Loaded::Binary(_) | Loaded::TooLarge(_) => {
+            Loaded::Binary(_) | Loaded::Image(_) | Loaded::TooLarge(_) => {
                 return Err(unsupported(path, "a binary file"))
             }
         };
@@ -389,7 +481,7 @@ impl Reader<'_> {
         })
     }
 
-    fn load(&self, source: &Source, load_large: bool) -> Result<Loaded, ApiError> {
+    fn load(&self, source: &Source, loading: Loading) -> Result<Loaded, ApiError> {
         match source {
             Source::Missing => Ok(Loaded::Missing),
             Source::Blob(id) => {
@@ -399,9 +491,9 @@ impl Reader<'_> {
                     .map_err(ApiError::unexpected)?
                     .detach()
                     .data;
-                Ok(classify(data, load_large))
+                Ok(classify(data, loading))
             }
-            Source::WorktreeFile(file) => read_worktree_file(file, load_large),
+            Source::WorktreeFile(file) => read_worktree_file(file, loading),
         }
     }
 }
@@ -412,18 +504,23 @@ fn unsupported(path: &str, what: &str) -> ApiError {
     }
 }
 
-fn classify(data: Vec<u8>, load_large: bool) -> Loaded {
+fn classify(data: Vec<u8>, loading: Loading) -> Loaded {
     let bytes = data.len() as u64;
+    if let Some(mime) = loading.may_be_image.then(|| sniff_image(&data)).flatten() {
+        return Loaded::Image(LoadedImage::new(mime, bytes, loading, || {
+            ImageContent::Bytes(data)
+        }));
+    }
     if looks_binary(&data) {
         Loaded::Binary(bytes)
-    } else if bytes > MAX_DIFF_BYTES && !load_large {
+    } else if bytes > MAX_DIFF_BYTES && !loading.large {
         Loaded::TooLarge(bytes)
     } else {
         Loaded::Text(data)
     }
 }
 
-fn read_worktree_file(file: &Path, load_large: bool) -> Result<Loaded, ApiError> {
+fn read_worktree_file(file: &Path, loading: Loading) -> Result<Loaded, ApiError> {
     let metadata = fs::symlink_metadata(file).map_err(ApiError::unexpected)?;
     if metadata.is_symlink() {
         let target = fs::read_link(file).map_err(ApiError::unexpected)?;
@@ -432,14 +529,17 @@ fn read_worktree_file(file: &Path, load_large: bool) -> Result<Loaded, ApiError>
         ));
     }
     let bytes = metadata.len();
-    if bytes > MAX_DIFF_BYTES && !load_large {
+    if loading.may_be_image {
+        let prefix = read_prefix(file, IMAGE_SNIFF_BYTES)?;
+        if let Some(mime) = sniff_image(&prefix) {
+            return Ok(Loaded::Image(LoadedImage::new(mime, bytes, loading, || {
+                ImageContent::File(file.to_owned())
+            })));
+        }
+    }
+    if bytes > MAX_DIFF_BYTES && !loading.large {
         // Only the start is needed to tell a huge binary from a huge text file.
-        let mut prefix = Vec::with_capacity(BINARY_SNIFF_BYTES);
-        File::open(file)
-            .map_err(ApiError::unexpected)?
-            .take(BINARY_SNIFF_BYTES as u64)
-            .read_to_end(&mut prefix)
-            .map_err(ApiError::unexpected)?;
+        let prefix = read_prefix(file, BINARY_SNIFF_BYTES)?;
         return Ok(if looks_binary(&prefix) {
             Loaded::Binary(bytes)
         } else {
@@ -448,8 +548,44 @@ fn read_worktree_file(file: &Path, load_large: bool) -> Result<Loaded, ApiError>
     }
     Ok(classify(
         fs::read(file).map_err(ApiError::unexpected)?,
-        load_large,
+        Loading {
+            may_be_image: false,
+            ..loading
+        },
     ))
+}
+
+fn read_prefix(file: &Path, length: usize) -> Result<Vec<u8>, ApiError> {
+    let mut prefix = Vec::with_capacity(length);
+    File::open(file)
+        .map_err(ApiError::unexpected)?
+        .take(length as u64)
+        .read_to_end(&mut prefix)
+        .map_err(ApiError::unexpected)?;
+    Ok(prefix)
+}
+
+fn has_image_extension(path: &str) -> bool {
+    Path::new(path)
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .is_some_and(|extension| {
+            IMAGE_EXTENSIONS
+                .iter()
+                .any(|image| extension.eq_ignore_ascii_case(image))
+        })
+}
+
+fn sniff_image(bytes: &[u8]) -> Option<&'static str> {
+    match bytes {
+        [0x89, b'P', b'N', b'G', 0x0D, 0x0A, 0x1A, 0x0A, ..] => Some("image/png"),
+        [0xFF, 0xD8, 0xFF, ..] => Some("image/jpeg"),
+        [b'G', b'I', b'F', b'8', ..] => Some("image/gif"),
+        [b'R', b'I', b'F', b'F', _, _, _, _, b'W', b'E', b'B', b'P', ..] => Some("image/webp"),
+        [b'B', b'M', ..] => Some("image/bmp"),
+        [0, 0, 1, 0, ..] => Some("image/x-icon"),
+        _ => None,
+    }
 }
 
 fn looks_binary(bytes: &[u8]) -> bool {
@@ -461,32 +597,48 @@ fn content_between(
     new: Loaded,
     load_large: bool,
     whitespace: WhitespaceMode,
-) -> DiffContent {
-    if matches!(old, Loaded::Binary(_)) || matches!(new, Loaded::Binary(_)) {
-        return DiffContent::Binary {
+    image_data: ImageData,
+) -> Result<DiffContent, ApiError> {
+    let is_binary = |side: &Loaded| matches!(side, Loaded::Binary(_) | Loaded::Image(_));
+    if is_binary(&old) || is_binary(&new) {
+        let is_picture = |side: &Loaded| matches!(side, Loaded::Missing | Loaded::Image(_));
+        if is_picture(&old) && is_picture(&new) {
+            return Ok(DiffContent::Image {
+                old: image_side(old, image_data)?,
+                new: image_side(new, image_data)?,
+            });
+        }
+        return Ok(DiffContent::Binary {
             old_bytes: old.bytes(),
             new_bytes: new.bytes(),
-        };
+        });
     }
     let too_large = [&old, &new]
         .into_iter()
         .any(|side| matches!(side, Loaded::TooLarge(_)));
     if too_large {
         let bytes = old.bytes().max(new.bytes()).unwrap_or_default();
-        return DiffContent::Collapsed { bytes, lines: None };
+        return Ok(DiffContent::Collapsed { bytes, lines: None });
     }
 
     let old = text_of(old);
     let new = text_of(new);
     let lines = count_lines(&old).max(count_lines(&new));
     if lines > MAX_DIFF_LINES && !load_large {
-        return DiffContent::Collapsed {
+        return Ok(DiffContent::Collapsed {
             bytes: (old.len().max(new.len())) as u64,
             lines: Some(lines as u32),
-        };
+        });
     }
-    DiffContent::Text {
+    Ok(DiffContent::Text {
         hunks: hunks_between(&old, &new, whitespace),
+    })
+}
+
+fn image_side(loaded: Loaded, data: ImageData) -> Result<Option<ImageSide>, ApiError> {
+    match loaded {
+        Loaded::Image(image) => image.into_side(data).map(Some),
+        _ => Ok(None),
     }
 }
 

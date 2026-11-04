@@ -5,19 +5,21 @@ import { renderApp } from "./test-support";
 
 const viewNames = [
   "Home",
+  "History",
   "Changes",
   "Pull requests",
-  "History",
   "Conflicts",
   "Worktrees",
   "Branches",
   "Stashes",
+  "Tags",
+  "Remotes",
   "Repositories",
   "Settings",
 ];
 
 const emptyViewNames = viewNames.filter(
-  (name) => !["Settings", "History", "Repositories", "Branches", "Conflicts", "Stashes", "Worktrees", "Home"].includes(name),
+  (name) => !["Settings", "History", "Repositories", "Branches", "Conflicts", "Stashes", "Worktrees", "Home", "Tags", "Remotes"].includes(name),
 );
 
 function renderSidebar() {

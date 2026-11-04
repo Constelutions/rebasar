@@ -10,6 +10,7 @@ import type {
 } from "../core/api";
 import { describeError } from "../core/describeError";
 import { Button } from "./Button";
+import { TextArea } from "./FormControls";
 
 interface ConflictsViewProps {
   api: CoreApi;
@@ -174,7 +175,7 @@ function TextResolver({
           <h2>
             <label htmlFor={resultId}>Result</label>
           </h2>
-          <textarea
+          <TextArea
             id={resultId}
             value={result}
             spellCheck={false}

@@ -5,6 +5,7 @@ import { useSettings } from "../settings/SettingsContext";
 import { type CommitDraft, emptyDraft } from "../useCommitDrafts";
 import { Button } from "./Button";
 import { COMMIT_TYPES, SUBJECT_LIMIT, subjectOf, typeOf, withType } from "./conventionalCommit";
+import { TextArea } from "./FormControls";
 
 const MESSAGE_EXAMPLE = "feat(history): filter commits by author\n\nExplain what changed and why.";
 const AMEND_HINT = "Leave empty to keep the previous message";
@@ -97,7 +98,7 @@ export function CommitComposer({
             {subject.length} / {SUBJECT_LIMIT}
           </span>
         </div>
-        <textarea
+        <TextArea
           id={messageId}
           rows={8}
           value={message}

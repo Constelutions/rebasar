@@ -1,7 +1,7 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-import type { CommitDetail, DiffContent, FileChange, FileDiff } from "./core/api";
+import { type CommitDetail, type CoreApi, type DiffContent, type FileChange, type FileDiff, defaultSettings } from "./core/api";
 import { commitDiffKey, commitKey, createStubCoreApi } from "./core/stub";
 import { commitRow, localTime, renderApp, sampleTab } from "./test-support";
 
@@ -55,9 +55,10 @@ function withContent(path: string, content: DiffContent): FileDiff {
 interface OpenOptions {
   details?: Record<string, CommitDetail>;
   diffs?: Record<string, FileDiff>;
+  hashLength?: number | null;
 }
 
-async function openCommit({ details, diffs = {} }: OpenOptions = {}) {
+async function openCommit({ details, diffs = {}, hashLength = null }: OpenOptions = {}) {
   const user = userEvent.setup();
   const api = createStubCoreApi(
     { [worktree]: sampleTab },
@@ -72,7 +73,11 @@ async function openCommit({ details, diffs = {} }: OpenOptions = {}) {
       commitDiffs: diffs,
     },
   );
-  renderApp({ api, pickFolder: async () => worktree });
+  const withHashLength: CoreApi = {
+    ...api,
+    settings: async () => ({ ...defaultSettings, copy: { ...defaultSettings.copy, hashLength } }),
+  };
+  renderApp({ api: withHashLength, pickFolder: async () => worktree });
   await user.click(screen.getByRole("button", { name: /open folder/i }));
   await screen.findByRole("tab");
   await user.click(screen.getByRole("button", { name: "History" }));
@@ -270,4 +275,62 @@ it("closes the detail pane", async () => {
   await user.click(screen.getByRole("button", { name: "Close commit detail" }));
 
   expect(screen.queryByRole("region", { name: "Commit detail" })).not.toBeInTheDocument();
+});
+
+describe("matching the commit row", () => {
+  const authorTitle = "Ada Lovelace <ada@example.com>";
+
+  it("shows the same avatar on the Author line as the row shows for that author", async () => {
+    await openCommit();
+    const pane = await detailPane();
+    await within(pane).findByText("Add the parser");
+
+    const [rowAvatar, detailAvatar] = screen.getAllByTitle(authorTitle) as [HTMLElement, HTMLElement];
+    expect(pane).toContainElement(detailAvatar);
+    expect(rowAvatar).not.toBe(detailAvatar);
+    expect(detailAvatar).toHaveTextContent("AL");
+    expect(detailAvatar.className).toBe(rowAvatar.className);
+  });
+
+  it("copies the commit id from a highlighted button, with the same length as the row", async () => {
+    const { user } = await openCommit({ hashLength: 12 });
+    const pane = await detailPane();
+    await within(pane).findByText("Add the parser");
+
+    const hash = within(pane).getByRole("button", { name: /^Copy hash/ });
+    expect(hash).toHaveTextContent(commitId.slice(0, 8));
+    expect(hash).toHaveClass("commit-hash");
+    await user.click(hash);
+
+    await waitFor(async () => expect(await navigator.clipboard.readText()).toBe(commitId.slice(0, 12)));
+    expect(await screen.findByRole("tooltip")).toHaveTextContent("Copied");
+    expect(screen.getByRole("region", { name: "Commit detail" })).toBeInTheDocument();
+  });
+
+  it("copies the full commit id when the copy length is not limited", async () => {
+    const { user } = await openCommit();
+    const pane = await detailPane();
+    await within(pane).findByText("Add the parser");
+
+    await user.click(within(pane).getByRole("button", { name: /^Copy hash/ }));
+
+    expect(await navigator.clipboard.readText()).toBe(commitId);
+  });
+
+  it("closes with a labelled icon button that is as large as the other icon buttons", async () => {
+    const { user } = await openCommit();
+    const pane = await detailPane();
+    await within(pane).findByText("Add the parser");
+
+    const close = within(pane).getByRole("button", { name: "Close commit detail" });
+    expect(close).toHaveClass("icon-button");
+    expect(close).toHaveAttribute("title", "Close commit detail");
+    expect(close.querySelector("svg")).toBeInTheDocument();
+    expect(close).not.toHaveTextContent("×");
+
+    await user.click(close);
+
+    expect(screen.queryByRole("region", { name: "Commit detail" })).not.toBeInTheDocument();
+    expect(screen.getByRole("list", { name: "Commit history" })).toBeInTheDocument();
+  });
 });

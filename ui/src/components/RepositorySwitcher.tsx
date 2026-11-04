@@ -3,6 +3,7 @@ import { useCallback, useRef, useState } from "react";
 import { useDismiss } from "../useDismiss";
 import type { OpenTab } from "../useOpenTabs";
 import { Button } from "./Button";
+import { TextInput } from "./FormControls";
 import { StatusDot } from "./StatusDot";
 import { describeHead } from "./TabStrip";
 import { TruncatedText } from "./TruncatedText";
@@ -63,14 +64,13 @@ export function RepositorySwitcher({ tabs, activePath, onSelect }: RepositorySwi
       </Button>
       {open && (
         <div className="switcher-popover">
-          <input
+          <TextInput
             type="search"
             autoFocus
             aria-label="Filter Repositories"
             placeholder="Filter"
             value={filter}
             onChange={(event) => setFilter(event.target.value)}
-            className="switcher-filter"
           />
           <div role="menu" aria-label="Repositories" className="switcher-list">
             {matches.map(({ tab, status }) => (

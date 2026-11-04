@@ -1,10 +1,10 @@
 use rebasar_core::{
-    platform, BranchesFilter, BranchesSettings, ChangesSettings, CommitSettings, ConfirmTabClose, CopySettings, EditorSettings, FilesView, GraphStyle, HistoryOrientation, HistorySettings, SplitPosition,
+    platform, BranchesFilter, BranchesSettings, ChangesSettings, CommitSettings, ConfirmTabClose, CopySettings, EditorSettings, FilesView, GraphStyle, HistorySettings, SplitPosition,
     ApiError, AppearanceSettings, Assessment, ChangeKind, ChangeList, CheckState, CommitDetail,
     CommitDiffRequest, CommitHit, CommitOptions, CommitParent, CoreEvent, DiffContent, DiffLine,
     DiffMode, DiffRequest, DiffSettings, Edge, EdgeKind, FileChange, FileDiff, GitHubAuthStatus,
     GitHubRepository, GitIdentity, GitSetup, Group, Head, HistoryCount, HistoryFilter,
-    HistoryPage, HistoryRow, Hunk, LineKind, Loss, LostCommit, ModeChange, MutationId, MutationInfo,
+    HistoryPage, HistoryRow, Hunk, ImageSide, LineKind, Loss, LostCommit, ModeChange, MutationId, MutationInfo,
     MutationKind, MutationOutcome, OutgoingCommit, OutputStream, PullRequest, RefKind, RefLabel,
     RepositoryEntry, RepositoryList, ReviewState, Session, Settings, SyncSettings, Tab, TabSettings, TokenSource,
     UnavailableReason, WhitespaceMode, WorktreeEntry, WorktreeStatus,
@@ -344,6 +344,42 @@ fn binary_and_collapsed_diffs_serialise_to_the_shape_the_ui_expects() {
 }
 
 #[test]
+fn image_diffs_serialise_to_the_shape_the_ui_expects() {
+    assert_eq!(
+        serde_json::to_value(DiffContent::Image {
+            old: None,
+            new: Some(ImageSide {
+                mime: "image/png".to_owned(),
+                bytes: 8,
+                data: Some("iVBORw0KGgo=".to_owned()),
+            }),
+        })
+        .unwrap(),
+        json!({
+            "kind": "image",
+            "old": null,
+            "new": { "mime": "image/png", "bytes": 8, "data": "iVBORw0KGgo=" },
+        })
+    );
+    assert_eq!(
+        serde_json::to_value(DiffContent::Image {
+            old: Some(ImageSide {
+                mime: "image/gif".to_owned(),
+                bytes: 6_000_000,
+                data: None,
+            }),
+            new: None,
+        })
+        .unwrap(),
+        json!({
+            "kind": "image",
+            "old": { "mime": "image/gif", "bytes": 6000000, "data": null },
+            "new": null,
+        })
+    );
+}
+
+#[test]
 fn a_polling_tabs_changed_event_serialises_to_the_shape_the_ui_expects() {
     assert_eq!(
         serde_json::to_value(CoreEvent::PollingTabsChanged {
@@ -569,7 +605,6 @@ fn settings_serialise_to_the_shape_the_ui_expects() {
             mine: true,
             merges: false,
             all_branches: false,
-            orientation: HistoryOrientation::Horizontal,
             graph_style: GraphStyle::Tree,
             files_view: FilesView::Flat,
             detail_position: SplitPosition::Bottom,
@@ -601,7 +636,6 @@ fn settings_serialise_to_the_shape_the_ui_expects() {
                 "mine": true,
                 "merges": false,
                 "allBranches": false,
-                "orientation": "horizontal",
                 "graphStyle": "tree",
                 "filesView": "flat",
                 "detailPosition": "bottom",

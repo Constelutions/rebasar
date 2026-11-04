@@ -1,16 +1,26 @@
 import { type FormEvent, useCallback, useEffect, useId, useState } from "react";
 
-import type { CoreApi, MutationOutcome, RemoteInfo, TagInfo } from "../core/api";
+import type { CoreApi, MutationOutcome, RemoteInfo, TagInfo, Tab } from "../core/api";
 import { describeError } from "../core/describeError";
 import { useConfirmation } from "../useConfirmation";
 import { ActionMenu, type MenuItem, OptionsButton, useActionMenu } from "./ActionMenu";
 import { Button } from "./Button";
+import { TextInput } from "./FormControls";
 import { TruncatedText } from "./TruncatedText";
 
-interface SectionProps {
+interface ViewProps {
   api: CoreApi;
-  worktreePath: string;
-  onError: (message: string | null) => void;
+  tab: Tab;
+}
+
+function useErrorBanner() {
+  const [error, setError] = useState<string | null>(null);
+  const banner = error && (
+    <p role="alert" className="error">
+      {error}
+    </p>
+  );
+  return { onError: setError, banner };
 }
 
 /** Loads a list again whenever the Worktree changes, which includes what these sections run. */
@@ -52,7 +62,9 @@ async function report(
   }
 }
 
-export function TagsSection({ api, worktreePath, onError }: SectionProps) {
+export function TagsView({ api, tab }: ViewProps) {
+  const { worktreePath } = tab;
+  const { onError, banner } = useErrorBanner();
   const { items: tags, reload } = useList<TagInfo>(() => api.listTags(worktreePath), api, worktreePath, onError);
   const { items: remotes } = useList<RemoteInfo>(() => api.listRemotes(worktreePath), api, worktreePath, onError);
   const { confirm, dialog } = useConfirmation(api, worktreePath);
@@ -76,53 +88,57 @@ export function TagsSection({ api, worktreePath, onError }: SectionProps) {
   }
 
   return (
-    <section aria-label="Tags" className="branch-section">
-      <h2>Tags</h2>
-      <form className="new-branch" aria-label="New tag" onSubmit={create}>
-        <label htmlFor={nameId}>Tag name</label>
-        <input id={nameId} value={name} onChange={(event) => setName(event.target.value)} />
-        <label htmlFor={messageId}>Message (makes it annotated)</label>
-        <input id={messageId} value={message} onChange={(event) => setMessage(event.target.value)} />
-        <Button variant="primary" type="submit" disabled={name.trim() === ""}>
-          Create tag
-        </Button>
-      </form>
-      {tags.length === 0 ? (
-        <p className="placeholder">No tags.</p>
-      ) : (
-        <ul className="branch-list" aria-label="Tag list">
-          {tags.map((tag) => (
-            <TagRow
-              key={tag.name}
-              tag={tag}
-              remote={remote}
-              onPush={(remoteName) =>
-                void report(`Pushing ${tag.name}`, () => api.pushTag(worktreePath, tag.name, remoteName), onError)
-              }
-              onDeleteOnRemote={(remoteName) =>
-                void confirm({ kind: "deleteRemoteTag", name: tag.name, remote: remoteName }, () =>
-                  void report(
-                    `Deleting ${tag.name} on ${remoteName}`,
-                    () => api.deleteRemoteTag(worktreePath, tag.name, remoteName),
-                    onError,
-                  ),
-                ).catch((failure) => onError(describeError(failure)))
-              }
-              onDelete={() =>
-                void confirm({ kind: "deleteTag", name: tag.name }, () =>
-                  void report(`Deleting ${tag.name}`, () => api.deleteTag(worktreePath, tag.name), onError).then(reload),
-                ).catch((failure) => onError(describeError(failure)))
-              }
-            />
-          ))}
-        </ul>
-      )}
-      {dialog}
-    </section>
+    <div className="branches">
+      <section aria-label="Tags">
+        <form className="new-branch" aria-label="New tag" onSubmit={create}>
+          <label htmlFor={nameId}>Tag name</label>
+          <TextInput id={nameId} value={name} onChange={(event) => setName(event.target.value)} />
+          <label htmlFor={messageId}>Message (makes it annotated)</label>
+          <TextInput id={messageId} value={message} onChange={(event) => setMessage(event.target.value)} />
+          <Button variant="primary" type="submit" disabled={name.trim() === ""}>
+            Create tag
+          </Button>
+        </form>
+        {tags.length === 0 ? (
+          <p className="placeholder">No tags.</p>
+        ) : (
+          <ul className="branch-list" aria-label="Tag list">
+            {tags.map((tag) => (
+              <TagRow
+                key={tag.name}
+                tag={tag}
+                remote={remote}
+                onPush={(remoteName) =>
+                  void report(`Pushing ${tag.name}`, () => api.pushTag(worktreePath, tag.name, remoteName), onError)
+                }
+                onDeleteOnRemote={(remoteName) =>
+                  void confirm({ kind: "deleteRemoteTag", name: tag.name, remote: remoteName }, () =>
+                    void report(
+                      `Deleting ${tag.name} on ${remoteName}`,
+                      () => api.deleteRemoteTag(worktreePath, tag.name, remoteName),
+                      onError,
+                    ),
+                  ).catch((failure) => onError(describeError(failure)))
+                }
+                onDelete={() =>
+                  void confirm({ kind: "deleteTag", name: tag.name }, () =>
+                    void report(`Deleting ${tag.name}`, () => api.deleteTag(worktreePath, tag.name), onError).then(reload),
+                  ).catch((failure) => onError(describeError(failure)))
+                }
+              />
+            ))}
+          </ul>
+        )}
+        {dialog}
+      </section>
+      {banner}
+    </div>
   );
 }
 
-export function RemotesSection({ api, worktreePath, onError }: SectionProps) {
+export function RemotesView({ api, tab }: ViewProps) {
+  const { worktreePath } = tab;
+  const { onError, banner } = useErrorBanner();
   const { items: remotes, reload } = useList<RemoteInfo>(
     () => api.listRemotes(worktreePath),
     api,
@@ -145,53 +161,55 @@ export function RemotesSection({ api, worktreePath, onError }: SectionProps) {
   }
 
   return (
-    <section aria-label="Remotes" className="branch-section">
-      <h2>Remotes</h2>
-      <form className="new-branch" aria-label="New remote" onSubmit={add}>
-        <label htmlFor={nameId}>Remote name</label>
-        <input id={nameId} value={name} onChange={(event) => setName(event.target.value)} />
-        <label htmlFor={urlId}>Address</label>
-        <input id={urlId} value={url} onChange={(event) => setUrl(event.target.value)} />
-        <Button variant="primary" type="submit" disabled={name.trim() === "" || url.trim() === ""}>
-          Add remote
-        </Button>
-      </form>
-      {remotes.length === 0 ? (
-        <p className="placeholder">No remotes.</p>
-      ) : (
-        <ul className="branch-list" aria-label="Remote list">
-          {remotes.map((remote) => (
-            <RemoteRow
-              key={remote.name}
-              remote={remote}
-              onRename={() => setEditing({ remote, field: "name" })}
-              onEditAddress={() => setEditing({ remote, field: "url" })}
-              onRemove={() =>
-                void report(`Removing ${remote.name}`, () => api.removeRemote(worktreePath, remote.name), onError).then(reload)
-              }
-            />
-          ))}
-        </ul>
-      )}
-      {editing && (
-        <RemoteEditDialog
-          editing={editing}
-          onCancel={() => setEditing(null)}
-          onSubmit={(value) => {
-            const { remote, field } = editing;
-            setEditing(null);
-            void report(
-              field === "name" ? `Renaming ${remote.name}` : `Editing ${remote.name}`,
-              () =>
-                field === "name"
-                  ? api.renameRemote(worktreePath, remote.name, value)
-                  : api.setRemoteUrl(worktreePath, remote.name, value),
-              onError,
-            ).then(reload);
-          }}
-        />
-      )}
-    </section>
+    <div className="branches">
+      <section aria-label="Remotes">
+        <form className="new-branch" aria-label="New remote" onSubmit={add}>
+          <label htmlFor={nameId}>Remote name</label>
+          <TextInput id={nameId} value={name} onChange={(event) => setName(event.target.value)} />
+          <label htmlFor={urlId}>Address</label>
+          <TextInput id={urlId} value={url} onChange={(event) => setUrl(event.target.value)} />
+          <Button variant="primary" type="submit" disabled={name.trim() === "" || url.trim() === ""}>
+            Add remote
+          </Button>
+        </form>
+        {remotes.length === 0 ? (
+          <p className="placeholder">No remotes.</p>
+        ) : (
+          <ul className="branch-list" aria-label="Remote list">
+            {remotes.map((remote) => (
+              <RemoteRow
+                key={remote.name}
+                remote={remote}
+                onRename={() => setEditing({ remote, field: "name" })}
+                onEditAddress={() => setEditing({ remote, field: "url" })}
+                onRemove={() =>
+                  void report(`Removing ${remote.name}`, () => api.removeRemote(worktreePath, remote.name), onError).then(reload)
+                }
+              />
+            ))}
+          </ul>
+        )}
+        {editing && (
+          <RemoteEditDialog
+            editing={editing}
+            onCancel={() => setEditing(null)}
+            onSubmit={(value) => {
+              const { remote, field } = editing;
+              setEditing(null);
+              void report(
+                field === "name" ? `Renaming ${remote.name}` : `Editing ${remote.name}`,
+                () =>
+                  field === "name"
+                    ? api.renameRemote(worktreePath, remote.name, value)
+                    : api.setRemoteUrl(worktreePath, remote.name, value),
+                onError,
+              ).then(reload);
+            }}
+          />
+        )}
+      </section>
+      {banner}
+    </div>
   );
 }
 
@@ -228,7 +246,7 @@ function RemoteEditDialog({
           }}
         >
           <label htmlFor={inputId}>{label}</label>
-          <input id={inputId} value={value} onChange={(event) => setValue(event.target.value)} autoFocus />
+          <TextInput id={inputId} value={value} onChange={(event) => setValue(event.target.value)} autoFocus />
           <div className="dialog-actions">
             <Button type="button" onClick={onCancel}>
               Cancel

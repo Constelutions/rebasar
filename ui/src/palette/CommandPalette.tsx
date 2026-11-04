@@ -8,6 +8,7 @@ import {
   useSyncExternalStore,
 } from "react";
 
+import { TextInput } from "../components/FormControls";
 import type { CommitHit, CoreApi } from "../core/api";
 import { describeError } from "../core/describeError";
 import { useDebounced } from "../useDebounced";
@@ -117,7 +118,7 @@ export function CommandPalette({
       }}
     >
       <div role="dialog" aria-modal="true" aria-label="Command palette" className="palette">
-        <input
+        <TextInput
           type="text"
           role="combobox"
           aria-label="Search or run"

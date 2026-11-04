@@ -3,6 +3,7 @@ import { type FormEvent, useId, useState } from "react";
 import type { CoreApi, PullRequestDetails } from "../core/api";
 import { describeError } from "../core/describeError";
 import { Button } from "./Button";
+import { TextArea, TextInput } from "./FormControls";
 
 interface PullRequestDialogProps {
   api: CoreApi;
@@ -63,9 +64,9 @@ export function PullRequestDialog({
         </h2>
         <form className="add-form" onSubmit={submit}>
           <label htmlFor={nameId}>Title</label>
-          <input id={nameId} value={title} onChange={(event) => setTitle(event.target.value)} autoFocus />
+          <TextInput id={nameId} value={title} onChange={(event) => setTitle(event.target.value)} autoFocus />
           <label htmlFor={bodyId}>Description</label>
-          <textarea id={bodyId} rows={8} value={body} onChange={(event) => setBody(event.target.value)} />
+          <TextArea id={bodyId} rows={8} value={body} onChange={(event) => setBody(event.target.value)} />
           {!existing && (
             <label className="option">
               <input type="checkbox" checked={draft} onChange={(event) => setDraft(event.target.checked)} />

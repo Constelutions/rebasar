@@ -3,6 +3,7 @@ import { type FormEvent, useEffect, useId, useState } from "react";
 import type { CoreApi, FoundRepository, Group } from "../core/api";
 import { describeError } from "../core/describeError";
 import { Button } from "./Button";
+import { Select, TextInput } from "./FormControls";
 
 export type AddKind = "clone" | "init" | "scan";
 
@@ -145,7 +146,7 @@ function CloneForm({
   return (
     <form className="add-form" onSubmit={submit}>
       <label htmlFor={urlId}>Repository URL</label>
-      <input id={urlId} value={url} onChange={(event) => setUrl(event.target.value)} autoFocus />
+      <TextInput id={urlId} value={url} onChange={(event) => setUrl(event.target.value)} autoFocus />
       <FolderField label="Clone into" folder={parent} pickFolder={pickFolder} onPick={setParent} />
       <GroupField groups={groups} groupId={groupId} onChange={onGroupChange} />
       <FormActions submitLabel="Clone" canSubmit={canSubmit} onCancel={onCancel} />
@@ -300,14 +301,14 @@ function GroupField({
   return (
     <>
       <label htmlFor={id}>Group</label>
-      <select id={id} value={groupId} onChange={(event) => onChange(event.target.value)}>
+      <Select id={id} value={groupId} onChange={(event) => onChange(event.target.value)}>
         <option value="">No group</option>
         {groups.map((group) => (
           <option key={group.id} value={group.id}>
             {group.name}
           </option>
         ))}
-      </select>
+      </Select>
     </>
   );
 }

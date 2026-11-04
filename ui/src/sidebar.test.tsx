@@ -7,13 +7,15 @@ import { renderApp } from "./test-support";
 
 const viewOrder = [
   "Home",
+  "History",
   "Changes",
   "Pull requests",
-  "History",
   "Conflicts",
   "Worktrees",
   "Branches",
   "Stashes",
+  "Tags",
+  "Remotes",
   "Repositories",
   "Settings",
 ];
@@ -33,13 +35,13 @@ async function renderCollapsed(api: CoreApi = createStubCoreApi()) {
   return { user, api };
 }
 
-it("lists the views in the order Home, Changes, Pull requests, History, Conflicts, Worktrees, Branches, Stashes, Repositories, Settings", () => {
+it("lists the views in the order Home, History, Changes, Pull requests, Conflicts, Worktrees, Branches, Stashes, Tags, Remotes, Repositories, Settings", () => {
   renderApp();
 
   expect(sidebar().getAllByRole("button").map((button) => button.textContent)).toEqual(viewOrder);
 });
 
-it("groups the views as Home | Changes, Pull requests, History, Conflicts | Worktrees, Branches, Stashes | Repositories, Settings", () => {
+it("groups the views as Home | History, Changes, Pull requests, Conflicts | Worktrees, Branches, Stashes, Tags, Remotes | Repositories, Settings", () => {
   renderApp();
 
   const groups = sidebar()
@@ -48,8 +50,8 @@ it("groups the views as Home | Changes, Pull requests, History, Conflicts | Work
 
   expect(groups).toEqual([
     ["Home"],
-    ["Changes", "Pull requests", "History", "Conflicts"],
-    ["Worktrees", "Branches", "Stashes"],
+    ["History", "Changes", "Pull requests", "Conflicts"],
+    ["Worktrees", "Branches", "Stashes", "Tags", "Remotes"],
     ["Repositories", "Settings"],
   ]);
 });

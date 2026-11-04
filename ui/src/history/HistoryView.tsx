@@ -10,6 +10,7 @@ import { useSettings } from "../settings/SettingsContext";
 import { useCopyOnSelect } from "../useCopyOnSelect";
 import { useDebounced } from "../useDebounced";
 import { Avatar } from "./Avatar";
+import { CopyHashButton } from "./CopyHashButton";
 import { useConfirmation } from "../useConfirmation";
 import { RebaseEditor } from "../components/RebaseEditor";
 import { CommitActionDialog, type CommitDialog } from "./CommitActionDialog";
@@ -21,10 +22,9 @@ import { defaultChips, useHistoryCommands } from "./historyCommands";
 import { MY_COMMITS, addTerm } from "./historyQuery";
 import { useAuthorNames, useBranchNames } from "./useFilterChoices";
 import { RefBadges } from "./RefBadge";
-import { type GraphStyle, type Orientation, itemSize, minimumHeight } from "./geometry";
+import { type GraphStyle, ROW_HEIGHT } from "./geometry";
 import { type HistoryItem, formatTime } from "./items";
 import { useHistory, useHistoryCount } from "./useHistory";
-import { useHistoryLayout } from "./useHistoryLayout";
 
 const OVERSCAN_ITEMS = 4;
 /** Ask for the next page this many items before the end is reached, so scrolling never waits. */
@@ -33,11 +33,6 @@ const PREFETCH_ITEMS = 40;
 const FALLBACK_VIEWPORT = 600;
 /** Typing is applied once it pauses, so each keystroke does not walk the whole history. */
 const QUERY_DEBOUNCE_MS = 250;
-
-const orientations = [
-  { value: "vertical", label: "Vertical" },
-  { value: "horizontal", label: "Horizontal" },
-] as const;
 
 const graphStyles = [
   { value: "tree", label: "Tree" },
@@ -85,10 +80,11 @@ function FilteredHistory({
   const count = useHistoryCount(api, tab.worktreePath, filter);
   const branchNames = useBranchNames(api, tab.worktreePath);
   const authorNames = useAuthorNames(items);
-  const [{ orientation, style }, changeLayout] = useHistoryLayout();
   const { settings, update } = useSettings();
   const { hashLength } = settings.copy;
-  const { detailPosition } = settings.history;
+  const { detailPosition, graphStyle: style } = settings.history;
+  const updateHistory = (patch: Partial<Settings["history"]>) =>
+    update({ ...settings, history: { ...settings.history, ...patch } });
   const { copy, tooltip: copiedTooltip } = useCopyOnSelect();
   const copyHash = useCallback(
     (commitId: string, near: Element) => copy(commitId.slice(0, hashLength ?? undefined), near),
@@ -208,29 +204,20 @@ function FilteredHistory({
       {filterBar}
       <div className="history-toolbar">
         <SegmentedControl
-          label="Orientation"
-          options={orientations}
-          value={orientation}
-          onChange={(value) => changeLayout({ orientation: value })}
-        />
-        <SegmentedControl
           label="Graph style"
-          options={graphStyles.map((option) => ({
-            ...option,
-            disabled: option.value === "linear" && orientation === "horizontal",
-          }))}
+          options={graphStyles}
           value={style}
-          onChange={(value) => changeLayout({ style: value })}
+          onChange={(graphStyle) => updateHistory({ graphStyle })}
         />
         <SplitPositionToggle
           label="Details position"
           value={detailPosition}
-          onChange={(position) =>
-            update({ ...settings, history: { ...settings.history, detailPosition: position } })
-          }
+          onChange={(detailPosition) => updateHistory({ detailPosition })}
         />
       </div>
       <SplitPane
+        label="Resize commit detail"
+        sizeKey="history"
         position={detailPosition}
         secondary={
           selectedId !== null && (
@@ -241,18 +228,18 @@ function FilteredHistory({
               commitId={selectedId}
               comparing={comparing}
               onComparingChange={setComparing}
+              onCopyHash={copyHash}
               onClose={() => setSelectedId(null)}
             />
           )
         }
       >
-        {orientation === "vertical" && <ColumnTitles />}
+        <ColumnTitles />
         <HistoryList
-          key={`${orientation}-${generation}`}
+          key={generation}
           items={items}
           laneCount={laneCount}
           hasMore={hasMore}
-          orientation={orientation}
           style={style}
           loadMore={loadMore}
           selectedId={selectedId}
@@ -303,7 +290,6 @@ function FilteredHistory({
   );
 }
 
-/** Aligned with the columns of the vertical rows, which are the only ones laid out as a table. */
 function ColumnTitles() {
   return (
     <div role="group" aria-label="Columns" className="history-columns">
@@ -319,7 +305,6 @@ interface HistoryListProps {
   items: HistoryItem[];
   laneCount: number;
   hasMore: boolean;
-  orientation: Orientation;
   style: GraphStyle;
   loadMore: () => void;
   selectedId: string | null;
@@ -332,7 +317,6 @@ function HistoryList({
   items,
   laneCount,
   hasMore,
-  orientation,
   style,
   loadMore,
   selectedId,
@@ -340,8 +324,6 @@ function HistoryList({
   onCopyHash,
   onOpenMenu,
 }: HistoryListProps) {
-  const size = itemSize(orientation);
-  const horizontal = orientation === "horizontal";
   const scroller = useRef<HTMLDivElement>(null);
   const [firstVisible, setFirstVisible] = useState(0);
   const [viewportSize, setViewportSize] = useState(FALLBACK_VIEWPORT);
@@ -349,7 +331,7 @@ function HistoryList({
   useLayoutEffect(() => {
     const measure = () => {
       const element = scroller.current;
-      setViewportSize((horizontal ? element?.clientWidth : element?.clientHeight) || FALLBACK_VIEWPORT);
+      setViewportSize(element?.clientHeight || FALLBACK_VIEWPORT);
     };
     measure();
     window.addEventListener("resize", measure);
@@ -360,10 +342,10 @@ function HistoryList({
       window.removeEventListener("resize", measure);
       observer?.disconnect();
     };
-  }, [horizontal]);
+  }, []);
 
   const first = Math.max(0, firstVisible - OVERSCAN_ITEMS);
-  const last = Math.min(items.length, firstVisible + Math.ceil(viewportSize / size) + OVERSCAN_ITEMS);
+  const last = Math.min(items.length, firstVisible + Math.ceil(viewportSize / ROW_HEIGHT) + OVERSCAN_ITEMS);
 
   useEffect(() => {
     if (last >= items.length - PREFETCH_ITEMS) loadMore();
@@ -373,22 +355,9 @@ function HistoryList({
     <div
       ref={scroller}
       className="history-scroller"
-      data-orientation={orientation}
-      onScroll={({ currentTarget }) =>
-        setFirstVisible(Math.floor((horizontal ? currentTarget.scrollLeft : currentTarget.scrollTop) / size))
-      }
+      onScroll={({ currentTarget }) => setFirstVisible(Math.floor(currentTarget.scrollTop / ROW_HEIGHT))}
     >
-      <div
-        role="list"
-        aria-label="Commit history"
-        className="history-list"
-        data-orientation={orientation}
-        style={
-          horizontal
-            ? { width: items.length * size, minHeight: minimumHeight(laneCount) }
-            : { height: items.length * size }
-        }
-      >
+      <div role="list" aria-label="Commit history" className="history-list" style={{ height: items.length * ROW_HEIGHT }}>
         {items.slice(first, last).map((item, offset) => {
           const index = first + offset;
           return (
@@ -399,7 +368,6 @@ function HistoryList({
               connectedAbove={connectedAbove(items, index)}
               connectedBelow={index < items.length - 1 || hasMore}
               laneCount={laneCount}
-              orientation={orientation}
               style={style}
               selectedId={selectedId}
               onSelect={onSelect}
@@ -429,7 +397,6 @@ interface HistoryItemViewProps {
   connectedAbove: boolean;
   connectedBelow: boolean;
   laneCount: number;
-  orientation: Orientation;
   style: GraphStyle;
   selectedId: string | null;
   onSelect: (commitId: string) => void;
@@ -443,17 +410,14 @@ const HistoryItemView = memo(function HistoryItemView({
   connectedAbove,
   connectedBelow,
   laneCount,
-  orientation,
   style,
   selectedId,
   onSelect,
   onCopyHash,
   onOpenMenu,
 }: HistoryItemViewProps) {
-  const size = itemSize(orientation);
-  const position =
-    orientation === "vertical" ? { top: index * size, height: size } : { left: index * size, width: size };
-  const graph = { orientation, style, laneCount };
+  const position = { top: index * ROW_HEIGHT, height: ROW_HEIGHT };
+  const graph = { style, laneCount };
 
   if (item.kind === "day") {
     return (
@@ -480,8 +444,8 @@ const HistoryItemView = memo(function HistoryItemView({
 interface CommitItemProps {
   row: HistoryRow;
   connections: Connections;
-  graph: { orientation: Orientation; style: GraphStyle; laneCount: number };
-  style: { top: number; height: number } | { left: number; width: number };
+  graph: { style: GraphStyle; laneCount: number };
+  style: { top: number; height: number };
   selected: boolean;
   onSelect: (commitId: string) => void;
   onCopyHash: (commitId: string, near: Element) => void;
@@ -529,18 +493,7 @@ function CommitItem({
         <RefBadges refs={row.refs} />
       </span>
       <TruncatedText className="commit-author" text={row.authorName} />
-      <Button
-        variant="plain"
-        className="commit-hash"
-        aria-label={`Copy hash ${row.shortId}`}
-        onClick={(event) => {
-          event.stopPropagation();
-          onCopyHash(row.id, event.currentTarget);
-        }}
-        onKeyDown={(event) => event.stopPropagation()}
-      >
-        {row.shortId}
-      </Button>
+      <CopyHashButton commitId={row.id} shortId={row.shortId} onCopy={onCopyHash} />
       <time className="commit-time" dateTime={new Date(row.timestamp * 1000).toISOString()}>
         {formatTime(row.timestamp)}
       </time>
