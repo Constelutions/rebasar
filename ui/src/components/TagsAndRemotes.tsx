@@ -1,16 +1,51 @@
-import { type FormEvent, useCallback, useEffect, useId, useState } from "react";
+import { type FormEvent, type ReactNode, useCallback, useEffect, useId, useState } from "react";
 
-import type { CoreApi, MutationOutcome, RemoteInfo, TagInfo } from "../core/api";
+import type { CoreApi, MutationOutcome, RemoteInfo, TagInfo, Tab } from "../core/api";
 import { describeError } from "../core/describeError";
 import { useConfirmation } from "../useConfirmation";
 import { ActionMenu, type MenuItem, OptionsButton, useActionMenu } from "./ActionMenu";
 import { Button } from "./Button";
 import { TruncatedText } from "./TruncatedText";
 
+interface ViewProps {
+  api: CoreApi;
+  tab: Tab;
+}
+
 interface SectionProps {
   api: CoreApi;
   worktreePath: string;
   onError: (message: string | null) => void;
+}
+
+function ErrorPage({ children }: { children: (onError: (message: string | null) => void) => ReactNode }) {
+  const [error, setError] = useState<string | null>(null);
+  return (
+    <div className="branches">
+      {children(setError)}
+      {error && (
+        <p role="alert" className="error">
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
+
+export function TagsView({ api, tab }: ViewProps) {
+  return (
+    <ErrorPage>
+      {(onError) => <TagsSection api={api} worktreePath={tab.worktreePath} onError={onError} />}
+    </ErrorPage>
+  );
+}
+
+export function RemotesView({ api, tab }: ViewProps) {
+  return (
+    <ErrorPage>
+      {(onError) => <RemotesSection api={api} worktreePath={tab.worktreePath} onError={onError} />}
+    </ErrorPage>
+  );
 }
 
 /** Loads a list again whenever the Worktree changes, which includes what these sections run. */
@@ -52,7 +87,7 @@ async function report(
   }
 }
 
-export function TagsSection({ api, worktreePath, onError }: SectionProps) {
+function TagsSection({ api, worktreePath, onError }: SectionProps) {
   const { items: tags, reload } = useList<TagInfo>(() => api.listTags(worktreePath), api, worktreePath, onError);
   const { items: remotes } = useList<RemoteInfo>(() => api.listRemotes(worktreePath), api, worktreePath, onError);
   const { confirm, dialog } = useConfirmation(api, worktreePath);
@@ -76,8 +111,7 @@ export function TagsSection({ api, worktreePath, onError }: SectionProps) {
   }
 
   return (
-    <section aria-label="Tags" className="branch-section">
-      <h2>Tags</h2>
+    <section aria-label="Tags">
       <form className="new-branch" aria-label="New tag" onSubmit={create}>
         <label htmlFor={nameId}>Tag name</label>
         <input id={nameId} value={name} onChange={(event) => setName(event.target.value)} />
@@ -122,7 +156,7 @@ export function TagsSection({ api, worktreePath, onError }: SectionProps) {
   );
 }
 
-export function RemotesSection({ api, worktreePath, onError }: SectionProps) {
+function RemotesSection({ api, worktreePath, onError }: SectionProps) {
   const { items: remotes, reload } = useList<RemoteInfo>(
     () => api.listRemotes(worktreePath),
     api,
@@ -145,8 +179,7 @@ export function RemotesSection({ api, worktreePath, onError }: SectionProps) {
   }
 
   return (
-    <section aria-label="Remotes" className="branch-section">
-      <h2>Remotes</h2>
+    <section aria-label="Remotes">
       <form className="new-branch" aria-label="New remote" onSubmit={add}>
         <label htmlFor={nameId}>Remote name</label>
         <input id={nameId} value={name} onChange={(event) => setName(event.target.value)} />

@@ -12,6 +12,7 @@ import { PullRequestsView } from "./PullRequestsView";
 import { RepositoriesView } from "./RepositoriesView";
 import { WorktreesView } from "./WorktreesView";
 import { StashesView } from "./StashesView";
+import { RemotesView, TagsView } from "./TagsAndRemotes";
 import { SettingsView } from "./SettingsView";
 
 export interface CommitSearch {
@@ -103,6 +104,14 @@ function ViewContent({
   if (view === "Stashes") {
     if (!tab) return <p className="placeholder">Open a folder to see its stashes.</p>;
     return <StashesView key={tab.tab.worktreePath} api={api} tab={tab.tab} />;
+  }
+  if (view === "Tags") {
+    if (!tab) return <p className="placeholder">Open a folder to see its tags.</p>;
+    return <TagsView key={tab.tab.worktreePath} api={api} tab={tab.tab} />;
+  }
+  if (view === "Remotes") {
+    if (!tab) return <p className="placeholder">Open a folder to see its remotes.</p>;
+    return <RemotesView key={tab.tab.worktreePath} api={api} tab={tab.tab} />;
   }
   if (view === "Branches") {
     if (!tab) return <p className="placeholder">Open a folder to see its branches.</p>;

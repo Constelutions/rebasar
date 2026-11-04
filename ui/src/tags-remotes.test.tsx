@@ -13,14 +13,18 @@ function tag(name: string, annotated = false): TagInfo {
 
 const origin: RemoteInfo = { name: "origin", url: "https://example.com/app.git", pushUrl: "" };
 
-async function open(tags: TagInfo[] = [tag("v1.0"), tag("v2.0", true)], remotes: RemoteInfo[] = [origin]) {
+async function open(
+  tags: TagInfo[] = [tag("v1.0"), tag("v2.0", true)],
+  remotes: RemoteInfo[] = [origin],
+  view: "Tags" | "Remotes" = "Tags",
+) {
   const user = userEvent.setup();
   const api = createStubCoreApi({ [worktree]: sampleTab });
   api.setTagsAndRemotes(worktree, tags, remotes);
   renderApp({ api, pickFolder: async () => worktree });
   await user.click(screen.getByRole("button", { name: /open folder/i }));
   await screen.findByRole("tab");
-  await user.click(screen.getByRole("button", { name: "Branches" }));
+  await user.click(within(screen.getByRole("navigation", { name: "Views" })).getByRole("button", { name: view }));
   return { user, api };
 }
 
@@ -39,11 +43,48 @@ it("lists tags as lightweight or annotated", async () => {
   expect(within(list).getAllByRole("listitem")[1]).toHaveTextContent("annotated");
 });
 
-it("says so when there are no tags or remotes", async () => {
+it("says so when there are no tags", async () => {
   await open([], []);
 
   expect(await screen.findByText("No tags.")).toBeInTheDocument();
-  expect(screen.getByText("No remotes.")).toBeInTheDocument();
+});
+
+it("says so when there are no remotes", async () => {
+  await open([], [], "Remotes");
+
+  expect(await screen.findByText("No remotes.")).toBeInTheDocument();
+});
+
+it("keeps tags and remotes off the Branches page", async () => {
+  const { user } = await open();
+  await screen.findByRole("list", { name: "Tag list" });
+
+  await user.click(within(screen.getByRole("navigation", { name: "Views" })).getByRole("button", { name: "Branches" }));
+
+  await screen.findByRole("list", { name: "Branches" });
+  expect(screen.queryByRole("list", { name: "Tag list" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("list", { name: "Remote list" })).not.toBeInTheDocument();
+  expect(screen.queryByLabelText("Tag name")).not.toBeInTheDocument();
+  expect(screen.queryByLabelText("Remote name")).not.toBeInTheDocument();
+});
+
+it("opens Tags and Remotes from the command palette", async () => {
+  const user = userEvent.setup();
+  const api = createStubCoreApi({ [worktree]: sampleTab });
+  api.setTagsAndRemotes(worktree, [tag("v1.0")], [origin]);
+  renderApp({ api, pickFolder: async () => worktree });
+  await user.click(screen.getByRole("button", { name: /open folder/i }));
+  await screen.findByRole("tab");
+
+  await user.keyboard("{Control>}p{/Control}");
+  await user.type(await screen.findByRole("combobox", { name: "Search or run" }), "Go to Tags");
+  await user.keyboard("{Enter}");
+  expect(await screen.findByRole("list", { name: "Tag list" })).toBeInTheDocument();
+
+  await user.keyboard("{Control>}p{/Control}");
+  await user.type(await screen.findByRole("combobox", { name: "Search or run" }), "Go to Remotes");
+  await user.keyboard("{Enter}");
+  expect(await screen.findByRole("list", { name: "Remote list" })).toBeInTheDocument();
 });
 
 it("creates a lightweight tag and an annotated one", async () => {
@@ -108,7 +149,7 @@ it("offers no push or remote delete without a remote", async () => {
 });
 
 it("lists remotes with their addresses", async () => {
-  await open([], [origin, { name: "mirror", url: "https://m.example/a.git", pushUrl: "ssh://m.example/a.git" }]);
+  await open([], [origin, { name: "mirror", url: "https://m.example/a.git", pushUrl: "ssh://m.example/a.git" }], "Remotes");
 
   const list = await screen.findByRole("list", { name: "Remote list" });
 
@@ -117,7 +158,7 @@ it("lists remotes with their addresses", async () => {
 });
 
 it("adds a remote", async () => {
-  const { user, api } = await open([], []);
+  const { user, api } = await open([], [], "Remotes");
   await screen.findByText("No remotes.");
 
   await user.type(screen.getByLabelText("Remote name"), "origin");
@@ -129,7 +170,7 @@ it("adds a remote", async () => {
 });
 
 it("renames a remote", async () => {
-  const { user, api } = await open();
+  const { user, api } = await open([], [origin], "Remotes");
 
   await chooseFromMenu(user, "remote origin", "Rename");
   const dialog = await screen.findByRole("dialog", { name: "Rename origin" });
@@ -141,7 +182,7 @@ it("renames a remote", async () => {
 });
 
 it("edits the address of a remote", async () => {
-  const { user, api } = await open();
+  const { user, api } = await open([], [origin], "Remotes");
 
   await chooseFromMenu(user, "remote origin", "Edit address");
   const dialog = await screen.findByRole("dialog", { name: "Address of origin" });
@@ -154,7 +195,7 @@ it("edits the address of a remote", async () => {
 });
 
 it("removes a remote", async () => {
-  const { user, api } = await open();
+  const { user, api } = await open([], [origin], "Remotes");
 
   await chooseFromMenu(user, "remote origin", "Remove");
 
@@ -163,7 +204,7 @@ it("removes a remote", async () => {
 });
 
 it("says what failed when Git refuses a remote", async () => {
-  const { user, api } = await open([], []);
+  const { user, api } = await open([], [], "Remotes");
   api.failNextMutation({ exitCode: 3, output: ["error: remote origin already exists."] });
   await screen.findByText("No remotes.");
 

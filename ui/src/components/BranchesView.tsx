@@ -15,7 +15,6 @@ import { useConfirmation } from "../useConfirmation";
 import { ActionMenu, type MenuItem, OptionsButton, useActionMenu } from "./ActionMenu";
 import { Button } from "./Button";
 import { SegmentedControl } from "./SegmentedControl";
-import { RemotesSection, TagsSection } from "./TagsAndRemotes";
 import { TruncatedText } from "./TruncatedText";
 import { type BranchRow, buildBranchRows, detailsOf, filterBranchRows } from "./branchRows";
 
@@ -145,8 +144,6 @@ function LoadedBranches({ api, tab, defaultFilter }: BranchesViewProps & { defau
         </p>
       )}
       <BranchList rows={rows} actions={actions} />
-      <TagsSection api={api} worktreePath={path} onError={setError} />
-      <RemotesSection api={api} worktreePath={path} onError={setError} />
       {prompt && (
         <BranchPrompt
           prompt={prompt}
