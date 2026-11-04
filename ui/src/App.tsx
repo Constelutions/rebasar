@@ -10,6 +10,7 @@ import { SyncControls } from "./components/SyncControls";
 import { OutputPanel } from "./components/OutputPanel";
 import { SetupScreen } from "./components/SetupScreen";
 import { Sidebar } from "./components/Sidebar";
+import { SplitSizesProvider } from "./components/splitSizes";
 import { TitleBar } from "./components/TitleBar";
 import { type CommitSearch, ViewPane } from "./components/ViewPane";
 import type { CoreApi, GitSetup } from "./core/api";
@@ -104,29 +105,31 @@ export function App({ api, pickFolder, appWindow, highlighter = defaultHighlight
           onShowCommits={showCommits}
           onError={(failure) => setError(describeError(failure))}
         >
-          <Shell
-            api={api}
-            appWindow={appWindow}
-            openTabs={openTabs}
-            activeTab={activeTab}
-            pollingPaths={pollingPaths}
-            error={error}
-            view={view}
-            commitSearch={commitSearch}
-            gitSetup={gitSetup}
-            runs={runs}
-            commitDrafts={commitDrafts}
-            openFolder={openFolder}
-            selectTab={select}
-            showView={changeView}
-            pickFolder={pickFolder}
-            showCommits={showCommits}
-            adding={adding}
-            onAdd={setAdding}
-            repositoriesVersion={repositoriesVersion}
-            onRepositoriesChanged={repositoriesChanged}
-            onError={setError}
-          />
+          <SplitSizesProvider>
+            <Shell
+              api={api}
+              appWindow={appWindow}
+              openTabs={openTabs}
+              activeTab={activeTab}
+              pollingPaths={pollingPaths}
+              error={error}
+              view={view}
+              commitSearch={commitSearch}
+              gitSetup={gitSetup}
+              runs={runs}
+              commitDrafts={commitDrafts}
+              openFolder={openFolder}
+              selectTab={select}
+              showView={changeView}
+              pickFolder={pickFolder}
+              showCommits={showCommits}
+              adding={adding}
+              onAdd={setAdding}
+              repositoriesVersion={repositoriesVersion}
+              onRepositoriesChanged={repositoriesChanged}
+              onError={setError}
+            />
+          </SplitSizesProvider>
         </PaletteProvider>
       </HighlighterProvider>
     </SettingsProvider>

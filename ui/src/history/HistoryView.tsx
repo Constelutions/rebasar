@@ -215,6 +215,8 @@ function FilteredHistory({
         />
       </div>
       <SplitPane
+        label="Resize commit detail"
+        sizeKey="history"
         position={detailPosition}
         secondary={
           selectedId !== null && (

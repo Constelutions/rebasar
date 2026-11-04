@@ -143,6 +143,8 @@ export function ChangesView({ api, worktreePath, status, error, commitDrafts }: 
             </div>
             <SplitPane
               className="changes-split"
+              label="Resize diff"
+              sizeKey="changes"
               position={diffPosition}
               secondary={
                 <div className="changes-diff">

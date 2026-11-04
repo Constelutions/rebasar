@@ -3,7 +3,7 @@ import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { Button } from "../components/Button";
 import { DiffView } from "../components/DiffView";
 import { FileTree } from "../components/FileTree";
-import { ResizableColumns } from "../components/ResizableColumns";
+import { ResizableSplit } from "../components/ResizableSplit";
 import { type GroupTree, buildGroupTrees, firstFile } from "../components/changeTree";
 import type { CommitDetail, CoreApi, DiffMode, FileChange, FilesView } from "../core/api";
 import { describeError } from "../core/describeError";
@@ -233,7 +233,7 @@ function CommitBody({
     </div>
   );
 
-  return <ResizableColumns className="commit-detail-columns" label="Resize commit info and diff" start={start} end={end} />;
+  return <ResizableSplit axis="row" className="commit-detail-columns" label="Resize commit info and diff" start={start} end={end} />;
 }
 
 /** Keeps the file the user picked while the commit still lists it; otherwise falls back to the first. */

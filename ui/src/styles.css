@@ -429,18 +429,6 @@ button {
   margin-top: var(--space-4);
 }
 
-.changes-split[data-position="right"] > .split-primary {
-  flex: none;
-  width: var(--changes-files-width);
-}
-
-.changes-split[data-position="bottom"] > .changes-diff {
-  flex: 3;
-  margin-top: var(--space-4);
-  padding-top: var(--space-4);
-  border-top: 1px solid var(--color-border);
-}
-
 .virtual-list {
   flex: 1;
   min-height: 0;
@@ -1771,33 +1759,22 @@ button.commit-hash:hover {
 }
 
 .split-pane {
-  display: flex;
   flex: 1;
-  min-height: 0;
-}
-
-.split-pane[data-position="bottom"] {
-  flex-direction: column;
 }
 
 .split-primary {
   display: flex;
-  flex: 2;
+  flex: 1;
   flex-direction: column;
   min-width: 0;
   min-height: 0;
 }
 
-.split-pane > :not(.split-primary) {
-  min-width: 0;
-}
-
-.split-pane[data-position="right"] > :not(.split-primary) {
-  margin-left: var(--space-4);
-  padding-top: 0;
-  padding-left: var(--space-4);
-  border-top: 0;
-  border-left: 1px solid var(--color-border);
+/* The divider draws the line between the panes, so the pane itself carries no spacing or border. */
+.split-pane > .resizable-end > * {
+  margin: 0;
+  padding: 0;
+  border: 0;
 }
 
 /* The list runs to the edge of the view, so beside a pane it stops at the pane instead. */
@@ -1824,13 +1801,10 @@ button.commit-hash:hover {
 .commit-detail {
   position: relative;
   display: flex;
-  flex: 3;
+  flex: 1;
   flex-direction: column;
   gap: var(--space-3);
   min-height: 0;
-  margin-top: var(--space-4);
-  padding-top: var(--space-4);
-  border-top: 1px solid var(--color-border);
 }
 
 .commit-detail-close {
@@ -2969,11 +2943,15 @@ button.commit-hash:hover {
   padding-left: var(--space-3);
 }
 
-.resizable-columns {
+.resizable-split {
   display: flex;
   flex: 1;
   min-width: 0;
   min-height: 0;
+}
+
+.resizable-split[data-axis="column"] {
+  flex-direction: column;
 }
 
 .resizable-start {
@@ -2983,22 +2961,49 @@ button.commit-hash:hover {
   gap: var(--space-3);
   min-width: 0;
   min-height: 0;
+}
+
+.resizable-start:only-child {
+  flex: 1;
+}
+
+.commit-detail-columns > .resizable-start {
   overflow: hidden;
 }
 
 .resizable-handle {
   flex: none;
-  width: var(--space-3);
-  margin: 0 var(--space-1);
-  cursor: col-resize;
   background: linear-gradient(var(--color-border), var(--color-border)) center / 1px 100% no-repeat;
   border-radius: var(--radius-sm);
 }
 
+.resizable-split[data-axis="row"] > .resizable-handle {
+  width: var(--space-3);
+  margin: 0 var(--space-1);
+  cursor: col-resize;
+}
+
+.resizable-split[data-axis="column"] > .resizable-handle {
+  height: var(--space-3);
+  margin: var(--space-1) 0;
+  cursor: row-resize;
+  background-size: 100% 1px;
+}
+
 .resizable-handle:hover,
 .resizable-handle:focus-visible {
-  background: linear-gradient(var(--color-selected-border), var(--color-selected-border)) center / 2px 100% no-repeat;
+  background-image: linear-gradient(var(--color-selected-border), var(--color-selected-border));
   outline: none;
+}
+
+.resizable-split[data-axis="row"] > .resizable-handle:hover,
+.resizable-split[data-axis="row"] > .resizable-handle:focus-visible {
+  background-size: 2px 100%;
+}
+
+.resizable-split[data-axis="column"] > .resizable-handle:hover,
+.resizable-split[data-axis="column"] > .resizable-handle:focus-visible {
+  background-size: 100% 2px;
 }
 
 .resizable-end {
