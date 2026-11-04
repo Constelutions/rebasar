@@ -1,9 +1,7 @@
 import { screen, waitFor, within } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 
 import { type CoreApi, defaultSettings } from "./core/api";
-import { createStubCoreApi } from "./core/stub";
-import { commitRow, renderApp, sampleTab, showHistory } from "./test-support";
+import { commitRow, showHistory } from "./test-support";
 
 const commitId = "0123456789abcdef0123456789abcdef01234567";
 
@@ -58,22 +56,4 @@ it("titles the Author, Commit ID and Date columns of the vertical view", async (
 
   const titles = screen.getByRole("group", { name: "Columns" });
   expect([...titles.children].map((title) => title.textContent)).toEqual(["", "Author", "Commit ID", "Date"]);
-});
-
-it("leaves the columns untitled in the horizontal view", async () => {
-  const user = userEvent.setup();
-  const api = createStubCoreApi(
-    { [sampleTab.worktreePath]: sampleTab },
-    {},
-    { [sampleTab.worktreePath]: [commitRow({ id: commitId })] },
-  );
-  renderApp({ api, pickFolder: async () => sampleTab.worktreePath });
-  await user.click(screen.getByRole("button", { name: /open folder/i }));
-  await screen.findByRole("tab");
-  await user.click(screen.getByRole("button", { name: "History" }));
-  await screen.findByRole("listitem");
-
-  await user.click(screen.getByRole("radio", { name: "Horizontal" }));
-
-  expect(screen.queryByRole("group", { name: "Columns" })).not.toBeInTheDocument();
 });

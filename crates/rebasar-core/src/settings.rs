@@ -91,7 +91,6 @@ pub struct HistorySettings {
     pub merges: bool,
     /// Off starts with the commits reachable from HEAD only.
     pub all_branches: bool,
-    pub orientation: HistoryOrientation,
     pub graph_style: GraphStyle,
     /// How the changed files of a commit are listed.
     pub files_view: FilesView,
@@ -105,20 +104,11 @@ impl Default for HistorySettings {
             mine: false,
             merges: false,
             all_branches: true,
-            orientation: HistoryOrientation::default(),
             graph_style: GraphStyle::default(),
             files_view: FilesView::default(),
             detail_position: SplitPosition::default(),
         }
     }
-}
-
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub enum HistoryOrientation {
-    #[default]
-    Vertical,
-    Horizontal,
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -254,10 +244,6 @@ impl Settings {
             .copy
             .hash_length
             .map(|length| length.clamp(CopySettings::MIN_HASH_LENGTH, CopySettings::MAX_HASH_LENGTH));
-        // A single line of commits has no lanes to lay out across a horizontal history.
-        if self.history.orientation == HistoryOrientation::Horizontal {
-            self.history.graph_style = GraphStyle::Tree;
-        }
         self
     }
 }

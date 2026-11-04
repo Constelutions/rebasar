@@ -3,7 +3,7 @@ use std::fs;
 use rebasar_core::{
     ApiError, AppearanceSettings, BranchesFilter, BranchesSettings, ChangesSettings, CommitSettings, ConfirmTabClose, Core, CopySettings, DiffMode,
     EditorSettings,
-    DiffSettings, FilesView, GraphStyle, HistoryOrientation, HistorySettings, Settings, SplitPosition, SyncSettings, TabSettings,
+    DiffSettings, FilesView, GraphStyle, HistorySettings, Settings, SplitPosition, SyncSettings, TabSettings,
     WhitespaceMode,
 };
 
@@ -37,7 +37,6 @@ fn customised() -> Settings {
             mine: true,
             merges: true,
             all_branches: false,
-            orientation: HistoryOrientation::Horizontal,
             graph_style: GraphStyle::Tree,
             files_view: FilesView::Flat,
             detail_position: SplitPosition::Bottom,
@@ -177,49 +176,48 @@ fn history_starts_showing_every_branch_and_everyone() {
 }
 
 #[test]
-fn history_starts_vertical_as_a_tree() {
-    let history = Settings::default().history;
-
-    assert_eq!(history.orientation, HistoryOrientation::Vertical);
-    assert_eq!(history.graph_style, GraphStyle::Tree);
+fn history_starts_as_a_tree() {
+    assert_eq!(Settings::default().history.graph_style, GraphStyle::Tree);
 }
 
 #[test]
-fn a_stored_horizontal_linear_history_becomes_horizontal_tree() {
+fn a_settings_file_that_still_names_a_horizontal_history_loads_as_a_vertical_one() {
     let dir = tempfile::tempdir().unwrap();
     fs::write(
         dir.path().join("settings.json"),
-        r#"{ "history": { "orientation": "horizontal", "graphStyle": "linear" } }"#,
+        r#"{ "history": { "mine": true, "orientation": "horizontal", "graphStyle": "linear" } }"#,
     )
     .unwrap();
 
     let history = core_in(dir.path()).settings().expect("settings").history;
 
-    assert_eq!(history.orientation, HistoryOrientation::Horizontal);
-    assert_eq!(history.graph_style, GraphStyle::Tree);
+    assert!(history.mine);
+    assert_eq!(history.graph_style, GraphStyle::Linear);
 }
 
 #[test]
-fn saving_horizontal_linear_history_stores_horizontal_tree() {
+fn saving_settings_drops_the_orientation_an_old_file_still_had() {
+    let dir = tempfile::tempdir().unwrap();
+    let file = dir.path().join("settings.json");
+    fs::write(&file, r#"{ "history": { "orientation": "horizontal", "graphStyle": "tree" } }"#).unwrap();
+    let core = core_in(dir.path());
+    let loaded = core.settings().expect("settings");
+
+    core.update_settings(&loaded).expect("update");
+
+    let saved: serde_json::Value = serde_json::from_str(&fs::read_to_string(&file).unwrap()).unwrap();
+    assert_eq!(saved["history"].get("orientation"), None);
+    assert_eq!(saved["history"]["graphStyle"], "tree");
+}
+
+#[test]
+fn linear_history_is_kept() {
     let dir = tempfile::tempdir().unwrap();
     let mut settings = Settings::default();
-    settings.history.orientation = HistoryOrientation::Horizontal;
     settings.history.graph_style = GraphStyle::Linear;
 
     let saved = core_in(dir.path()).update_settings(&settings).expect("update");
 
-    assert_eq!(saved.history.graph_style, GraphStyle::Tree);
-}
-
-#[test]
-fn vertical_linear_history_is_kept() {
-    let dir = tempfile::tempdir().unwrap();
-    let mut settings = Settings::default();
-    settings.history.graph_style = GraphStyle::Linear;
-
-    let saved = core_in(dir.path()).update_settings(&settings).expect("update");
-
-    assert_eq!(saved.history.orientation, HistoryOrientation::Vertical);
     assert_eq!(saved.history.graph_style, GraphStyle::Linear);
 }
 

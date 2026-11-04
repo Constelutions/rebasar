@@ -266,13 +266,11 @@ export interface Settings {
   /** `hashLength` is how many characters of a hash a click copies; `null` copies all of it. */
   copy: { onSelect: boolean; hashLength: number | null };
   tabs: { confirmClose: ConfirmTabClose; restoreOnLaunch: boolean };
-  /** The filters History opens with, and the layout it keeps. */
+  /** The filters History opens with, and the graph style it keeps. */
   history: {
     mine: boolean;
     merges: boolean;
     allBranches: boolean;
-    /** Horizontal never combines with the Linear graph style; the core stores Tree instead. */
-    orientation: "vertical" | "horizontal";
     graphStyle: "tree" | "linear";
     /** How the changed files of a commit are listed. */
     filesView: FilesView;
@@ -314,7 +312,6 @@ export const defaultSettings: Settings = {
     mine: false,
     merges: false,
     allBranches: true,
-    orientation: "vertical",
     graphStyle: "tree",
     filesView: "tree",
     detailPosition: "right",

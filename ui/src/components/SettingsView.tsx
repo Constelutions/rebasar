@@ -336,7 +336,6 @@ function HistorySection({ settings, update }: SectionProps) {
   const mineId = useId();
   const mergesId = useId();
   const branchesId = useId();
-  const orientationId = useId();
   const graphStyleId = useId();
   const filesViewId = useId();
   const detailPositionId = useId();
@@ -378,34 +377,17 @@ function HistorySection({ settings, update }: SectionProps) {
         </Select>
       </div>
       <div className="settings-field">
-        <label htmlFor={orientationId}>Orientation</label>
-        <Select
-          id={orientationId}
-          value={history.orientation}
-          onChange={(event) => {
-            const orientation = event.target.value === "horizontal" ? "horizontal" : "vertical";
-            const graphStyle = orientation === "horizontal" ? "tree" : history.graphStyle;
-            update({ ...settings, history: { ...history, orientation, graphStyle } });
-          }}
-        >
-          <option value="vertical">Vertical</option>
-          <option value="horizontal">Horizontal</option>
-        </Select>
-      </div>
-      <div className="settings-field">
         <label htmlFor={graphStyleId}>Graph style</label>
         <Select
           id={graphStyleId}
-          value={history.orientation === "horizontal" ? "tree" : history.graphStyle}
+          value={history.graphStyle}
           onChange={(event) => {
             const graphStyle = event.target.value === "linear" ? "linear" : "tree";
             update({ ...settings, history: { ...history, graphStyle } });
           }}
         >
           <option value="tree">Tree</option>
-          <option value="linear" disabled={history.orientation === "horizontal"}>
-            Linear
-          </option>
+          <option value="linear">Linear</option>
         </Select>
       </div>
       <div className="settings-field">

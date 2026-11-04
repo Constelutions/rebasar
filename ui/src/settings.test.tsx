@@ -307,20 +307,16 @@ it("stores the History filters it opens with as soon as they are picked", async 
   );
 });
 
-it("stores the History orientation and graph style it opens with as soon as they are picked", async () => {
+it("stores the History graph style it opens with as soon as it is picked, and offers no orientation", async () => {
   const { user, api } = render();
   await openSettings(user);
 
-  expect(screen.getByLabelText("Orientation")).toHaveValue("vertical");
+  expect(screen.queryByLabelText("Orientation")).not.toBeInTheDocument();
   expect(screen.getByLabelText("Graph style")).toHaveValue("tree");
 
   await user.selectOptions(screen.getByLabelText("Graph style"), "linear");
-  await waitFor(async () => expect((await api.settings()).history.graphStyle).toBe("linear"));
 
-  await user.selectOptions(screen.getByLabelText("Orientation"), "horizontal");
-  await waitFor(async () =>
-    expect((await api.settings()).history).toMatchObject({ orientation: "horizontal", graphStyle: "tree" }),
-  );
+  await waitFor(async () => expect((await api.settings()).history.graphStyle).toBe("linear"));
 });
 
 it("stores which branches the Branches page lists when it opens as soon as it is picked", async () => {
@@ -370,16 +366,6 @@ it("stores where the details of a commit open as soon as it is picked", async ()
   await user.selectOptions(screen.getByLabelText("Commit details position"), "bottom");
 
   await waitFor(async () => expect((await api.settings()).history.detailPosition).toBe("bottom"));
-});
-
-it("does not offer a Linear graph style for a Horizontal History", async () => {
-  const { user } = render();
-  await openSettings(user);
-
-  await user.selectOptions(screen.getByLabelText("Orientation"), "horizontal");
-
-  expect(screen.getByRole("option", { name: "Linear" })).toBeDisabled();
-  expect(within(screen.getByLabelText("Graph style")).getByRole("option", { name: "Tree" })).toBeEnabled();
 });
 
 it("stores a changed diff option as soon as it is picked", async () => {
