@@ -4,7 +4,8 @@ FROM node:26-alpine@sha256:c6ad9e9c1d80f6eb607c26b4b0a132ff7a2344fad1c78ea3baa2a
 WORKDIR /app
 ENV CI=true
 
-RUN corepack enable && corepack prepare pnpm@11 --activate
+# Node 25+ no longer bundles corepack, so install pnpm through npm.
+RUN npm install --global pnpm@11
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 # Not --prod: `pnpm build` runs `astro check && astro build`, which needs the devDependencies.
