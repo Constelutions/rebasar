@@ -28,7 +28,7 @@ RUN apk add --no-cache brotli \
 # ---- Runtime stage: nginx with the Server header stripped ----
 # Plain alpine rather than nginx:*-alpine, so nginx and its nginx-mod-* modules come from the same
 # apk snapshot: the modules are ABI-sensitive and fail at startup against a mismatched binary.
-FROM alpine:3.21@sha256:ee16d92f96db08d9d2d07da48555a27f3a69d8f0759021dbc601195ed0d2b5bd
+FROM alpine:3.24@sha256:be2656061b536c1883c4034790e21d0a09c5aaaf51968b89368a3c0371ea2c9a
 
 # nginx itself is not pinned: rebuild periodically to pick up Alpine's nginx patches.
 RUN apk add --no-cache nginx nginx-mod-http-headers-more nginx-mod-http-brotli
